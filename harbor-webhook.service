@@ -1,0 +1,24 @@
+[Unit]
+Description=Harbor Privacy Webhook Server
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/harbor-backend
+ExecStart=/usr/bin/python3 /home/ubuntu/harbor-backend/webhook.py
+Restart=always
+RestartSec=5
+
+# Environment variables — fill these in
+Environment="STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret"
+Environment="RESEND_API_KEY=your_resend_api_key"
+Environment="ADGUARD_URL=http://127.0.0.1:8080"
+Environment="ADGUARD_USER=admin"
+Environment="ADGUARD_PASS=Harbor2026!"
+Environment="DOH_BASE=doh.harborprivacy.com/dns-query"
+Environment="FROM_EMAIL=info@harborprivacy.com"
+Environment="WEBHOOK_PORT=9000"
+
+[Install]
+WantedBy=multi-user.target
