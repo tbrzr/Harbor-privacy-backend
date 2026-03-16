@@ -51,7 +51,7 @@ def create_adguard_client(client_id: str, name: str) -> bool:
         payload = {
             "name": name,
             "ids": [client_id],
-            "tags": ["harbor-remote"],
+            "tags": [],
             "filtering_enabled": True,
             "parental_enabled": False,
             "safebrowsing_enabled": True,
@@ -86,7 +86,7 @@ def send_welcome_email(email: str, name: str, client_id: str, plan: str) -> bool
 <p>Welcome to Harbor Privacy! Your private DNS endpoint is ready. Here's everything you need to get set up:</p>
 
 <h3>Your Personal DoH Address</h3>
-<p style="background:#f4f4f4;padding:12px;font-family:monospace;font-size:14px;">{doh_address}</p>
+<p style="background:#0a0e0f;color:#00e5c0;padding:16px;font-family:monospace;font-size:15px;word-break:break-all;letter-spacing:0.02em;border-left:3px solid #00e5c0;">{doh_address}</p>
 
 <h3>Setup Instructions</h3>
 
@@ -211,7 +211,17 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 session = event["data"]["object"]
                 customer_email = session.get("customer_details", {}).get("email", "")
                 customer_name = session.get("customer_details", {}).get("name", "unknown")
-                plan = "remote" if "harbor-remote" in str(session.get("metadata", {})).lower() else "install"
+                log.info(f"Full session dump: {json.dumps(session)}")
+                metadata = session.get("metadata", {})
+                mode = session.get("mode", "")
+                amount = session.get("amount_total", 0)
+                plan = "remote" if (
+                    "harbor-remote" in str(metadata).lower() or
+                    "harbor remote" in str(metadata).lower() or
+                    "remote" in str(metadata).lower() or
+                    mode == "subscription"
+                ) else "install"
+                log.info(f"Plan={plan} mode={mode} amount={amount} metadata={metadata}")
 
                 if customer_email:
                     client_id = generate_client_id(customer_name, customer_email)
