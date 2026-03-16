@@ -188,6 +188,16 @@ def send_cancellation_email(email, name):
     html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
 <h1 style="font-family:Georgia,serif;font-weight:400;">Subscription Ended</h1>
 <p>Hi {name},</p><p>Your Harbor Privacy subscription has been cancelled and DNS access deactivated.</p>
+<h2 style="font-family:Georgia,serif;font-weight:400;">Remove Harbor Privacy from your devices</h2>
+<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">iPhone / iPad</h3>
+<p style="color:#6b8a87;">Settings → General → VPN & Device Management → Harbor Privacy DNS → Remove Profile</p>
+<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">Android / Pixel</h3>
+<p style="color:#6b8a87;">Settings → Network & Internet → Private DNS → set to Off or Automatic</p>
+<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">Xfinity Router</h3>
+<p style="color:#6b8a87;">Go to 10.0.0.1 → Advanced → DNS Settings → restore to Automatic → reboot</p>
+<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">Other Routers</h3>
+<p style="color:#6b8a87;">Log into your router admin panel → find DNS settings → set back to Automatic or your ISP default → save and reboot</p>
+<p style="margin-top:24px;color:#6b8a87;">Need help removing it? Reply to this email and I will walk you through it.</p>
 <p>Resubscribe anytime at <a href="https://harborprivacy.com/pricing" style="color:#00e5c0;">harborprivacy.com/pricing</a></p>
 <p style="border-top:1px solid #1e2a2d;padding-top:24px;color:#6b8a87;">— Tim<br><a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a></p>
 </div>'''
