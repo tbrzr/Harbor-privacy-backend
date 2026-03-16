@@ -304,7 +304,12 @@ def do_POST(self):
     payload = self.rfile.read(content_length)
     sig_header = self.headers.get("Stripe-Signature", "")
 
-    if STRIPE_WEBHOOK_SECRET and not verify_stripe_signature(payload, sig_header, STRIPE_WEBHOOK_SECRET):
+    verified = False
+        if STRIPE_WEBHOOK_SECRET and verify_stripe_signature(payload, sig_header, STRIPE_WEBHOOK_SECRET):
+            verified = True
+        elif STRIPE_WEBHOOK_SECRET_TEST and verify_stripe_signature(payload, sig_header, STRIPE_WEBHOOK_SECRET_TEST):
+            verified = True
+        if (STRIPE_WEBHOOK_SECRET or STRIPE_WEBHOOK_SECRET_TEST) and not verified:
         log.warning("Invalid Stripe signature")
         self.send_response(400)
         self.end_headers()
