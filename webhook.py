@@ -67,7 +67,7 @@ def save_ios_profile(client_id, name):
 def get_allowed_clients():
     try:
         r = requests.get(f"{ADGUARD_URL}/control/access/list", auth=(ADGUARD_USER, ADGUARD_PASS), timeout=10)
-        return r.json().get("allowed_clients", []) if r.status_code == 200 else []
+        data = r.json() if r.status_code == 200 else {}; return data.get("allowed_clients") or []
     except Exception as e:
         log.error(f"Get allowed clients error: {e}")
         return []
