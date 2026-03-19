@@ -92,6 +92,27 @@ def get_client(client_id):
 def get_stats():
     return agh_get("/control/stats")
 
+def get_client_stats(client_id):
+    """Pull per-client stats from query log"""
+    try:
+        log = agh_get(f"/control/querylog?limit=1000&search={client_id}")
+        entries = log.get("data", [])
+        total = len(entries)
+        blocked = sum(1 for e in entries if e.get("reason", "") in 
+                     ["FilteredBlackList", "FilteredBlockedService", "FilteredParental", "FilteredSafeBrowsing"])
+        pct = round(blocked / max(total, 1) * 100, 1)
+        # Top blocked domains
+        blocked_domains = {}
+        for e in entries:
+            if e.get("reason", "") in ["FilteredBlackList", "FilteredBlockedService", "FilteredParental", "FilteredSafeBrowsing"]:
+                domain = e.get("question", {}).get("name", "").rstrip(".")
+                blocked_domains[domain] = blocked_domains.get(domain, 0) + 1
+        top_blocked = sorted(blocked_domains.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_blocked = [{"name": k, "count": v} for k, v in top_blocked]
+        return {"total": total, "blocked": blocked, "pct": pct, "top_blocked": top_blocked}
+    except:
+        return {"total": 0, "blocked": 0, "pct": 0, "top_blocked": []}
+
 def add_custom_rule(client_id, domain, block=True):
     prefix = "||" if block else "@@||"
     rule = f"{prefix}{domain}^"
@@ -463,13 +484,13 @@ def dashboard():
     client = get_client(client_id) if client_id else {}
     name = customer.get("name", email.split("@")[0]).split()[0].title() if customer else email.split("@")[0].title()
 
-    # Stats
+    # Stats - per client
     if is_active and client_id:
-        stats = get_stats()
-        total = stats.get("num_dns_queries", 0)
-        blocked = stats.get("num_blocked_filtering", 0)
-        pct = round(blocked / max(total, 1) * 100, 1)
-        top_blocked = stats.get("top_blocked_domains", [])[:5]
+        client_stats = get_client_stats(client_id)
+        total = client_stats["total"]
+        blocked = client_stats["blocked"]
+        pct = client_stats["pct"]
+        top_blocked = client_stats["top_blocked"]
     else:
         total = blocked = pct = 0
         top_blocked = []
@@ -699,6 +720,7 @@ def admin_customer(client_id):
     client = get_client(client_id)
     rules = client.get("filtering_rules", []) if client else []
     family_safe = client.get("parental_enabled", False) if client else False
+    cstats = get_client_stats(client_id)
 
     html = STYLE + NAV_ADMIN + """
 <div class="wrap" style="max-width:720px;">
@@ -706,6 +728,12 @@ def admin_customer(client_id):
     <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;margin-bottom:8px;">CUSTOMER DETAIL</p>
     <h1>{{ customer.name }}</h1>
     <p class="note" style="margin-top:8px;">{{ customer.email }} &nbsp;&middot;&nbsp; {{ customer.plan }} &nbsp;&middot;&nbsp; ID: {{ client_id }}</p>
+  </div>
+
+  <div class="stat-grid" style="margin-bottom:20px;">
+    <div class="stat"><div class="stat-num">{{ cstats.total }}</div><div class="stat-label">Queries Today</div></div>
+    <div class="stat"><div class="stat-num">{{ cstats.blocked }}</div><div class="stat-label">Blocked Today</div></div>
+    <div class="stat"><div class="stat-num">{{ cstats.pct }}%</div><div class="stat-label">Block Rate</div></div>
   </div>
 
   <div class="card">
@@ -771,7 +799,7 @@ async function removeRule(rule){
 </script>
 </html>"""
     return render_template_string(html, customer=customer, client_id=client_id,
-        rules=rules, family_safe=family_safe, active="admin")
+        rules=rules, family_safe=family_safe, cstats=cstats, active="admin")
 
 # ── SETTINGS ──────────────────────────────────────────────
 
