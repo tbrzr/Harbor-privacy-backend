@@ -202,7 +202,7 @@ def send_welcome_email(email, name, client_id, plan, profile_url=""):
 <p>Hi {name},</p><p>Your private DNS endpoint is ready.</p>
 <h2 style="font-family:Georgia,serif;font-weight:400;">Your Personal DoH Address</h2>
 <p style="background:#111618;border-left:3px solid #00e5c0;padding:16px;font-family:monospace;font-size:14px;color:#00e5c0;word-break:break-all;">{doh}</p>
-<h2 style="font-family:Georgia,serif;font-weight:400;">Setup Instructions</h2>
+<div style="background:#111618;border:1px solid #00e5c0;padding:20px;margin-bottom:24px;"><p style="font-family:monospace;font-size:11px;color:#00e5c0;letter-spacing:0.1em;margin-bottom:8px;">SAVE 44% — UPGRADE TO ANNUAL</p><p style="color:#e8f0ef;margin-bottom:12px;">Lock in your rate for a full year at $39.99. Use code <strong>FOUNDERS10</strong> for 50% off while it lasts.</p><a href="https://buy.stripe.com/9B69AS6knepVbPL2Gz6kg09" style="background:#00e5c0;color:#0a0e0f;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Upgrade to Annual &#8594;</a></div><h2 style="font-family:Georgia,serif;font-weight:400;">Setup Instructions</h2>
 <h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">iPhone / iPad</h3>{ios_btn}
 <h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">Android / Pixel</h3>
 <ol style="color:#6b8a87;"><li>Settings > Network and Internet > Private DNS</li><li>Private DNS provider hostname</li><li>Enter: <strong style="color:#e8f0ef;">{doh}</strong></li><li>Save</li></ol>
