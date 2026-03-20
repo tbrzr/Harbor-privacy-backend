@@ -215,7 +215,7 @@ def send_welcome_email(email, name, client_id, plan, profile_url=""):
 <p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">Xfinity Router:</strong> Go to 10.0.0.1 > Advanced > DNS Settings > restore to Automatic > reboot</p>
 <p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">Other Routers:</strong> Router admin panel > DNS settings > set to Automatic > save and reboot</p>
 </div>
-<p style="padding-top:24px;color:#6b8a87;">Questions? Reply or text <strong style="color:#e8f0ef;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a></p>
+</p><div style="border-top:1px solid #1e2a2d;padding-top:20px;margin-top:20px;"><p style="color:#6b8a87;font-size:13px;">View your invoice and manage your subscription at <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" style="color:#00e5c0;">billing portal</a>.</p></div><p style="padding-top:24px;color:#6b8a87;">Questions? Reply or text <strong style="color:#e8f0ef;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a></p>
 </div>'''
     else:
         html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
