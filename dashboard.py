@@ -642,7 +642,7 @@ def dashboard():
     {% for rule in rules %}
     <div class="row">
       <span class="{% if rule.startswith('@@') %}rule-allow{% else %}rule-block{% endif %}">{{ rule }}</span>
-      <button onclick="removeRule('{{ rule }}')" class="btn btn-danger btn-sm">Remove</button>
+      <button onclick="removeRule(this.dataset.rule)" data-rule="{{ rule | e }}" class="btn btn-danger btn-sm">Remove</button>
     </div>
     {% else %}
     <p class="note">No custom rules yet. Add a domain above to block or allow it.</p>
@@ -813,7 +813,7 @@ def admin_customer(client_id):
     {% for rule in rules %}
     <div class="row">
       <span class="{% if rule.startswith('@@') %}rule-allow{% else %}rule-block{% endif %}">{{ rule }}</span>
-      <button onclick="removeRule('{{ rule }}')" class="btn btn-danger btn-sm">Remove</button>
+      <button onclick="removeRule(this.dataset.rule)" data-rule="{{ rule | e }}" class="btn btn-danger btn-sm">Remove</button>
     </div>
     {% else %}
     <p class="note">No custom rules for this customer.</p>
