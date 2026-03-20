@@ -193,32 +193,6 @@ def send_email(to, subject, html):
         log.error(f"Email error: {e}")
         return False
 
-def find_customer_by_email(email):
-    try:
-        for line in open(CUSTOMERS_LOG):
-            line = line.strip()
-            if not line:
-                continue
-            r = json.loads(line)
-            if r.get("email","").lower() == email.lower() and r.get("status") == "active":
-                return r
-    except:
-        pass
-    return None
-
-def find_customer_by_email(email):
-    try:
-        for line in open(CUSTOMERS_LOG):
-            line = line.strip()
-            if not line:
-                continue
-            r = json.loads(line)
-            if r.get("email","").lower() == email.lower() and r.get("status") == "active":
-                return r
-    except:
-        pass
-    return None
-
 def enable_family_safe(client_id):
     try:
         import requests as req
