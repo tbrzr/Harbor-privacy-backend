@@ -140,6 +140,11 @@ def get_client_stats(client_id):
     except:
         return {"total": 0, "blocked": 0, "pct": 0, "top_blocked": []}
 
+def build_client_data(client, overrides={}):
+    base = {"safe_search": client.get("safe_search", {"enabled":False,"bing":False,"duckduckgo":False,"ecosia":False,"google":False,"pixabay":False,"yandex":False,"youtube":False}), "blocked_services_schedule": client.get("blocked_services_schedule", {"time_zone":"Local"}), "name": client.get("name",""), "blocked_services": client.get("blocked_services") or [], "ids": client.get("ids",[]), "tags": client.get("tags",[]), "upstreams": client.get("upstreams"), "filtering_enabled": client.get("filtering_enabled",True), "parental_enabled": client.get("parental_enabled",False), "safebrowsing_enabled": client.get("safebrowsing_enabled",True), "safesearch_enabled": client.get("safesearch_enabled",False), "use_global_blocked_services": client.get("use_global_blocked_services",True), "use_global_settings": client.get("use_global_settings",True), "ignore_querylog": client.get("ignore_querylog",False), "ignore_statistics": client.get("ignore_statistics",False), "upstreams_cache_size": client.get("upstreams_cache_size",0), "upstreams_cache_enabled": client.get("upstreams_cache_enabled",False), "filtering_rules": client.get("filtering_rules",[])}
+    base.update(overrides)
+    return base
+
 def add_custom_rule(client_id, domain, block=True):
     prefix = "||" if block else "@@||"
     rule = f"{prefix}{domain}^"
@@ -149,14 +154,16 @@ def add_custom_rule(client_id, domain, block=True):
     rules = client.get("filtering_rules", [])
     if rule not in rules:
         rules.append(rule)
-    return agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": {**client, "filtering_rules": rules}})
+    data = build_client_data(client, {"filtering_rules": rules, "use_global_settings": False})
+    return agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": data})
 
 def remove_custom_rule(client_id, rule):
     client = get_client(client_id)
     if not client:
         return False
     rules = [r for r in client.get("filtering_rules", []) if r != rule]
-    return agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": {**client, "filtering_rules": rules}})
+    data = build_client_data(client, {"filtering_rules": rules, "use_global_settings": False})
+    return agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": data})
 
 # ── AUTH ──────────────────────────────────────────────────
 
