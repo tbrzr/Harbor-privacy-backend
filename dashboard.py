@@ -1113,7 +1113,8 @@ def api_addon():
         return jsonify({"ok": False})
     if data.get("type") == "family":
         enabled = data.get("enabled", False)
-        updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True}
+        ss = {"enabled": enabled, "bing": enabled, "duckduckgo": enabled, "ecosia": enabled, "google": enabled, "pixabay": enabled, "yandex": enabled, "youtube": enabled}
+        updated = {"safe_search": ss, "blocked_services_schedule": {"time_zone": "Local"}, "name": client.get("name", client_id), "blocked_services": client.get("blocked_services") or [], "ids": client.get("ids", [client_id]), "tags": [], "upstreams": None, "filtering_enabled": True, "parental_enabled": enabled, "safebrowsing_enabled": True, "safesearch_enabled": enabled, "use_global_blocked_services": False, "use_global_settings": False, "ignore_querylog": False, "ignore_statistics": False, "upstreams_cache_size": 0, "upstreams_cache_enabled": False}
         return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
     return jsonify({"ok": False})
 
@@ -1127,7 +1128,8 @@ def api_admin_addon():
         return jsonify({"ok": False})
     if data.get("type") == "family":
         enabled = data.get("enabled", False)
-        updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True}
+        ss = {"enabled": enabled, "bing": enabled, "duckduckgo": enabled, "ecosia": enabled, "google": enabled, "pixabay": enabled, "yandex": enabled, "youtube": enabled}
+        updated = {"safe_search": ss, "blocked_services_schedule": {"time_zone": "Local"}, "name": client.get("name", client_id), "blocked_services": client.get("blocked_services") or [], "ids": client.get("ids", [client_id]), "tags": [], "upstreams": None, "filtering_enabled": True, "parental_enabled": enabled, "safebrowsing_enabled": True, "safesearch_enabled": enabled, "use_global_blocked_services": False, "use_global_settings": False, "ignore_querylog": False, "ignore_statistics": False, "upstreams_cache_size": 0, "upstreams_cache_enabled": False}
         return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
     return jsonify({"ok": False})
 
