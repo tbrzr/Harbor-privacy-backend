@@ -66,6 +66,26 @@ def find_customer(email):
             return c
     return None
 
+def has_family_addon(client_id):
+    """Check if customer has active Family Safe addon by checking AdGuard client metadata"""
+    client = get_client(client_id)
+    if not client:
+        return False
+    # Check if parental was enabled via paid addon (tag in client name or metadata)
+    # We use the customer log to check for family addon
+    try:
+        with open(CUSTOMERS_LOG) as f:
+            for line in f:
+                try:
+                    r = json.loads(line.strip())
+                    if r.get("client_id") == client_id and r.get("family_safe") == True:
+                        return True
+                except:
+                    pass
+    except:
+        pass
+    return False
+
 # ── ADGUARD ──────────────────────────────────────────────
 
 def agh_get(path):
@@ -82,12 +102,19 @@ def agh_post(path, data):
     except:
         return False
 
+def get_allowed_clients():
+    access = agh_get("/control/access/list")
+    return access.get("allowed_clients", [])
+
 def get_client(client_id):
     clients = agh_get("/control/clients")
     for c in clients.get("clients", []):
         if client_id in c.get("ids", []):
             return c
     return {}
+
+def is_client_allowed(client_id):
+    return client_id in get_allowed_clients()
 
 def get_stats():
     return agh_get("/control/stats")
@@ -497,6 +524,8 @@ def dashboard():
 
     rules = client.get("filtering_rules", []) if client else []
     family_safe = client.get("parental_enabled", False) if client else False
+    has_family = has_family_addon(client_id) if client_id else False
+    is_founder = customer.get("is_founder", False) if customer else False
 
     html = STYLE + NAV_CUSTOMER + """
 <div class="wrap">
@@ -504,7 +533,7 @@ def dashboard():
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;flex-wrap:wrap;gap:16px;">
     <div>
       <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">Your Dashboard</p>
-      <h1>{{ name }}</h1>
+      <h1>{{ name }} {% if is_founder %}<span class="badge" style="background:#00e5c0;color:#0a0e0f;font-size:10px;vertical-align:middle;">FOUNDER</span>{% endif %}</h1>
     </div>
     {% if is_active %}
     <div style="text-align:right;">
@@ -566,17 +595,22 @@ def dashboard():
       <div>
         <div class="toggle-label {% if not is_active %}locked{% endif %}">
           Family Safe
-          {% if is_active %}
+          {% if not is_active %}
+          <span class="badge badge-locked">LOCKED</span>
+          {% elif has_family %}
           <span class="badge {% if family_safe %}badge-on{% else %}badge-off{% endif %}">{% if family_safe %}ON{% else %}OFF{% endif %}</span>
           {% else %}
-          <span class="badge badge-locked">LOCKED</span>
+          <span class="badge badge-locked">NOT SUBSCRIBED</span>
           {% endif %}
         </div>
         <div class="toggle-desc">SafeSearch enforcement, adult content blocking, family-friendly filtering — $0.59/mo</div>
+        {% if is_active and not has_family %}
+        <div style="margin-top:8px;"><a href="https://buy.stripe.com/28EbJ038bftZ5rn80T6kg0d?prefilled_email={{ customer.email | urlencode }}" target="_blank" class="btn btn-sm">Add Family Safe $0.59/mo →</a></div>
+        {% endif %}
       </div>
       <label class="toggle">
-        <input type="checkbox" {% if family_safe %}checked{% endif %} {% if not is_active %}disabled{% else %}onchange="toggleAddon('family',this.checked)"{% endif %}>
-        <span class="slider {% if not is_active %}locked{% endif %}"></span>
+        <input type="checkbox" {% if family_safe %}checked{% endif %} {% if not is_active or not has_family %}disabled{% else %}onchange="toggleAddon('family',this.checked)"{% endif %}>
+        <span class="slider {% if not is_active or not has_family %}locked{% endif %}"></span>
       </label>
     </div>
   </div>
@@ -647,15 +681,17 @@ async function removeRule(rule){
 </html>"""
     return render_template_string(html, name=name, client_id=client_id,
         is_active=is_active, total=total, blocked=blocked, pct=pct,
-        rules=rules, family_safe=family_safe, top_blocked=top_blocked,
-        active="dashboard")
+        rules=rules, family_safe=family_safe, has_family=has_family,
+        is_founder=is_founder, top_blocked=top_blocked, customer=customer, active="dashboard")
 
 # ── ADMIN DASHBOARD ───────────────────────────────────────
 
 @app.route("/admin")
 @admin_required
 def admin():
-    customers = load_customers()
+    allowed = get_allowed_clients()
+    all_customers = load_customers()
+    customers = [c for c in all_customers if c.get("client_id") in allowed]
     stats = get_stats()
     total_queries = stats.get("num_dns_queries", 0)
     total_blocked = stats.get("num_blocked_filtering", 0)
@@ -720,6 +756,8 @@ def admin_customer(client_id):
     client = get_client(client_id)
     rules = client.get("filtering_rules", []) if client else []
     family_safe = client.get("parental_enabled", False) if client else False
+    has_family = has_family_addon(client_id) if client_id else False
+    is_founder = customer.get("is_founder", False) if customer else False
     cstats = get_client_stats(client_id)
 
     html = STYLE + NAV_ADMIN + """
