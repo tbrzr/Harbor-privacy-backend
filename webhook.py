@@ -193,6 +193,83 @@ def send_email(to, subject, html):
         log.error(f"Email error: {e}")
         return False
 
+def find_customer_by_email(email):
+    try:
+        for line in open(CUSTOMERS_LOG):
+            line = line.strip()
+            if not line:
+                continue
+            r = json.loads(line)
+            if r.get("email","").lower() == email.lower() and r.get("status") == "active":
+                return r
+    except:
+        pass
+    return None
+
+def enable_family_safe(client_id):
+    try:
+        import requests as req
+        AGH = os.environ.get("ADGUARD_URL","http://127.0.0.1:8080")
+        USER = os.environ.get("ADGUARD_USER","admin")
+        PASS = os.environ.get("ADGUARD_PASS","Harbor2026!")
+        r = req.get(f"{AGH}/control/clients", auth=(USER,PASS), timeout=10)
+        clients = r.json().get("clients",[])
+        client = next((c for c in clients if client_id in c.get("ids",[])), None)
+        if not client:
+            return False
+        ss = {"enabled":True,"bing":True,"duckduckgo":True,"ecosia":True,"google":True,"pixabay":True,"yandex":True,"youtube":True}
+        data = {"safe_search":ss,"blocked_services_schedule":{"time_zone":"Local"},"name":client["name"],"blocked_services":client.get("blocked_services") or [],"ids":client.get("ids",[]),"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":True,"safebrowsing_enabled":True,"safesearch_enabled":True,"use_global_blocked_services":False,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False}
+        req.post(f"{AGH}/control/clients/update", json={"name":client["name"],"data":data}, auth=(USER,PASS), timeout=10)
+        return True
+    except Exception as e:
+        log.error(f"enable_family_safe error: {e}")
+        return False
+
+def disable_family_safe(client_id):
+    try:
+        import requests as req
+        AGH = os.environ.get("ADGUARD_URL","http://127.0.0.1:8080")
+        USER = os.environ.get("ADGUARD_USER","admin")
+        PASS = os.environ.get("ADGUARD_PASS","Harbor2026!")
+        r = req.get(f"{AGH}/control/clients", auth=(USER,PASS), timeout=10)
+        clients = r.json().get("clients",[])
+        client = next((c for c in clients if client_id in c.get("ids",[])), None)
+        if not client:
+            return False
+        ss = {"enabled":False,"bing":False,"duckduckgo":False,"ecosia":False,"google":False,"pixabay":False,"yandex":False,"youtube":False}
+        data = {"safe_search":ss,"blocked_services_schedule":{"time_zone":"Local"},"name":client["name"],"blocked_services":client.get("blocked_services") or [],"ids":client.get("ids",[]),"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":False,"safebrowsing_enabled":True,"safesearch_enabled":False,"use_global_blocked_services":True,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False}
+        req.post(f"{AGH}/control/clients/update", json={"name":client["name"],"data":data}, auth=(USER,PASS), timeout=10)
+        return True
+    except Exception as e:
+        log.error(f"disable_family_safe error: {e}")
+        return False
+
+def update_customer_family_safe(email, enabled):
+    try:
+        lines = open(CUSTOMERS_LOG).readlines()
+        new_lines = []
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            r = json.loads(line)
+            if r.get("email","").lower() == email.lower():
+                r["family_safe"] = enabled
+            new_lines.append(json.dumps(r))
+        open(CUSTOMERS_LOG,"w").write("\n".join(new_lines) + "\n")
+    except Exception as e:
+        log.error(f"update_customer_family_safe error: {e}")
+
+def send_family_safe_email(email, name, enabled):
+    action = "activated" if enabled else "deactivated"
+    html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
+<h2 style="font-family:Georgia,serif;font-weight:400;">Family Safe {action.title()}</h2>
+<p>Hi {name},</p>
+<p>Your Family Safe add-on has been {action}. SafeSearch enforcement and adult content blocking are now {"enabled" if enabled else "disabled"} on your Harbor Privacy account.</p>
+<p style="color:#6b8a87;font-size:13px;">Manage your settings at <a href="https://dashboard.harborprivacy.com" style="color:#00e5c0;">dashboard.harborprivacy.com</a></p>
+</div>'''
+    send_email(email, f"Harbor Privacy - Family Safe {action.title()}", html)
+
 def send_welcome_email(email, name, client_id, plan, profile_url=""):
     doh = f"https://{DOH_BASE}/{client_id}"
     if plan == "remote":
