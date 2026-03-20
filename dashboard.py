@@ -145,25 +145,30 @@ def build_client_data(client, overrides={}):
     base.update(overrides)
     return base
 
+def get_global_rules():
+    r = agh_get("/control/filtering/status")
+    return r.get("user_rules", [])
+
 def add_custom_rule(client_id, domain, block=True):
-    prefix = "||" if block else "@@||"
-    rule = f"{prefix}{domain}^"
     client = get_client(client_id)
-    if not client:
-        return False
-    rules = client.get("filtering_rules", [])
+    client_name = client.get("name", client_id) if client else client_id
+    prefix = "||" if block else "@@||"
+    rule = f"{prefix}{domain}^$client='{client_name}'"
+    rules = get_global_rules()
     if rule not in rules:
         rules.append(rule)
-    data = build_client_data(client, {"filtering_rules": rules, "use_global_settings": False})
-    return agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": data})
+    return agh_post("/control/filtering/set_rules", {"rules": rules})
 
 def remove_custom_rule(client_id, rule):
+    rules = get_global_rules()
+    rules = [r for r in rules if r != rule]
+    return agh_post("/control/filtering/set_rules", {"rules": rules})
+
+def get_client_rules(client_id):
     client = get_client(client_id)
-    if not client:
-        return False
-    rules = [r for r in client.get("filtering_rules", []) if r != rule]
-    data = build_client_data(client, {"filtering_rules": rules, "use_global_settings": False})
-    return agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": data})
+    client_name = client.get("name", client_id) if client else client_id
+    all_rules = get_global_rules()
+    return [r for r in all_rules if f"$client='{client_name}'" in r]
 
 # ── AUTH ──────────────────────────────────────────────────
 
@@ -529,7 +534,7 @@ def dashboard():
         total = blocked = pct = 0
         top_blocked = []
 
-    rules = client.get("filtering_rules", []) if client else []
+    rules = get_client_rules(client_id) if client_id else []
     family_safe = client.get("parental_enabled", False) if client else False
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
