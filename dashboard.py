@@ -140,35 +140,23 @@ def get_client_stats(client_id):
     except:
         return {"total": 0, "blocked": 0, "pct": 0, "top_blocked": []}
 
-def build_client_data(client, overrides={}):
-    base = {"safe_search": client.get("safe_search", {"enabled":False,"bing":False,"duckduckgo":False,"ecosia":False,"google":False,"pixabay":False,"yandex":False,"youtube":False}), "blocked_services_schedule": client.get("blocked_services_schedule", {"time_zone":"Local"}), "name": client.get("name",""), "blocked_services": client.get("blocked_services") or [], "ids": client.get("ids",[]), "tags": client.get("tags",[]), "upstreams": client.get("upstreams"), "filtering_enabled": client.get("filtering_enabled",True), "parental_enabled": client.get("parental_enabled",False), "safebrowsing_enabled": client.get("safebrowsing_enabled",True), "safesearch_enabled": client.get("safesearch_enabled",False), "use_global_blocked_services": client.get("use_global_blocked_services",True), "use_global_settings": client.get("use_global_settings",True), "ignore_querylog": client.get("ignore_querylog",False), "ignore_statistics": client.get("ignore_statistics",False), "upstreams_cache_size": client.get("upstreams_cache_size",0), "upstreams_cache_enabled": client.get("upstreams_cache_enabled",False), "filtering_rules": client.get("filtering_rules",[])}
-    base.update(overrides)
-    return base
-
-def get_global_rules():
-    r = agh_get("/control/filtering/status")
-    return r.get("user_rules", [])
-
 def add_custom_rule(client_id, domain, block=True):
-    client = get_client(client_id)
-    client_name = client.get("name", client_id) if client else client_id
     prefix = "||" if block else "@@||"
-    rule = f"{prefix}{domain}^$client='{client_name}'"
-    rules = get_global_rules()
+    rule = f"{prefix}{domain}^"
+    client = get_client(client_id)
+    if not client:
+        return False
+    rules = client.get("filtering_rules", [])
     if rule not in rules:
         rules.append(rule)
-    return agh_post("/control/filtering/set_rules", {"rules": rules})
+    return agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": {**client, "filtering_rules": rules}})
 
 def remove_custom_rule(client_id, rule):
-    rules = get_global_rules()
-    rules = [r for r in rules if r != rule]
-    return agh_post("/control/filtering/set_rules", {"rules": rules})
-
-def get_client_rules(client_id):
     client = get_client(client_id)
-    client_name = client.get("name", client_id) if client else client_id
-    all_rules = get_global_rules()
-    return [r for r in all_rules if f"$client='{client_name}'" in r]
+    if not client:
+        return False
+    rules = [r for r in client.get("filtering_rules", []) if r != rule]
+    return agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": {**client, "filtering_rules": rules}})
 
 # ── AUTH ──────────────────────────────────────────────────
 
@@ -176,7 +164,7 @@ def make_token(email, is_admin=False):
     return jwt.encode({
         "email": email,
         "admin": is_admin,
-        "exp": datetime.utcnow() + timedelta(hours=24)
+        "exp": datetime.utcnow() + timedelta(hours=8)
     }, SECRET_KEY, algorithm="HS256")
 
 def verify_token(token):
@@ -307,9 +295,20 @@ STYLE = """<!DOCTYPE html>
     .customer-row{grid-template-columns:1fr 80px;}
   }
 </style>
+<script>
+var TIMEOUT=30*60*1000,WARNING=25*60*1000,timer,warnTimer,warned=false;
+function resetTimer(){clearTimeout(timer);clearTimeout(warnTimer);warned=false;var w=document.getElementById("timeout-warning");if(w)w.style.display="none";warnTimer=setTimeout(showWarning,WARNING);timer=setTimeout(function(){window.location.href="/logout";},TIMEOUT);}
+function showWarning(){if(warned)return;warned=true;var w=document.getElementById("timeout-warning");if(w)w.style.display="flex";}
+document.addEventListener("mousemove",resetTimer);
+document.addEventListener("keypress",resetTimer);
+document.addEventListener("click",resetTimer);
+document.addEventListener("touchstart",resetTimer);
+window.addEventListener("load",resetTimer);
+</script>
 """
 
 NAV_CUSTOMER = """
+<div id="timeout-warning" style="display:none;position:fixed;bottom:24px;right:24px;background:#111618;border:1px solid #00e5c0;padding:20px 24px;z-index:9999;font-family:monospace;font-size:12px;color:#e8f0ef;flex-direction:column;gap:12px;max-width:300px;"><span>You will be logged out in 5 minutes due to inactivity.</span><button onclick="resetTimer()" style="background:#00e5c0;color:#0a0e0f;border:none;padding:8px 16px;cursor:pointer;font-family:monospace;font-size:11px;">Stay Logged In</button></div>
 <nav>
   <a href="/dashboard" class="logo">harbor<span>/</span>privacy</a>
   <div class="nav-links">
@@ -320,6 +319,7 @@ NAV_CUSTOMER = """
 </nav>"""
 
 NAV_ADMIN = """
+<div id="timeout-warning" style="display:none;position:fixed;bottom:24px;right:24px;background:#111618;border:1px solid #00e5c0;padding:20px 24px;z-index:9999;font-family:monospace;font-size:12px;color:#e8f0ef;flex-direction:column;gap:12px;max-width:300px;"><span>You will be logged out in 5 minutes due to inactivity.</span><button onclick="resetTimer()" style="background:#00e5c0;color:#0a0e0f;border:none;padding:8px 16px;cursor:pointer;font-family:monospace;font-size:11px;">Stay Logged In</button></div>
 <nav>
   <a href="/admin" class="logo">harbor<span>/</span>privacy</a>
   <div class="nav-links">
@@ -534,7 +534,7 @@ def dashboard():
         total = blocked = pct = 0
         top_blocked = []
 
-    rules = get_client_rules(client_id) if client_id else []
+    rules = client.get("filtering_rules", []) if client else []
     family_safe = client.get("parental_enabled", False) if client else False
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
@@ -607,22 +607,17 @@ def dashboard():
       <div>
         <div class="toggle-label {% if not is_active %}locked{% endif %}">
           Family Safe
-          {% if not is_active %}
-          <span class="badge badge-locked">LOCKED</span>
-          {% elif has_family %}
+          {% if is_active %}
           <span class="badge {% if family_safe %}badge-on{% else %}badge-off{% endif %}">{% if family_safe %}ON{% else %}OFF{% endif %}</span>
           {% else %}
-          <span class="badge badge-locked">NOT SUBSCRIBED</span>
+          <span class="badge badge-locked">LOCKED</span>
           {% endif %}
         </div>
         <div class="toggle-desc">SafeSearch enforcement, adult content blocking, family-friendly filtering — $0.59/mo</div>
-        {% if is_active and not has_family %}
-        <div style="margin-top:8px;"><a href="https://buy.stripe.com/28EbJ038bftZ5rn80T6kg0d?prefilled_email={{ customer.email | urlencode }}" target="_blank" class="btn btn-sm">Add Family Safe $0.59/mo →</a></div>
-        {% endif %}
       </div>
       <label class="toggle">
-        <input type="checkbox" {% if family_safe %}checked{% endif %} {% if not is_active or not has_family %}disabled{% else %}onchange="toggleAddon('family',this.checked)"{% endif %}>
-        <span class="slider {% if not is_active or not has_family %}locked{% endif %}"></span>
+        <input type="checkbox" {% if family_safe %}checked{% endif %} {% if not is_active %}disabled{% else %}onchange="toggleAddon('family',this.checked)"{% endif %}>
+        <span class="slider {% if not is_active %}locked{% endif %}"></span>
       </label>
     </div>
   </div>
@@ -642,7 +637,7 @@ def dashboard():
     {% for rule in rules %}
     <div class="row">
       <span class="{% if rule.startswith('@@') %}rule-allow{% else %}rule-block{% endif %}">{{ rule }}</span>
-      <button onclick="removeRule(this.dataset.rule)" data-rule="{{ rule | e }}" class="btn btn-danger btn-sm">Remove</button>
+      <button onclick="removeRule('{{ rule }}')" class="btn btn-danger btn-sm">Remove</button>
     </div>
     {% else %}
     <p class="note">No custom rules yet. Add a domain above to block or allow it.</p>
@@ -694,7 +689,7 @@ async function removeRule(rule){
     return render_template_string(html, name=name, client_id=client_id,
         is_active=is_active, total=total, blocked=blocked, pct=pct,
         rules=rules, family_safe=family_safe, has_family=has_family,
-        is_founder=is_founder, top_blocked=top_blocked, customer=customer, active="dashboard")
+        is_founder=is_founder, top_blocked=top_blocked, active="dashboard")
 
 # ── ADMIN DASHBOARD ───────────────────────────────────────
 
@@ -813,7 +808,7 @@ def admin_customer(client_id):
     {% for rule in rules %}
     <div class="row">
       <span class="{% if rule.startswith('@@') %}rule-allow{% else %}rule-block{% endif %}">{{ rule }}</span>
-      <button onclick="removeRule(this.dataset.rule)" data-rule="{{ rule | e }}" class="btn btn-danger btn-sm">Remove</button>
+      <button onclick="removeRule('{{ rule }}')" class="btn btn-danger btn-sm">Remove</button>
     </div>
     {% else %}
     <p class="note">No custom rules for this customer.</p>
@@ -1125,8 +1120,7 @@ def api_addon():
         return jsonify({"ok": False})
     if data.get("type") == "family":
         enabled = data.get("enabled", False)
-        ss = {"enabled": enabled, "bing": enabled, "duckduckgo": enabled, "ecosia": enabled, "google": enabled, "pixabay": enabled, "yandex": enabled, "youtube": enabled}
-        updated = {"safe_search": ss, "blocked_services_schedule": {"time_zone": "Local"}, "name": client.get("name", client_id), "blocked_services": client.get("blocked_services") or [], "ids": client.get("ids", [client_id]), "tags": [], "upstreams": None, "filtering_enabled": True, "parental_enabled": enabled, "safebrowsing_enabled": True, "safesearch_enabled": enabled, "use_global_blocked_services": False, "use_global_settings": False, "ignore_querylog": False, "ignore_statistics": False, "upstreams_cache_size": 0, "upstreams_cache_enabled": False}
+        updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True}
         return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
     return jsonify({"ok": False})
 
@@ -1140,8 +1134,7 @@ def api_admin_addon():
         return jsonify({"ok": False})
     if data.get("type") == "family":
         enabled = data.get("enabled", False)
-        ss = {"enabled": enabled, "bing": enabled, "duckduckgo": enabled, "ecosia": enabled, "google": enabled, "pixabay": enabled, "yandex": enabled, "youtube": enabled}
-        updated = {"safe_search": ss, "blocked_services_schedule": {"time_zone": "Local"}, "name": client.get("name", client_id), "blocked_services": client.get("blocked_services") or [], "ids": client.get("ids", [client_id]), "tags": [], "upstreams": None, "filtering_enabled": True, "parental_enabled": enabled, "safebrowsing_enabled": True, "safesearch_enabled": enabled, "use_global_blocked_services": False, "use_global_settings": False, "ignore_querylog": False, "ignore_statistics": False, "upstreams_cache_size": 0, "upstreams_cache_enabled": False}
+        updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True}
         return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
     return jsonify({"ok": False})
 
