@@ -651,6 +651,29 @@ def dashboard():
     {% endif %}
   </div>
 
+  {% if is_active %}
+  <div class="card">
+    <div class="card-label">Blocked Services {% if not is_active %}<span class="badge badge-locked">LOCKED</span>{% endif %}</div>
+    <p class="note" style="margin-bottom:20px;">Block entire services on your network. Toggle on to block, off to allow.</p>
+    {% for group_name, services in service_groups.items() %}
+    <div style="margin-bottom:20px;">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border);">{{ group_name.replace("_"," ") }}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;">
+        {% for svc in services %}
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg);border:1px solid var(--border);">
+          <span style="font-size:13px;color:var(--text);">{{ svc.name }}</span>
+          <label class="toggle" style="width:36px;height:20px;flex-shrink:0;">
+            <input type="checkbox" {% if svc.id in blocked_services %}checked{% endif %} onchange="toggleService('{{ svc.id }}',this.checked)">
+            <span class="slider" style="border-radius:20px;"></span>
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   {% if is_active and top_blocked %}
   <div class="card">
     <div class="card-label">Top Blocked Today</div>
@@ -669,6 +692,11 @@ async function toggleAddon(type,enabled){
   const r=await fetch('/api/addon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,enabled})});
   const d=await r.json();
   if(d.ok)location.reload();else alert('Failed to update. Please try again.');
+}
+async function toggleService(id, blocked){
+  const r=await fetch('/api/service',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service_id:id,blocked:blocked})});
+  const d=await r.json();
+  if(!d.ok) alert('Failed to update service.');
 }
 async function addRule(){
   const domain=document.getElementById('rule-domain').value.trim();
@@ -826,6 +854,11 @@ async function toggleFamily(enabled){
   const r=await fetch('/api/admin/addon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CID,type:'family',enabled})});
   const d=await r.json();
   if(d.ok)location.reload();else alert('Failed.');
+}
+async function toggleService(id, blocked){
+  const r=await fetch('/api/service',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service_id:id,blocked:blocked})});
+  const d=await r.json();
+  if(!d.ok) alert('Failed to update service.');
 }
 async function addRule(){
   const domain=document.getElementById('rule-domain').value.trim();
@@ -1137,6 +1170,25 @@ def api_admin_addon():
         updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True}
         return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
     return jsonify({"ok": False})
+
+@app.route("/api/service", methods=["POST"])
+@login_required
+def api_service():
+    if request.is_admin:
+        return jsonify({"ok": False})
+    customer = find_customer(request.user_email)
+    if not customer:
+        return jsonify({"ok": False})
+    client_id = customer.get("client_id", "")
+    data = request.json
+    service_id = data.get("service_id", "")
+    blocked = data.get("blocked", True)
+    current = get_client_blocked_services(client_id)
+    if blocked and service_id not in current:
+        current.append(service_id)
+    elif not blocked and service_id in current:
+        current.remove(service_id)
+    return jsonify({"ok": set_client_blocked_services(client_id, current)})
 
 @app.route("/api/rule", methods=["POST", "DELETE"])
 @login_required
