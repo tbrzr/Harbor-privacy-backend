@@ -33,7 +33,6 @@ dns:
   fastest_timeout: 1s
   allowed_clients:
     - timothy9428
-    - timothy8702
   disallowed_clients: []
   blocked_hosts: []
   trusted_proxies:
@@ -193,12 +192,12 @@ clients:
         schedule:
           time_zone: Local
         ids: []
-      name: Timothy Brazer (timothy0325)
+      name: Nofam Brazer (nofam9471)
       ids:
-        - timothy0325
+        - nofam9471
       tags: []
       upstreams: []
-      uid: 019cf5c1-571b-715a-8604-5c7b4b458646
+      uid: 019d0bb5-40d8-700e-8550-506d7b82aff7
       upstreams_cache_size: 0
       upstreams_cache_enabled: false
       use_global_settings: true
@@ -221,124 +220,12 @@ clients:
         schedule:
           time_zone: Local
         ids: []
-      name: Timothy Brazer (timothy3497)
+      name: Tim_TEST Brazer (timtest1668)
       ids:
-        - timothy3497
+        - timtest1668
       tags: []
       upstreams: []
-      uid: 019cf59d-4a79-72b0-804f-902304eaf5f1
-      upstreams_cache_size: 0
-      upstreams_cache_enabled: false
-      use_global_settings: true
-      filtering_enabled: true
-      parental_enabled: false
-      safebrowsing_enabled: true
-      use_global_blocked_services: true
-      ignore_querylog: false
-      ignore_statistics: false
-    - safe_search:
-        enabled: false
-        bing: false
-        duckduckgo: false
-        ecosia: false
-        google: false
-        pixabay: false
-        yandex: false
-        youtube: false
-      blocked_services:
-        schedule:
-          time_zone: Local
-        ids: []
-      name: Timothy Brazer (timothy4496)
-      ids:
-        - timothy4496
-      tags: []
-      upstreams: []
-      uid: 019cf5cb-50e4-744d-a4ad-00cc4568a42d
-      upstreams_cache_size: 0
-      upstreams_cache_enabled: false
-      use_global_settings: true
-      filtering_enabled: true
-      parental_enabled: false
-      safebrowsing_enabled: true
-      use_global_blocked_services: true
-      ignore_querylog: false
-      ignore_statistics: false
-    - safe_search:
-        enabled: false
-        bing: false
-        duckduckgo: false
-        ecosia: false
-        google: false
-        pixabay: false
-        yandex: false
-        youtube: false
-      blocked_services:
-        schedule:
-          time_zone: Local
-        ids: []
-      name: Timothy Brazer (timothy4550)
-      ids:
-        - timothy4550
-      tags: []
-      upstreams: []
-      uid: 019cf5a3-7d49-765b-8fd8-0113bbbab0d5
-      upstreams_cache_size: 0
-      upstreams_cache_enabled: false
-      use_global_settings: true
-      filtering_enabled: true
-      parental_enabled: false
-      safebrowsing_enabled: true
-      use_global_blocked_services: true
-      ignore_querylog: false
-      ignore_statistics: false
-    - safe_search:
-        enabled: false
-        bing: false
-        duckduckgo: false
-        ecosia: false
-        google: false
-        pixabay: false
-        yandex: false
-        youtube: false
-      blocked_services:
-        schedule:
-          time_zone: Local
-        ids: []
-      name: Timothy Brazer (timothy5674)
-      ids:
-        - timothy5674
-      tags: []
-      upstreams: []
-      uid: 019cf642-8e15-7ac3-9ad9-c51eb6c9c7f7
-      upstreams_cache_size: 0
-      upstreams_cache_enabled: false
-      use_global_settings: true
-      filtering_enabled: true
-      parental_enabled: false
-      safebrowsing_enabled: true
-      use_global_blocked_services: true
-      ignore_querylog: false
-      ignore_statistics: false
-    - safe_search:
-        enabled: false
-        bing: false
-        duckduckgo: false
-        ecosia: false
-        google: false
-        pixabay: false
-        yandex: false
-        youtube: false
-      blocked_services:
-        schedule:
-          time_zone: Local
-        ids: []
-      name: Timothy Brazer (timothy7546)
-      ids:
-        - timothy7546
-      tags: []
-      upstreams: []
-      uid: 019cf9c2-e6c8-72eb-a3e1-6b8d3d1b7bf9
+      uid: 019d0b71-1918-7e18-aad8-16a63838ff54
       upstreams_cache_size: 0
       upstreams_cache_enabled: false
       use_global_settings: true
@@ -361,12 +248,12 @@ clients:
         schedule:
           time_zone: Local
         ids: []
-      name: Timothy Brazer (timothy8702)
+      name: Timothy Brazer (timothy7546)
       ids:
-        - timothy8702
+        - timothy7546
       tags: []
       upstreams: []
-      uid: 019d0afd-9efe-7c00-964a-5c0c7680150c
+      uid: 019cf9c2-e6c8-72eb-a3e1-6b8d3d1b7bf9
       upstreams_cache_size: 0
       upstreams_cache_enabled: false
       use_global_settings: false
@@ -389,12 +276,40 @@ clients:
         schedule:
           time_zone: Local
         ids: []
-      name: Timothy Brazer (timothy9428)
+      name: Timothy Brazer (timothy8702)
       ids:
-        - timothy9428
+        - timothy8702
       tags: []
       upstreams: []
-      uid: 019d091a-494a-75d0-8aaf-a75138bcdc5f
+      uid: 019d0afd-9efe-7c00-964a-5c0c7680150c
+      upstreams_cache_size: 0
+      upstreams_cache_enabled: false
+      use_global_settings: false
+      filtering_enabled: true
+      parental_enabled: false
+      safebrowsing_enabled: true
+      use_global_blocked_services: false
+      ignore_querylog: false
+      ignore_statistics: false
+    - safe_search:
+        enabled: false
+        bing: false
+        duckduckgo: false
+        ecosia: false
+        google: false
+        pixabay: false
+        yandex: false
+        youtube: false
+      blocked_services:
+        schedule:
+          time_zone: Local
+        ids: []
+      name: Timtest-nofam (timtestnofam3225)
+      ids:
+        - timtestnofam3225
+      tags: []
+      upstreams: []
+      uid: 019d0ba5-e4d0-714e-8f46-95898b725b54
       upstreams_cache_size: 0
       upstreams_cache_enabled: false
       use_global_settings: true
