@@ -31,7 +31,9 @@ dns:
     - 9.9.9.9
   upstream_mode: load_balance
   fastest_timeout: 1s
-  allowed_clients: []
+  allowed_clients:
+    - timothy9428
+    - timothy8702
   disallowed_clients: []
   blocked_hosts: []
   trusted_proxies:
@@ -106,6 +108,18 @@ filters:
     url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_2.txt
     name: AdAway Default Blocklist
     id: 2
+  - enabled: false
+    url: https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/adblock/nsfw.txt
+    name: Hagezi NSFW
+    id: 1773624343
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_55.txt
+    name: HaGeZi's Badware Hoster Blocklist
+    id: 1773624344
+  - enabled: true
+    url: https://adguardteam.github.io/HostlistsRegistry/assets/filter_71.txt
+    name: HaGeZi's DNS Rebind Protection
+    id: 1773624345
 whitelist_filters: []
 user_rules: []
 dhcp:
@@ -325,6 +339,62 @@ clients:
       tags: []
       upstreams: []
       uid: 019cf9c2-e6c8-72eb-a3e1-6b8d3d1b7bf9
+      upstreams_cache_size: 0
+      upstreams_cache_enabled: false
+      use_global_settings: true
+      filtering_enabled: true
+      parental_enabled: false
+      safebrowsing_enabled: true
+      use_global_blocked_services: true
+      ignore_querylog: false
+      ignore_statistics: false
+    - safe_search:
+        enabled: true
+        bing: true
+        duckduckgo: true
+        ecosia: true
+        google: true
+        pixabay: true
+        yandex: true
+        youtube: true
+      blocked_services:
+        schedule:
+          time_zone: Local
+        ids: []
+      name: Timothy Brazer (timothy8702)
+      ids:
+        - timothy8702
+      tags: []
+      upstreams: []
+      uid: 019d0afd-9efe-7c00-964a-5c0c7680150c
+      upstreams_cache_size: 0
+      upstreams_cache_enabled: false
+      use_global_settings: false
+      filtering_enabled: true
+      parental_enabled: true
+      safebrowsing_enabled: true
+      use_global_blocked_services: false
+      ignore_querylog: false
+      ignore_statistics: false
+    - safe_search:
+        enabled: false
+        bing: false
+        duckduckgo: false
+        ecosia: false
+        google: false
+        pixabay: false
+        yandex: false
+        youtube: false
+      blocked_services:
+        schedule:
+          time_zone: Local
+        ids: []
+      name: Timothy Brazer (timothy9428)
+      ids:
+        - timothy9428
+      tags: []
+      upstreams: []
+      uid: 019d091a-494a-75d0-8aaf-a75138bcdc5f
       upstreams_cache_size: 0
       upstreams_cache_enabled: false
       use_global_settings: true
