@@ -1007,7 +1007,7 @@ async function removeRule(rule){
 </html>"""
     service_groups = get_all_blocked_services()
     blocked_services = get_client_blocked_services(client_id)
-    code_valid = verify_support_code(client_id, request.args.get("code", ""))
+    code_valid = True  # Admin always has full access
     return render_template_string(html, customer=customer, client_id=client_id,
         rules=rules, family_safe=family_safe, cstats=cstats,
         service_groups=service_groups, blocked_services=blocked_services,
