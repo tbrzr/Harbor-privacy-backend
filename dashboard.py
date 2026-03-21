@@ -654,22 +654,30 @@ def dashboard():
   <!-- ADD-ONS -->
   <div class="card">
     <div class="card-label">Add-Ons {% if not is_active %}<span class="badge badge-locked">LOCKED</span>{% endif %}</div>
-    <div class="toggle-row">
-      <div>
-        <div class="toggle-label {% if not is_active %}locked{% endif %}">
-          Family Safe
-          {% if is_active %}
-          <span class="badge {% if family_safe %}badge-on{% else %}badge-off{% endif %}">{% if family_safe %}ON{% else %}OFF{% endif %}</span>
-          {% else %}
-          <span class="badge badge-locked">LOCKED</span>
-          {% endif %}
+    <div style="position:relative;">
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">
+            Family Safe
+            <span class="badge {% if family_safe %}badge-on{% else %}badge-off{% endif %}">{% if family_safe %}ON{% else %}OFF{% endif %}</span>
+          </div>
+          <div class="toggle-desc">SafeSearch enforcement, adult content blocking, family-friendly filtering</div>
         </div>
-        <div class="toggle-desc">SafeSearch enforcement, adult content blocking, family-friendly filtering — $0.59/mo</div>
+        <label class="toggle" style="width:44px;height:24px;flex-shrink:0;">
+          <input type="checkbox" {% if family_safe %}checked{% endif %} {% if not is_active or not has_family %}disabled{% else %}onchange="toggleAddon('family',this.checked)"{% endif %}>
+          <span class="slider" style="border-radius:24px;"></span>
+        </label>
       </div>
-      <label class="toggle">
-        <input type="checkbox" {% if family_safe %}checked{% endif %} {% if not is_active or not has_family %}disabled{% else %}onchange="toggleAddon('family',this.checked)"{% endif %}>
-        <span class="slider {% if not is_active %}locked{% endif %}"></span>
-      </label>
+      {% if is_active and not has_family %}
+      <div style="position:absolute;inset:0;background:rgba(10,14,15,0.82);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-radius:2px;">
+        <div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:4px;">Add-On Available</div>
+          <div style="font-size:14px;color:var(--text);">Family Safe &mdash; <span style="color:var(--accent);font-family:'DM Mono',monospace;">$0.99/mo</span></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">SafeSearch, adult content blocking, family filtering</div>
+        </div>
+        <a href="https://buy.stripe.com/28EbJ038bftZ5rn80T6kg0d" target="_blank" style="background:var(--accent);color:var(--bg);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;font-weight:500;white-space:nowrap;flex-shrink:0;margin-left:16px;">Add On &rarr;</a>
+      </div>
+      {% endif %}
     </div>
   </div>
 
