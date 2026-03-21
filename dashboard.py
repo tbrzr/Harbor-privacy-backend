@@ -363,6 +363,7 @@ NAV_CUSTOMER = """
 <nav>
   <a href="/dashboard" class="logo">harbor<span>/</span>privacy</a>
   <div class="nav-links">
+    <a href="https://harborprivacy.com">← Site</a>
     <a href="/dashboard" class="{{ 'active' if active == 'dashboard' else '' }}">Dashboard</a>
     <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">Settings</a>
     <a href="/logout">Sign Out</a>
@@ -374,6 +375,7 @@ NAV_ADMIN = """
 <nav>
   <a href="/admin" class="logo">harbor<span>/</span>privacy</a>
   <div class="nav-links">
+    <a href="https://harborprivacy.com">← Site</a>
     <span class="badge badge-admin">ADMIN</span>
     <a href="/admin" class="{{ 'active' if active == 'admin' else '' }}">Customers</a>
     <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">Settings</a>
