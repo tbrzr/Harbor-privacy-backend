@@ -89,6 +89,26 @@ def has_family_addon(client_id):
 # ── SUPPORT CODES ────────────────────────────────────────
 import secrets, time as _time
 SUPPORT_CODES = {}  # {client_id: {code, expires, attempts}}
+LOGIN_ATTEMPTS = {}  # {ip: {count, locked_until}}
+
+def check_rate_limit(ip):
+    import time as _t
+    entry = LOGIN_ATTEMPTS.get(ip, {})
+    if entry.get("locked_until", 0) > _t.time():
+        return False
+    return True
+
+def record_failed_login(ip):
+    import time as _t
+    entry = LOGIN_ATTEMPTS.get(ip, {"count": 0, "locked_until": 0})
+    entry["count"] = entry.get("count", 0) + 1
+    if entry["count"] >= 5:
+        entry["locked_until"] = _t.time() + 900
+        entry["count"] = 0
+    LOGIN_ATTEMPTS[ip] = entry
+
+def clear_failed_logins(ip):
+    LOGIN_ATTEMPTS.pop(ip, None)
 
 def generate_support_code(client_id):
     code = str(secrets.randbelow(900000) + 100000)
@@ -459,19 +479,23 @@ def login():
                         step = "1"
 
         elif action == "login":
-            # Step 2: verify password
-            password = request.form.get("password", "")
-            totp_code = request.form.get("totp", "").strip()
-            user = get_user(email)
-
-            if not user:
-                error = "Session expired. Please start over."
-                step = "1"
-                email = ""
-            elif not bcrypt.checkpw(password.encode(), user["password"].encode()):
-                error = "Incorrect password."
+            ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+            if not check_rate_limit(ip):
+                error = "Too many failed attempts. Try again in 15 minutes."
                 step = "2"
-                show_2fa = bool(user.get("totp_secret"))
+            else:
+                password = request.form.get("password", "")
+                totp_code = request.form.get("totp", "").strip()
+                user = get_user(email)
+                if not user:
+                    error = "Session expired. Please start over."
+                    step = "1"
+                    email = ""
+                elif not bcrypt.checkpw(password.encode(), user["password"].encode()):
+                    record_failed_login(ip)
+                    error = "Incorrect password."
+                    step = "2"
+                    show_2fa = bool(user.get("totp_secret"))
             else:
                 if user.get("totp_secret"):
                     if not totp_code:
