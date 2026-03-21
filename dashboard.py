@@ -667,7 +667,7 @@ def dashboard():
         <div class="toggle-desc">SafeSearch enforcement, adult content blocking, family-friendly filtering — $0.59/mo</div>
       </div>
       <label class="toggle">
-        <input type="checkbox" {% if family_safe %}checked{% endif %} {% if not is_active %}disabled{% else %}onchange="toggleAddon('family',this.checked)"{% endif %}>
+        <input type="checkbox" {% if family_safe %}checked{% endif %} {% if not is_active or not has_family %}disabled{% else %}onchange="toggleAddon('family',this.checked)"{% endif %}>
         <span class="slider {% if not is_active %}locked{% endif %}"></span>
       </label>
     </div>
