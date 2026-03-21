@@ -262,6 +262,8 @@ def find_customer(stripe_customer_id):
 def log_customer(client_id, name, email, plan, stripe_customer_id=""):
     entry = {"date": datetime.utcnow().isoformat(), "client_id": client_id,
              "name": name, "email": email, "plan": plan,
+            "plan_type": plan_type or plan,
+            "is_trial": is_trial,
              "stripe_customer_id": stripe_customer_id, "status": "active"}
     open(CUSTOMERS_LOG, "a").write(json.dumps(entry) + "\n")
 
@@ -550,7 +552,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
                             except Exception as ie:
                                 log.error(f"invoice fetch error: {ie}")
                         send_welcome_email(email, name, client_id, plan, profile_url, invoice_url)
-                        log_customer(client_id, name, email, plan, stripe_id)
+                        plan_type = meta.get("plan_type", plan)
+                        is_trial = s.get("payment_status", "") == "no_payment_required"
+                        log_customer(client_id, name, email, plan, stripe_id, plan_type=plan_type, is_trial=is_trial)
                         mark_processed(session_id)
                         log.info(f"Onboarded: {name} ({client_id})")
 
