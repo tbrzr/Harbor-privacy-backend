@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harbor Privacy — Private Home DNS Setup | Pembroke, MA</title>
+<meta name="description" content="Harbor Privacy installs a dedicated privacy device on your home network in Pembroke, MA. Block ads, trackers, and malware on every device. One-time $399 setup. Serving the South Shore.">
+<meta name="keywords" content="home network privacy, DNS blocking, ad blocker home network, South Shore MA, Pembroke MA, network security, ISP privacy">
+<link rel="canonical" href="https://harborprivacy.com">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://harborprivacy.com">
+<meta property="og:title" content="Harbor Privacy — Private Home DNS Setup">
+<meta property="og:description" content="Block ads, trackers, and malware on every device in your home. One-time $399 setup. Serving Pembroke, MA and the South Shore.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+<style>
+  :root { --bg: #0a0e0f; --surface: #111618; --border: #1e2a2d; --accent: #00e5c0; --text: #e8f0ef; --muted: #6b8a87; --danger: #ff4e4e; --sidebar-width: 240px; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; line-height: 1.7; font-size: 16px; min-height: 100vh; }
+  body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px); background-size: 60px 60px; opacity: 0.3; pointer-events: none; z-index: 0; }
+  body::after { content: ''; position: fixed; top: -200px; left: 50%; transform: translateX(-50%); width: 800px; height: 600px; background: radial-gradient(ellipse, #00e5c015 0%, transparent 70%); pointer-events: none; z-index: 0; }
+
+/* SIDEBAR */
+.sidebar { width: var(--sidebar-width); min-height: 100vh; background: var(--surface); border-right: 1px solid var(--border); position: fixed; top: 0; left: 0; z-index: 100; display: flex; flex-direction: column; overflow-y: auto; transition: transform 0.3s ease; }
+.sidebar-logo { padding: 28px 24px 20px; border-bottom: 1px solid var(--border); }
+.sidebar-logo a { font-family: ‘DM Mono’, monospace; font-size: 15px; color: var(--accent); letter-spacing: 0.1em; text-decoration: none; display: block; }
+.sidebar-logo a span { color: var(--muted); }
+.sidebar-logo .tagline { font-family: ‘DM Mono’, monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.06em; margin-top: 5px; }
+.nav-section { padding: 18px 0 6px; border-bottom: 1px solid var(--border); }
+.nav-section:last-of-type { border-bottom: none; }
+.nav-section-label { font-family: ‘DM Mono’, monospace; font-size: 9px; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; padding: 0 24px 8px; }
+.nav-link { display: flex; align-items: center; gap: 10px; padding: 9px 24px; font-family: ‘DM Mono’, monospace; font-size: 12px; color: var(--muted); text-decoration: none; letter-spacing: 0.04em; transition: all 0.15s; border-left: 2px solid transparent; }
+.nav-link:hover { color: var(--text); background: #ffffff05; border-left-color: var(--border); }
+.nav-link.active { color: var(--accent); border-left-color: var(--accent); background: #00e5c008; }
+.nav-icon { font-size: 12px; width: 16px; text-align: center; flex-shrink: 0; }
+.nav-badge { margin-left: auto; background: var(--accent); color: var(--bg); font-size: 8px; padding: 2px 6px; letter-spacing: 0.1em; font-weight: 500; }
+.sidebar-cta { margin: 16px; padding: 12px 16px; background: var(--accent); color: var(--bg); font-family: ‘DM Mono’, monospace; font-size: 11px; letter-spacing: 0.08em; text-decoration: none; text-align: center; display: block; font-weight: 500; transition: background 0.2s; }
+.sidebar-cta:hover { background: #00ffda; }
+.sidebar-footer { padding: 16px 24px; margin-top: auto; border-top: 1px solid var(--border); }
+.sidebar-footer a { font-family: ‘DM Mono’, monospace; font-size: 10px; color: var(--muted); text-decoration: none; display: block; margin-bottom: 4px; }
+.hamburger { display: none; position: fixed; top: 16px; left: 16px; z-index: 9999; background: var(--surface); border: 1px solid var(--border); padding: 10px 12px; cursor: pointer; flex-direction: column; gap: 5px; }
+.hamburger span { display: block; width: 20px; height: 1.5px; background: var(--accent); }
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 99; }
+#mobile-top { display: none; }
+
+/* MAIN */
+.main-content { margin-left: var(--sidebar-width); min-width: 0; position: relative; z-index: 1; }
+.container { max-width: 900px; margin: 0 auto; padding: 0 48px 100px; position: relative; z-index: 1; }
+
+/* HERO */
+.hero { padding: 80px 0 60px; }
+.hero-tag { font-family: ‘DM Mono’, monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 28px; display: flex; align-items: center; gap: 12px; }
+.hero-tag::before { content: ‘’; display: block; width: 32px; height: 1px; background: var(--accent); }
+h1 { font-family: ‘DM Serif Display’, serif; font-size: clamp(42px, 7vw, 72px); line-height: 1.1; font-weight: 400; margin-bottom: 28px; letter-spacing: -0.02em; }
+h1 em { font-style: italic; color: var(--accent); }
+.hero-sub { font-size: 20px; color: var(--muted); max-width: 520px; line-height: 1.7; margin-bottom: 48px; font-weight: 300; }
+.hero-actions { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+.btn-primary { background: var(--accent); color: var(--bg); padding: 14px 32px; font-family: ‘DM Mono’, monospace; font-size: 13px; letter-spacing: 0.08em; text-decoration: none; font-weight: 500; transition: all 0.2s; display: inline-block; }
+.btn-primary:hover { background: #00ffda; }
+.btn-secondary { color: var(--muted); font-family: ‘DM Mono’, monospace; font-size: 13px; text-decoration: none; letter-spacing: 0.05em; transition: color 0.2s; }
+.btn-secondary:hover { color: var(--text); }
+
+/* STATS */
+.stats-bar { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 28px 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-bottom: 64px; }
+.stat { padding: 0 40px; border-right: 1px solid var(--border); }
+.stat:first-child { padding-left: 0; }
+.stat:last-child { border-right: none; }
+.stat-num { font-family: ‘DM Serif Display’, serif; font-size: 36px; color: var(--accent); line-height: 1; margin-bottom: 6px; }
+.stat-label { font-family: ‘DM Mono’, monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+
+/* TEASER CARDS */
+.teaser-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border: 1px solid var(--border); margin-bottom: 64px; }
+.teaser { background: var(--surface); padding: 36px; text-decoration: none; transition: background 0.2s; display: block; }
+.teaser:hover { background: #151c1e; }
+.teaser-tag { font-family: ‘DM Mono’, monospace; font-size: 10px; color: var(--accent); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 12px; }
+.teaser-title { font-family: ‘DM Serif Display’, serif; font-size: 22px; font-weight: 400; color: var(--text); margin-bottom: 10px; line-height: 1.2; }
+.teaser-desc { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+.teaser-arrow { font-family: ‘DM Mono’, monospace; font-size: 11px; color: var(--accent); }
+
+/* CONTACT */
+.contact-block { border: 1px solid var(--border); padding: 64px; text-align: center; background: var(--surface); position: relative; overflow: hidden; }
+.contact-block h2 { font-family: ‘DM Serif Display’, serif; font-size: clamp(28px, 4vw, 40px); font-weight: 400; margin-bottom: 16px; }
+.contact-block p { color: var(--muted); margin-bottom: 40px; font-size: 18px; }
+.section-tag { font-family: ‘DM Mono’, monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 16px; }
+.contact-form { display: flex; flex-direction: column; gap: 16px; max-width: 480px; margin: 0 auto 24px; text-align: left; }
+.contact-form input, .contact-form textarea { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: ‘DM Sans’, sans-serif; font-size: 14px; padding: 14px 16px; outline: none; transition: border 0.2s; width: 100%; }
+.contact-form input:focus, .contact-form textarea:focus { border-color: var(--accent); }
+.contact-form input::placeholder, .contact-form textarea::placeholder { color: var(--muted); }
+.contact-form textarea { resize: vertical; min-height: 120px; }
+.form-success { font-family: ‘DM Mono’, monospace; font-size: 13px; color: var(--accent); display: none; margin-bottom: 24px; text-align: center; }
+.contact-location { font-family: ‘DM Mono’, monospace; font-size: 12px; color: var(--muted); letter-spacing: 0.1em; display: block; margin-top: 24px; }
+
+/* FOOTER */
+footer { border-top: 1px solid var(--border); padding: 32px 0; margin-top: 80px; position: relative; z-index: 1; }
+.footer-inner { max-width: 900px; margin: 0 auto; padding: 0 48px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.footer-copy { font-family: ‘DM Mono’, monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.08em; }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+.hero { animation: fadeUp 0.8s ease both; }
+
+@media (max-width: 1100px) {
+body { display: block; }
+.sidebar { display: none !important; padding-top: 56px; }
+.sidebar.open { display: flex !important; flex-direction: column; }
+.sidebar-logo { display: none !important; }
+.hamburger { display: flex !important; }
+.main-content { margin-left: 0; }
+#mobile-top { display: block !important; }
+footer { margin-left: 0; }
+.stats-bar { grid-template-columns: 1fr; gap: 24px; }
+.stat { border-right: none; border-bottom: 1px solid var(--border); padding: 0 0 24px; }
+.stat:last-child { border-bottom: none; }
+.teaser-grid { grid-template-columns: 1fr; }
+.contact-block { padding: 40px 24px; }
+.container { padding: 0 24px 80px; }
+.footer-inner { padding: 0 24px; }
+}
+</style>
+
+<script>function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open");document.getElementById("overlay").classList.toggle("open");}</script>
+
+</head>
+<body>
+
+<button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+  <span></span><span></span><span></span>
+</button>
+<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <a href="/">harbor<span>/</span>privacy</a>
+    <div class="tagline">Pembroke, MA · South Shore</div>
+  </div>
+  <nav>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="/" class="nav-link active"><span class="nav-icon">⌂</span> Home</a>
+      <a href="/how-it-works" class="nav-link"><span class="nav-icon">◈</span> How It Works</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Learn</div>
+      <a href="/learn" class="nav-link"><span class="nav-icon">◈</span> Overview</a>
+      <a href="/learn#email-filtering" class="nav-link"><span class="nav-icon">✉</span> Email Filtering</a>
+      <a href="/learn#dns-privacy" class="nav-link"><span class="nav-icon">⬡</span> DNS Privacy</a>
+      <a href="/learn#isp-tracking" class="nav-link"><span class="nav-icon">◎</span> ISP Tracking</a>
+      <a href="/learn#phishing" class="nav-link"><span class="nav-icon">⚠</span> Phishing &amp; Malware</a>
+      <a href="/learn#unbound" class="nav-link"><span class="nav-icon">⬡</span> Unbound &amp; DNS</a>
+      <a href="/learn#smart-home" class="nav-link"><span class="nav-icon">⌂</span> Smart Home</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Services</div>
+      <a href="/pricing" class="nav-link"><span class="nav-icon">$</span> Pricing</a>
+      <a href="/pricing#audit" class="nav-link"><span class="nav-icon">✦</span> Network Audit</a>
+      <a href="/pricing#remote" class="nav-link"><span class="nav-icon">⇌</span> Harbor Remote <span class="nav-badge">NEW</span></a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Support</div>
+      <a href="/docs" class="nav-link"><span class="nav-icon">≡</span> Documentation</a>
+      <a href="/nologs" class="nav-link"><span class="nav-icon">✓</span> No-Logs Policy</a>
+      <a href="/privacy" class="nav-link"><span class="nav-icon">⊙</span> Privacy Policy</a>
+      <a href="/terms" class="nav-link"><span class="nav-icon">§</span> Terms of Service</a>
+      <a href="#contact" class="nav-link"><span class="nav-icon">✉</span> Contact</a>
+    </div>
+  </nav>
+  <a href="https://dashboard.harborprivacy.com" target="_blank" style="display:block;margin:16px;padding:12px 16px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;">⊞ My Dashboard</a>
+  <a href="#get-started" class="sidebar-cta">Get Started →</a>
+  <div class="sidebar-footer">
+    <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank">Manage Subscription</a>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:#1e2a2d;margin-top:8px;">© 2026 Harbor Privacy</div>
+  </div>
+</aside>
+
+<div class="main-content">
+<div id="mobile-top" style="background:var(--surface);border-bottom:1px solid #1e2a2d;padding:20px 16px 20px 72px;font-family:monospace;font-size:20px;color:#00e5c0;letter-spacing:0.1em;">harbor<span style="color:#6b8a87;">/</span>privacy</div>
+
+<!-- FOUNDERS BANNER -->
+
+<div id="founders-banner" style="background:#00e5c0;color:#0a0e0f;text-align:center;padding:12px 24px;font-family:'DM Mono',monospace;font-size:13px;letter-spacing:0.05em;position:relative;">
+  <strong>Founders Offer</strong> &mdash; 50% off any Harbor Remote plan with code <strong>FOUNDERS10</strong>. First 10 only &mdash; expires April 30.
+  <a href="/pricing" style="margin-left:16px;background:#0a0e0f;color:#00e5c0;padding:4px 12px;text-decoration:none;font-size:11px;">See Plans &rarr;</a>
+  <button onclick="document.getElementById('founders-banner').style.display='none'" style="position:absolute;right:16px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#0a0e0f;font-size:18px;">&#x2715;</button>
+</div>
+<!-- END FOUNDERS BANNER -->
+
+<div class="container">
+
+  <!-- HERO -->
+
+  <section class="hero">
+    <div class="hero-tag">Pembroke, MA &middot; South Shore</div>
+    <h1>Your home network.<br><em>Private by design.</em></h1>
+    <p class="hero-sub">I install and configure a dedicated privacy device on your home network &mdash; blocking ads, trackers, and malware at the DNS level before they reach any device in your home.</p>
+    <div class="hero-actions">
+      <a href="#get-started" class="btn-primary">Get Your Network Set Up</a>
+      <a href="/how-it-works" class="btn-secondary">See how it works &darr;</a>
+    </div>
+  </section>
+
+  <!-- STATS -->
+
+  <div class="stats-bar">
+    <div class="stat">
+      <div class="stat-num">~15%</div>
+      <div class="stat-label">Avg. DNS queries blocked</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">Every</div>
+      <div class="stat-label">Device protected automatically</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">Zero</div>
+      <div class="stat-label">Monthly subscriptions required</div>
+    </div>
+  </div>
+
+  <!-- TEASER GRID -->
+
+  <div class="teaser-grid">
+    <a href="/how-it-works" class="teaser">
+      <div class="teaser-tag">How It Works</div>
+      <div class="teaser-title">DNS blocking, Unbound, cloud failover.</div>
+      <div class="teaser-desc">Learn exactly what gets installed, how every device gets protected, and why it's different from a VPN or browser extension.</div>
+      <div class="teaser-arrow">Read more &rarr;</div>
+    </a>
+    <a href="/pricing#remote" class="teaser">
+      <div class="teaser-tag">Harbor Remote &mdash; Works Anywhere</div>
+      <div class="teaser-title">Not on the South Shore? No problem.</div>
+      <div class="teaser-desc">Private encrypted DNS for your devices starting at $5.99/month. No hardware, no visit, works anywhere. Use code FOUNDERS10 for 50% off.</div>
+      <div class="teaser-arrow">See plans &rarr;</div>
+    </a>
+    <a href="/learn" class="teaser">
+      <div class="teaser-tag">Free Guides</div>
+      <div class="teaser-title">Learn how your privacy is being compromised.</div>
+      <div class="teaser-desc">Plain-English guides on ISP tracking, DNS privacy, phishing, smart home surveillance, and more.</div>
+      <div class="teaser-arrow">Start learning &rarr;</div>
+    </a>
+    <a href="/pricing" class="teaser">
+      <div class="teaser-tag">Pricing</div>
+      <div class="teaser-title">Simple, honest pricing.</div>
+      <div class="teaser-desc">$399 one-time on-site install or $5.99/month remote. Network audits, support plans, and add-ons available.</div>
+      <div class="teaser-arrow">View pricing &rarr;</div>
+    </a>
+  </div>
+
+  <!-- OPTION CARDS -->
+  <section class="section" id="get-started" style="padding-bottom:0;">
+    <div style="text-align:center;max-width:720px;margin:0 auto;">
+      <div class="section-tag">Choose Your Path</div>
+      <h2 style="font-size:28px;margin-bottom:12px;">Ready to get started?</h2>
+      <p style="color:var(--muted);margin-bottom:40px;">All plans are no-log. Pick what works for you.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:20px;text-align:left;">
+
+        <div style="background:var(--surface);border:1px solid var(--accent);padding:28px 24px;display:flex;flex-direction:column;gap:12px;">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;">Most Popular</div>
+          <div style="font-size:18px;font-weight:600;">Harbor Remote</div>
+          <div style="color:var(--muted);font-size:13px;line-height:1.6;">Works anywhere. DNS-level protection on every device. No hardware to buy.</div>
+          <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);">Free for 30 days<br><span style="color:var(--muted);font-size:11px;">then $5.99/mo &mdash; cancel anytime</span></div>
+          <a href="https://buy.stripe.com/28EbJ038bftZ5rn80T6kg0d" class="btn-primary" style="margin-top:auto;display:block;text-align:center;">Start Free Trial &rarr;</a>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);padding:28px 24px;display:flex;flex-direction:column;gap:12px;">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase;">Most Private</div>
+          <div style="font-size:18px;font-weight:600;">On-Site Install</div>
+          <div style="color:var(--muted);font-size:13px;line-height:1.6;">A dedicated device installed on your local network. Never leaves your home.</div>
+          <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);">$399 one-time<br><span style="color:var(--muted);font-size:11px;">South Shore MA only &mdash; no subscription</span></div>
+          <a href="#contact" style="margin-top:auto;background:transparent;color:var(--accent);border:1px solid var(--accent);padding:12px 20px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.08em;text-decoration:none;text-align:center;font-weight:500;display:block;">Book Install &rarr;</a>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);padding:28px 24px;display:flex;flex-direction:column;gap:12px;">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase;">No Pressure</div>
+          <div style="font-size:18px;font-weight:600;">Not Sure Yet?</div>
+          <div style="color:var(--muted);font-size:13px;line-height:1.6;">Ask me anything. I'll tell you what actually makes sense for your setup.</div>
+          <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);">Free<br><span style="color:var(--muted);font-size:11px;">Reply within 24 hours</span></div>
+          <a href="#contact" style="margin-top:auto;background:transparent;color:var(--muted);border:1px solid var(--border);padding:12px 20px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.08em;text-decoration:none;text-align:center;font-weight:500;display:block;">Ask a Question &rarr;</a>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACT -->
+
+  <section class="section" id="contact">
+    <div class="contact-block">
+      <div class="section-tag" style="text-align:center;margin-bottom:16px;">Get In Touch</div>
+      <h2>Ready to take back your network?</h2>
+      <p>Fill out the form and I'll get back to you within 24 hours to discuss your setup.</p>
+      <div id="form-success" class="form-success">Message sent! I'll be in touch shortly.</div>
+      <form class="contact-form" id="contact-form" action="https://formspree.io/f/xreyldjl" method="POST">
+        <input type="text" name="name" placeholder="Your name" required>
+        <input type="email" name="email" placeholder="Your email" required>
+        <input type="tel" name="phone" placeholder="Your phone (optional)">
+        <textarea name="message" placeholder="Tell me about your setup &mdash; router brand, number of devices, any specific concerns"></textarea>
+        <button type="submit" class="btn-primary" style="width:100%;">Send Message &rarr;</button>
+      </form>
+      <span class="contact-location">&#128205; Pembroke, MA &middot; Serving the South Shore</span>
+    </div>
+  </section>
+
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <span class="footer-copy">&copy; 2026 Harbor Privacy &middot; Pembroke, MA</span>
+    <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
+      <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;">Manage Subscription</a>
+      <a href="/privacy" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;">Privacy</a>
+      <a href="/terms" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;">Terms</a>
+      <a href="#contact" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;">Contact</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const form = document.getElementById('contact-form');
+  if(form) {
+    form.addEventListener('submit', async function(e) {
+      e.preventDefault();
+      const data = new FormData(form);
+      const response = await fetch(form.action, { method: 'POST', body: data, headers: { 'Accept': 'application/json' } });
+      if (response.ok) {
+        form.style.display = 'none';
+        document.getElementById('form-success').style.display = 'block';
+      }
+    });
+  }
+</script>
+
+</div>
+</body>
+</html>
