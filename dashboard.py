@@ -193,20 +193,37 @@ def set_client_blocked_services(client_id, services):
 
 def add_custom_rule(client_id, domain, block=True):
     prefix = "||" if block else "@@||"
-    rule = f"{prefix}{domain}^"
-    client = get_client(client_id)
-    if not client:
+    rule = f"{prefix}{domain}^$client={client_id}"
+    try:
+        data = agh_get("/control/filtering/status")
+        rules = data.get("user_rules", [])
+        if rule not in rules:
+            rules.append(rule)
+            return agh_post("/control/filtering/set_rules", {"rules": rules})
+        return True
+    except Exception as e:
+        log.error(f"add_custom_rule error: {e}")
         return False
-    rules = client.get("filtering_rules", [])
-    if rule not in rules:
-        rules.append(rule)
-    return agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": {**client, "filtering_rules": rules}})
+
+def get_client_rules(client_id):
+    try:
+        data = agh_get("/control/filtering/status")
+        rules = data.get("user_rules", [])
+        return [r for r in rules if f"$client={client_id}" in r]
+    except:
+        return []
 
 def remove_custom_rule(client_id, rule):
-    client = get_client(client_id)
-    if not client:
+    # rule passed in may or may not have $client= suffix
+    full_rule = rule if f"$client={client_id}" in rule else f"{rule}$client={client_id}"
+    try:
+        data = agh_get("/control/filtering/status")
+        rules = data.get("user_rules", [])
+        new_rules = [r for r in rules if r != full_rule and r != rule]
+        return agh_post("/control/filtering/set_rules", {"rules": new_rules})
+    except Exception as e:
+        log.error(f"remove_custom_rule error: {e}")
         return False
-    rules = [r for r in client.get("filtering_rules", []) if r != rule]
     return agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": {**client, "filtering_rules": rules}})
 
 # ── AUTH ──────────────────────────────────────────────────
@@ -587,7 +604,7 @@ def dashboard():
         total = blocked = pct = 0
         top_blocked = []
 
-    rules = client.get("filtering_rules", []) if client else []
+    rules = get_client_rules(client_id) if client_id else []
     family_safe = client.get("parental_enabled", False) if client else False
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
@@ -872,7 +889,7 @@ def admin_customer(client_id):
         return redirect("/admin")
 
     client = get_client(client_id)
-    rules = client.get("filtering_rules", []) if client else []
+    rules = get_client_rules(client_id) if client_id else []
     family_safe = client.get("parental_enabled", False) if client else False
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
