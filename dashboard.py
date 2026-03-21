@@ -617,6 +617,7 @@ def dashboard():
 
     rules = get_client_rules(client_id) if client_id else []
     family_safe = client.get("parental_enabled", False) if client else False
+    filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
 
@@ -637,6 +638,20 @@ def dashboard():
     <span class="badge badge-locked" style="padding:8px 16px;font-size:11px;">NO ACTIVE PLAN</span>
     {% endif %}
   </div>
+
+  {% if is_active %}
+  <div style="margin-bottom:24px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">Protection:</div>
+    {% if filtering_paused %}
+    <span class="badge badge-off" style="padding:6px 12px;">PAUSED</span>
+    <button onclick="togglePause(false)" class="btn" style="padding:8px 18px;font-size:11px;">Resume Protection</button>
+    <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);">All filtering off — re-enable when done troubleshooting</span>
+    {% else %}
+    <span class="badge badge-on" style="padding:6px 12px;">ACTIVE</span>
+    <button onclick="togglePause(true)" class="btn" style="padding:8px 18px;font-size:11px;background:transparent;border:1px solid var(--border);color:var(--muted);">Pause for Troubleshooting</button>
+    {% endif %}
+  </div>
+  {% endif %}
 
   {% if not is_active %}
   <div class="locked-overlay" style="border-color:var(--accent);background:#00e5c008;margin-bottom:32px;">
@@ -787,6 +802,12 @@ def dashboard():
 
 </div>
 <script>
+async function togglePause(pause){
+  if(pause && !confirm('This will disable all ad blocking and filtering. Continue?')) return;
+  const r=await fetch('/api/pause',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paused:pause})});
+  const d=await r.json();
+  if(d.ok) location.reload(); else alert('Failed to update. Try again.');
+}
 async function toggleAddon(type,enabled){
   const r=await fetch('/api/addon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,enabled})});
   const d=await r.json();
@@ -828,6 +849,7 @@ async function removeRule(rule){
         is_active=is_active, total=total, blocked=blocked, pct=pct,
         rules=rules, family_safe=family_safe, has_family=has_family,
         user_email=email, is_trial=is_trial, plan_badge=plan_badge, has_family_badge=has_family_badge,
+        filtering_paused=filtering_paused,
         is_founder=is_founder, top_blocked=top_blocked, customer=customer,
         service_groups=service_groups, blocked_services=blocked_services, active="dashboard")
 
@@ -903,6 +925,7 @@ def admin_customer(client_id):
     client = get_client(client_id)
     rules = get_client_rules(client_id) if client_id else []
     family_safe = client.get("parental_enabled", False) if client else False
+    filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
     cstats = get_client_stats(client_id)
@@ -1310,6 +1333,22 @@ def reset():
     return render_template_string(html, token=token, error=error)
 
 # ── API ───────────────────────────────────────────────────
+
+@app.route("/api/pause", methods=["POST"])
+@login_required
+def api_pause():
+    if request.is_admin:
+        return jsonify({"ok": False})
+    customer = find_customer(request.user_email)
+    if not customer:
+        return jsonify({"ok": False})
+    client_id = customer.get("client_id", "")
+    client = get_client(client_id)
+    if not client:
+        return jsonify({"ok": False})
+    paused = request.json.get("paused", False)
+    updated = {**client, "filtering_enabled": not paused}
+    return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
 
 @app.route("/api/support-code", methods=["POST"])
 @login_required
