@@ -341,6 +341,13 @@ STYLE = """<!DOCTYPE html>
   .badge-on{background:var(--accent);color:var(--bg);}
   .badge-off{background:var(--border);color:var(--muted);}
   .badge-admin{background:#7c3aed;color:#fff;}
+  .badge-owner{background:var(--accent);color:#0a0e0f;}
+  .badge-trial{background:#f59e0b;color:#0a0e0f;}
+  .badge-monthly{background:#3b82f6;color:#fff;}
+  .badge-3month{background:#10b981;color:#0a0e0f;}
+  .badge-6month{background:#059669;color:#fff;}
+  .badge-annual{background:#047857;color:#fff;}
+  .badge-family{background:#7c3aed;color:#fff;}
   .badge-locked{background:var(--border);color:var(--muted);}
   .doh-box{background:var(--bg);border-left:3px solid var(--accent);padding:16px;font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);word-break:break-all;margin:12px 0;}
   .doh-box.locked{border-left-color:var(--border);color:var(--muted);filter:blur(4px);user-select:none;}
@@ -383,6 +390,10 @@ NAV_CUSTOMER = """
     <a href="https://harborprivacy.com">← Site</a>
     <a href="/dashboard" class="{{ 'active' if active == 'dashboard' else '' }}">Dashboard</a>
     <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">Settings</a>
+    {% if user_email == "tim@harborprivacy.com" %}<span class="badge badge-owner">OWNER</span>{% endif %}
+    {% if is_trial %}<span class="badge badge-trial">FREE TRIAL</span>{% endif %}
+    {% if plan_badge %}<span class="badge badge-{{ plan_badge.lower().replace(' ','-') }}">{{ plan_badge }}</span>{% endif %}
+    {% if has_family_badge %}<span class="badge badge-family">FAMILY SAFE</span>{% endif %}
     <a href="/logout">Sign Out</a>
   </div>
 </nav>"""
@@ -608,6 +619,15 @@ def dashboard():
     family_safe = client.get("parental_enabled", False) if client else False
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
+    # Plan badges
+    plan_type = customer.get("plan_type", "") if customer else ""
+    is_trial = customer.get("is_trial", False) if customer else False
+    plan_badge = ""
+    if plan_type == "3month": plan_badge = "3-MONTH"
+    elif plan_type == "6month": plan_badge = "6-MONTH"
+    elif plan_type == "annual": plan_badge = "ANNUAL"
+    elif is_active and not is_trial: plan_badge = "MONTHLY"
+    has_family_badge = family_safe
 
     html = STYLE + NAV_CUSTOMER + """
 <div class="wrap">
@@ -816,6 +836,7 @@ async function removeRule(rule){
     return render_template_string(html, name=name, client_id=client_id,
         is_active=is_active, total=total, blocked=blocked, pct=pct,
         rules=rules, family_safe=family_safe, has_family=has_family,
+        user_email=email, is_trial=is_trial, plan_badge=plan_badge, has_family_badge=has_family_badge,
         is_founder=is_founder, top_blocked=top_blocked, customer=customer,
         service_groups=service_groups, blocked_services=blocked_services, active="dashboard")
 
@@ -893,6 +914,15 @@ def admin_customer(client_id):
     family_safe = client.get("parental_enabled", False) if client else False
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
+    # Plan badges
+    plan_type = customer.get("plan_type", "") if customer else ""
+    is_trial = customer.get("is_trial", False) if customer else False
+    plan_badge = ""
+    if plan_type == "3month": plan_badge = "3-MONTH"
+    elif plan_type == "6month": plan_badge = "6-MONTH"
+    elif plan_type == "annual": plan_badge = "ANNUAL"
+    elif is_active and not is_trial: plan_badge = "MONTHLY"
+    has_family_badge = family_safe
     cstats = get_client_stats(client_id)
 
     html = STYLE + NAV_ADMIN + """
