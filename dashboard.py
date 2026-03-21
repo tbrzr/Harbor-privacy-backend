@@ -88,7 +88,7 @@ def has_family_addon(client_id):
 
 # ── SUPPORT CODES ────────────────────────────────────────
 import secrets, time as _time
-SUPPORT_CODES = {}  # {client_id: {code, expires}}
+SUPPORT_CODES = {}  # {client_id: {code, expires, attempts}}
 
 def generate_support_code(client_id):
     code = str(secrets.randbelow(900000) + 100000)
@@ -102,7 +102,13 @@ def verify_support_code(client_id, code):
     if _time.time() > entry["expires"]:
         del SUPPORT_CODES[client_id]
         return False
-    return entry["code"] == str(code)
+    if entry.get("attempts", 0) >= 5:
+        del SUPPORT_CODES[client_id]
+        return False
+    if entry["code"] == str(code):
+        return True
+    entry["attempts"] = entry.get("attempts", 0) + 1
+    return False
 
 def revoke_support_code(client_id):
     SUPPORT_CODES.pop(client_id, None)
