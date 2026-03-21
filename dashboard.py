@@ -86,6 +86,27 @@ def has_family_addon(client_id):
         pass
     return False
 
+# ── SUPPORT CODES ────────────────────────────────────────
+import secrets, time as _time
+SUPPORT_CODES = {}  # {client_id: {code, expires}}
+
+def generate_support_code(client_id):
+    code = str(secrets.randbelow(900000) + 100000)
+    SUPPORT_CODES[client_id] = {"code": code, "expires": _time.time() + 1800}
+    return code
+
+def verify_support_code(client_id, code):
+    entry = SUPPORT_CODES.get(client_id)
+    if not entry:
+        return False
+    if _time.time() > entry["expires"]:
+        del SUPPORT_CODES[client_id]
+        return False
+    return entry["code"] == str(code)
+
+def revoke_support_code(client_id):
+    SUPPORT_CODES.pop(client_id, None)
+
 # ── ADGUARD ──────────────────────────────────────────────
 
 def agh_get(path):
@@ -836,6 +857,23 @@ def admin_customer(client_id):
     <div class="stat"><div class="stat-num">{{ cstats.pct }}%</div><div class="stat-label">Block Rate</div></div>
   </div>
 
+  {% if not code_valid %}
+  <div class="card">
+    <div class="card-label">Support Access Required</div>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">Ask the customer to generate a support code from their dashboard, then enter it below to view and manage their settings.</p>
+    <div style="display:flex;gap:12px;">
+      <input type="text" id="code-input" placeholder="6-digit code" style="margin:0;flex:1;letter-spacing:0.2em;font-size:18px;" maxlength="6">
+      <button onclick="submitCode()" class="btn">Unlock</button>
+    </div>
+    <p id="code-error" style="display:none;color:var(--danger);font-family:'DM Mono',monospace;font-size:11px;margin-top:8px;">Invalid or expired code.</p>
+  </div>
+  {% else %}
+  <div class="card" style="border-color:var(--accent);">
+    <div class="card-label" style="color:var(--accent);">Support Access Active</div>
+    <p style="color:var(--muted);font-size:13px;margin-bottom:12px;">You have temporary access to this customer's settings. This session is logged.</p>
+    <button onclick="revokeCode()" class="btn btn-danger btn-sm">End Access</button>
+  </div>
+
   <div class="card">
     <div class="card-label">Add-Ons</div>
     <div class="toggle-row">
@@ -851,6 +889,26 @@ def admin_customer(client_id):
   </div>
 
   <div class="card">
+    <div class="card-label">Blocked Services</div>
+    {% for group_name, services in service_groups.items() %}
+    <div style="margin-bottom:20px;">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:12px;">{{ group_name }}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;">
+        {% for svc in services %}
+        <div class="toggle-row" style="padding:8px 12px;background:var(--bg);border:1px solid var(--border);">
+          <div style="font-size:13px;color:var(--text);">{{ svc.name }}</div>
+          <label class="toggle" style="width:44px;height:24px;flex-shrink:0;">
+            <input type="checkbox" {% if svc.id in blocked_services %}checked{% endif %} onchange="toggleService('{{ svc.id }}',this.checked)">
+            <span class="slider" style="border-radius:24px;"></span>
+          </label>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
     <div class="card-label">Custom Rules</div>
     <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
       <input type="text" id="rule-domain" placeholder="example.com" style="margin:0;flex:1;">
@@ -863,12 +921,13 @@ def admin_customer(client_id):
     {% for rule in rules %}
     <div class="row">
       <span class="{% if rule.startswith('@@') %}rule-allow{% else %}rule-block{% endif %}">{{ rule }}</span>
-      <button onclick="removeRule('{{ rule }}')" class="btn btn-danger btn-sm">Remove</button>
+      <button onclick="removeRule(this.dataset.rule)" data-rule="{{ rule | e }}" class="btn btn-danger btn-sm">Remove</button>
     </div>
     {% else %}
     <p class="note">No custom rules for this customer.</p>
     {% endfor %}
   </div>
+  {% endif %}
 
   <div class="card">
     <div class="card-label">DoH Address</div>
@@ -877,6 +936,15 @@ def admin_customer(client_id):
 </div>
 <script>
 const CID='{{ client_id }}';
+function submitCode(){
+  const code=document.getElementById('code-input').value.trim();
+  if(!code)return;
+  window.location.href='/admin/customer/'+CID+'?code='+code;
+}
+async function revokeCode(){
+  await fetch('/api/admin/revoke-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CID})});
+  window.location.href='/admin/customer/'+CID;
+}
 async function toggleFamily(enabled){
   const r=await fetch('/api/admin/addon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CID,type:'family',enabled})});
   const d=await r.json();
@@ -903,8 +971,13 @@ async function removeRule(rule){
 }
 </script>
 </html>"""
+    service_groups = get_all_blocked_services()
+    blocked_services = get_client_blocked_services(client_id)
+    code_valid = verify_support_code(client_id, request.args.get("code", ""))
     return render_template_string(html, customer=customer, client_id=client_id,
-        rules=rules, family_safe=family_safe, cstats=cstats, active="admin")
+        rules=rules, family_safe=family_safe, cstats=cstats,
+        service_groups=service_groups, blocked_services=blocked_services,
+        code_valid=code_valid, active="admin")
 
 # ── SETTINGS ──────────────────────────────────────────────
 
@@ -1164,6 +1237,24 @@ def reset():
     return render_template_string(html, token=token, error=error)
 
 # ── API ───────────────────────────────────────────────────
+
+@app.route("/api/support-code", methods=["POST"])
+@login_required
+def api_support_code():
+    if request.is_admin:
+        return jsonify({"ok": False})
+    customer = find_customer(request.user_email)
+    if not customer:
+        return jsonify({"ok": False})
+    code = generate_support_code(customer.get("client_id", ""))
+    return jsonify({"ok": True, "code": code})
+
+@app.route("/api/admin/revoke-code", methods=["POST"])
+@admin_required
+def api_admin_revoke_code():
+    data = request.json
+    revoke_support_code(data.get("client_id", ""))
+    return jsonify({"ok": True})
 
 @app.route("/api/addon", methods=["POST"])
 @login_required
