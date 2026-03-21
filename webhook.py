@@ -484,6 +484,7 @@ def verify_sig(payload, sig_header, secret):
 
 class WebhookHandler(BaseHTTPRequestHandler):
     def do_POST(self):
+        process_pending_wipes()
         if self.path == "/deploy":
             import hmac, hashlib, subprocess
             length = int(self.headers.get("Content-Length", 0))
