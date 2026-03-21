@@ -964,15 +964,6 @@ async function revokeCode(){
   await fetch('/api/admin/revoke-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CID})});
   window.location.href='/admin/customer/'+CID;
 }
-function submitCode(){
-  const code=document.getElementById('code-input').value.trim();
-  if(!code)return;
-  window.location.href='/admin/customer/'+CID+'?code='+code;
-}
-async function revokeCode(){
-  await fetch('/api/admin/revoke-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CID})});
-  window.location.href='/admin/customer/'+CID;
-}
 async function toggleFamily(enabled){
   const r=await fetch('/api/admin/addon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CID,type:'family',enabled})});
   const d=await r.json();
@@ -1293,18 +1284,6 @@ def api_admin_revoke_code():
     revoke_support_code(data.get("client_id", ""))
     return jsonify({"ok": True})
 
-@app.route("/api/support-code", methods=["POST"])
-@login_required
-def api_support_code():
-    if request.is_admin:
-        return jsonify({"ok": False})
-    customer = find_customer(request.user_email)
-    if not customer:
-        return jsonify({"ok": False})
-    code = generate_support_code(customer.get("client_id", ""))
-    return jsonify({"ok": True, "code": code})
-
-@app.route("/api/admin/revoke-code", methods=["POST"])
 @admin_required
 def api_admin_revoke_code():
     data = request.json
