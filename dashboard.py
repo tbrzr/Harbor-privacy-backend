@@ -620,6 +620,14 @@ def dashboard():
     filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
+    plan_type = customer.get("plan_type", "") if customer else ""
+    is_trial = customer.get("is_trial", False) if customer else False
+    plan_badge = ""
+    if plan_type == "3month": plan_badge = "3-MONTH"
+    elif plan_type == "6month": plan_badge = "6-MONTH"
+    elif plan_type == "annual": plan_badge = "ANNUAL"
+    elif is_active and not is_trial: plan_badge = "MONTHLY"
+    has_family_badge = family_safe
 
     html = STYLE + NAV_CUSTOMER + """
 <div class="wrap">
