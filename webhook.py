@@ -128,11 +128,19 @@ def create_adguard_client(client_id, name):
 
 def delete_adguard_client(client_id):
     try:
+        # Look up full client name first
+        clients = requests.get(f"{ADGUARD_URL}/control/clients",
+            auth=(ADGUARD_USER, ADGUARD_PASS), timeout=10).json().get("clients", [])
+        client = next((c for c in clients if client_id in c.get("ids", [])), None)
+        if not client:
+            log.warning(f"AdGuard client not found for {client_id}")
+            return False
         r = requests.post(f"{ADGUARD_URL}/control/clients/delete",
-            json={"name": f"{client_id}"}, auth=(ADGUARD_USER, ADGUARD_PASS), timeout=10)
+            json={"name": client["name"]}, auth=(ADGUARD_USER, ADGUARD_PASS), timeout=10)
         if r.status_code == 200:
-            log.info(f"Deleted AdGuard client: {client_id}")
+            log.info(f"Deleted AdGuard client: {client['name']}")
             return True
+        log.error(f"AdGuard delete failed: {r.status_code} {r.text}")
         return False
     except Exception as e:
         log.error(f"AdGuard delete error: {e}")
