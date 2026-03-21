@@ -161,8 +161,8 @@ def set_client_blocked_services(client_id, services):
     client = get_client(client_id)
     if not client:
         return False
-    data = build_client_data(client, {"blocked_services": services, "use_global_blocked_services": False})
-    return agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": data})
+    updated = {**client, "blocked_services": services, "use_global_blocked_services": False}
+    return agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})
 
 def add_custom_rule(client_id, domain, block=True):
     prefix = "||" if block else "@@||"
