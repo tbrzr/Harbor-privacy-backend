@@ -334,7 +334,7 @@ def send_family_safe_email(email, name, enabled):
 </div>'''
     send_email(email, f"Harbor Privacy - Family Safe {action.title()}", html)
 
-def send_welcome_email(email, name, client_id, plan, profile_url=""):
+def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url=""):
     doh = f"https://{DOH_BASE}/{client_id}"
     if plan == "remote":
         ios_btn = f'<p><a href="{profile_url}" style="display:inline-block;background:#00e5c0;color:#0a0e0f;padding:12px 24px;text-decoration:none;font-family:monospace;font-size:13px;">Download iOS DNS Profile</a></p><p style="font-size:12px;color:#6b8a87;">Tap on iPhone/iPad then Settings > General > VPN & Device Management > Install</p>' if profile_url else "<p style='color:#6b8a87;'>iOS profile will be sent separately.</p>"
@@ -356,7 +356,7 @@ def send_welcome_email(email, name, client_id, plan, profile_url=""):
 <p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">Xfinity Router:</strong> Go to 10.0.0.1 > Advanced > DNS Settings > restore to Automatic > reboot</p>
 <p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">Other Routers:</strong> Router admin panel > DNS settings > set to Automatic > save and reboot</p>
 </div>
-</p><div style="border-top:1px solid #1e2a2d;padding-top:20px;margin-top:20px;"><p style="color:#6b8a87;font-size:13px;">View your invoice and manage your subscription at <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" style="color:#00e5c0;">billing portal</a>.</p></div><p style="padding-top:24px;color:#6b8a87;">Questions? Reply or text <strong style="color:#e8f0ef;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a></p>
+</p><div style="border-top:1px solid #1e2a2d;padding-top:20px;margin-top:20px;">{('<a href="' + invoice_url + '" style="display:inline-block;background:#00e5c0;color:#0a0e0f;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;margin-right:8px;">View Invoice &#8594;</a>') if invoice_url else ''}<a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" style="display:inline-block;border:1px solid #00e5c0;color:#00e5c0;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Manage Subscription &#8594;</a></div><p style="padding-top:24px;color:#6b8a87;">Questions? Reply or text <strong style="color:#e8f0ef;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a></p>
 </div>'''
     else:
         html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
@@ -397,6 +397,21 @@ def verify_sig(payload, sig_header, secret):
 
 class WebhookHandler(BaseHTTPRequestHandler):
     def do_POST(self):
+        if self.path == "/deploy":
+            import hmac, hashlib, subprocess
+            length = int(self.headers.get("Content-Length", 0))
+            payload = self.rfile.read(length)
+            sig = self.headers.get("X-Hub-Signature-256", "")
+            secret = os.environ.get("GITHUB_WEBHOOK_SECRET", "").encode()
+            if secret:
+                expected = "sha256=" + hmac.new(secret, payload, hashlib.sha256).hexdigest()
+                if not hmac.compare_digest(expected, sig):
+                    self.send_response(400); self.end_headers(); return
+            self.send_response(200); self.end_headers()
+            subprocess.Popen(["bash", "-c", "cd /var/www/network && git pull origin main >> /home/ubuntu/deploy.log 2>&1 && find /var/www/network -name '*.html' -exec sed -i 's/\xe2\x80\x93/--/g' {} \;"])
+            log.info("GitHub deploy triggered")
+            return
+
         if self.path != "/webhook":
             self.send_response(404); self.end_headers(); return
 
@@ -436,7 +451,17 @@ class WebhookHandler(BaseHTTPRequestHandler):
                             create_adguard_client(client_id, name)
                             add_to_allowed_clients(client_id)
                             profile_url = save_ios_profile(client_id, name)
-                        send_welcome_email(email, name, client_id, plan, profile_url)
+                        invoice_id = s.get("invoice", "")
+                        invoice_url = ""
+                        if invoice_id:
+                            try:
+                                import urllib.request as _ur, json as _json
+                                req = _ur.Request(f"https://api.stripe.com/v1/invoices/{invoice_id}", headers={"Authorization": f"Bearer {STRIPE_SECRET}"})
+                                inv_data = _json.loads(_ur.urlopen(req).read())
+                                invoice_url = inv_data.get("hosted_invoice_url", "")
+                            except Exception as ie:
+                                log.error(f"invoice fetch error: {ie}")
+                        send_welcome_email(email, name, client_id, plan, profile_url, invoice_url)
                         log_customer(client_id, name, email, plan, stripe_id)
                         mark_processed(session_id)
                         log.info(f"Onboarded: {name} ({client_id})")
