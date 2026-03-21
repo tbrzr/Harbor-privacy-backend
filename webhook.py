@@ -147,15 +147,56 @@ def delete_profile(client_id):
     except Exception as e:
         log.error(f"Profile delete error: {e}")
 
+def wipe_customer(client_id):
+    """Full data wipe — removes all traces of a customer from every system"""
+    # 1. Remove from AdGuard allowed clients
+    remove_from_allowed_clients(client_id)
+    # 2. Delete AdGuard client profile
+    delete_adguard_client(client_id)
+    # 3. Delete iOS profile file
+    delete_profile(client_id)
+    # 4. Delete dashboard login account
+    try:
+        users_file = "/var/log/harbor-dashboard-users.json"
+        customer_email = None
+        try:
+            lines = open(CUSTOMERS_LOG).readlines()
+            for line in lines:
+                try:
+                    r = json.loads(line.strip())
+                    if r.get("client_id") == client_id:
+                        customer_email = r.get("email")
+                        break
+                except:
+                    pass
+        except:
+            pass
+        if customer_email:
+            with open(users_file) as f2:
+                users = json.load(f2)
+            if customer_email in users:
+                del users[customer_email]
+                with open(users_file, "w") as f2:
+                    json.dump(users, f2)
+                log.info(f"Deleted dashboard user: {customer_email}")
+    except Exception as e:
+        log.error(f"Error deleting dashboard user: {e}")
+    # 5. Remove from customers log entirely
+    try:
+        lines = open(CUSTOMERS_LOG).readlines()
+        new_lines = [l for l in lines if client_id not in l]
+        open(CUSTOMERS_LOG, "w").writelines(new_lines)
+        log.info(f"Removed customer log entry for {client_id}")
+    except Exception as e:
+        log.error(f"Error removing customer log: {e}")
+    log.info(f"Full wipe complete: {client_id}")
+
 def deactivate_after_grace(client_id, delay=3600):
     def _run():
         import time
         log.info(f"Grace period started for {client_id} - {delay}s")
         time.sleep(delay)
-        remove_from_allowed_clients(client_id)
-        delete_adguard_client(client_id)
-        delete_profile(client_id)
-        log.info(f"Deactivated after grace: {client_id}")
+        wipe_customer(client_id)
     threading.Thread(target=_run, daemon=True).start()
 
 def find_customer(stripe_customer_id):
