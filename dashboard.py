@@ -765,7 +765,7 @@ async function toggleAddon(type,enabled){
 async function toggleService(id, blocked){
   const r=await fetch('/api/service',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service_id:id,blocked:blocked})});
   const d=await r.json();
-  if(!d.ok) alert('Failed to update service.');
+  if(d.ok){} else alert('Failed to update service.');
 }
 async function genCode(){
   const r=await fetch('/api/support-code',{method:'POST'});
@@ -986,7 +986,7 @@ async function toggleFamily(enabled){
 async function toggleService(id, blocked){
   const r=await fetch('/api/service',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service_id:id,blocked:blocked})});
   const d=await r.json();
-  if(!d.ok) alert('Failed to update service.');
+  if(d.ok){} else alert('Failed to update service.');
 }
 async function genCode(){
   const r=await fetch('/api/support-code',{method:'POST'});
@@ -1370,6 +1370,20 @@ def api_rule():
         domain = data.get("domain", "").strip().lower()
         return jsonify({"ok": add_custom_rule(client_id, domain, data.get("block", True))})
     return jsonify({"ok": remove_custom_rule(client_id, data.get("rule", ""))})
+
+@app.route("/api/admin/service", methods=["POST"])
+@admin_required
+def api_admin_service():
+    data = request.json
+    client_id = data.get("client_id", "")
+    service_id = data.get("service_id", "")
+    blocked = data.get("blocked", True)
+    current = get_client_blocked_services(client_id)
+    if blocked and service_id not in current:
+        current.append(service_id)
+    elif not blocked and service_id in current:
+        current.remove(service_id)
+    return jsonify({"ok": set_client_blocked_services(client_id, current)})
 
 @app.route("/api/admin/rule", methods=["POST", "DELETE"])
 @admin_required
