@@ -672,7 +672,7 @@ def dashboard():
       <div style="position:absolute;inset:0;background:rgba(10,14,15,0.82);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-radius:2px;">
         <div>
           <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:4px;">Add-On Available</div>
-          <div style="font-size:14px;color:var(--text);">Family Safe &mdash; <span style="color:var(--accent);font-family:'DM Mono',monospace;">$0.99/mo</span></div>
+          <div style="font-size:14px;color:var(--text);">Family Safe &mdash; <span style="color:var(--accent);font-family:'DM Mono',monospace;">$0.59/mo</span></div>
           <div style="font-size:12px;color:var(--muted);margin-top:2px;">SafeSearch, adult content blocking, family filtering</div>
         </div>
         <a href="https://buy.stripe.com/28EbJ038bftZ5rn80T6kg0d" target="_blank" style="background:var(--accent);color:var(--bg);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;font-weight:500;white-space:nowrap;flex-shrink:0;margin-left:16px;">Add On &rarr;</a>
