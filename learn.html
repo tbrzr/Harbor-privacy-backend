@@ -130,12 +130,12 @@ body { display: block; }
     <div class="nav-section">
       <div class="nav-section-label">Learn</div>
       <a href="/learn" class="nav-link active"><span class="nav-icon">◈</span> Overview</a>
-      <a href="/learn#email-filtering" class="nav-link"><span class="nav-icon">✉</span> Email Filtering</a>
-      <a href="/learn#dns-privacy" class="nav-link"><span class="nav-icon">⬡</span> DNS Privacy</a>
-      <a href="/learn#isp-tracking" class="nav-link"><span class="nav-icon">◎</span> ISP Tracking</a>
-      <a href="/learn#phishing" class="nav-link"><span class="nav-icon">⚠</span> Phishing & Malware</a>
-      <a href="/learn#unbound" class="nav-link"><span class="nav-icon">⬡</span> Unbound & Recursive DNS</a>
-      <a href="/learn#smart-home" class="nav-link"><span class="nav-icon">⌂</span> Smart Home Tracking</a>
+      <a href="#email-filtering" class="nav-link"><span class="nav-icon">✉</span> Email Filtering</a>
+      <a href="#dns-privacy" class="nav-link"><span class="nav-icon">⬡</span> DNS Privacy</a>
+      <a href="#isp-tracking" class="nav-link"><span class="nav-icon">◎</span> ISP Tracking</a>
+      <a href="#phishing" class="nav-link"><span class="nav-icon">⚠</span> Phishing & Malware</a>
+      <a href="#unbound" class="nav-link"><span class="nav-icon">⬡</span> Unbound & Recursive DNS</a>
+      <a href="#smart-home" class="nav-link"><span class="nav-icon">⌂</span> Smart Home Tracking</a>
     </div>
     <div class="nav-section">
       <div class="nav-section-label">Services</div>
@@ -381,6 +381,33 @@ body { display: block; }
 ```
 
   </div>
+
+  <div class="article" id="unbound">
+    <div class="article-tag">05 — Recursive DNS</div>
+    <h2>Unbound & Recursive DNS — What It Actually Means</h2>
+    <p>Most DNS resolvers — even privacy-focused ones like 1.1.1.1 — still see every query you make. You're trusting a third party not to log or sell that data. Unbound cuts that out entirely.</p>
+    <p>Harbor Privacy runs Unbound, which means your DNS queries go directly to the authoritative servers for each domain — no middleman, no upstream resolver logging your activity. When you look up google.com, the query goes to Google's own nameservers directly, not through Cloudflare or your ISP first.</p>
+    <h3>How Normal DNS Works</h3>
+    <p>Your device asks your ISP's resolver → ISP asks a root server → root server points to the TLD → TLD points to the authoritative server. Your ISP sees every single step.</p>
+    <h3>How Unbound Works</h3>
+    <p>Your device asks Harbor Privacy → Harbor Privacy asks the root server directly → gets the answer → done. No ISP in the loop. No third-party resolver logging your queries.</p>
+    <h3>Why This Matters</h3>
+    <p>DNS-over-HTTPS encrypts the query so your ISP can't read it. Unbound goes a step further — it eliminates the upstream resolver entirely. Combined, nobody in the middle can see what you're looking up.</p>
+    <a href="/#get-started" class="cta-inline">Want recursive DNS on your network? Get Harbor Privacy →</a>
+  </div>
+
+  <div class="article" id="smart-home">
+    <div class="article-tag">06 — Smart Home</div>
+    <h2>Smart Home Devices Are Watching More Than You Think</h2>
+    <p>That smart TV, the Alexa in the kitchen, the Roomba — they're all constantly phoning home. Not just for updates. For behavioral data, usage patterns, voice snippets, and in some cases video metadata.</p>
+    <h3>What Gets Sent</h3>
+    <p>Smart TVs are among the worst offenders. Vizio was fined $2.2 million by the FTC for collecting viewing data without consent. Most smart TVs use Automatic Content Recognition (ACR) — software that screenshots whatever is on screen every few seconds and sends it back to the manufacturer.</p>
+    <p>Smart speakers send audio clips back to Amazon and Google for "quality review." Even your robot vacuum maps your home — iRobot explored selling floor plan data to smart home companies before public backlash killed the plan.</p>
+    <h3>What Harbor Privacy Blocks</h3>
+    <p>At the DNS level, Harbor Privacy blocks the tracking endpoints these devices use — ACR servers, telemetry endpoints, ad targeting domains. Your Alexa still works. Your TV still streams. The data collection side just gets cut off before it leaves your network.</p>
+    <a href="/#get-started" class="cta-inline">Want to stop your smart home from spying? Get Harbor Privacy →</a>
+  </div>
+
 
 </div>
 </div>
