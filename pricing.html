@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harbor Privacy — Pricing</title>
+<meta name="description" content="Harbor Privacy pricing. Harbor Remote from $5.99/month. One-time $399 on-site installation. Serving the South Shore, MA and anywhere in the world.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://harborprivacy.com/pricing">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+<style>
+  :root { --bg: #0a0e0f; --surface: #111618; --border: #1e2a2d; --accent: #00e5c0; --text: #e8f0ef; --muted: #6b8a87; --sidebar-width: 240px; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: "DM Sans", sans-serif; font-weight: 300; line-height: 1.7; font-size: 16px; }
+  body::before { content: ""; position: fixed; inset: 0; background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px); background-size: 60px 60px; opacity: 0.3; pointer-events: none; z-index: 0; }
+
+  /* SIDEBAR */
+  .sidebar { width: var(--sidebar-width); min-height: 100vh; background: var(--surface); border-right: 1px solid var(--border); position: fixed; top: 0; left: 0; z-index: 100; display: flex; flex-direction: column; overflow-y: auto; transition: transform 0.3s ease; }
+  .sidebar-logo { padding: 28px 24px 20px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo a { font-family: "DM Mono", monospace; font-size: 15px; color: var(--accent); letter-spacing: 0.1em; text-decoration: none; display: block; }
+  .sidebar-logo a span { color: var(--muted); }
+  .sidebar-logo .tagline { font-family: "DM Mono", monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.06em; margin-top: 5px; }
+  .nav-section { padding: 18px 0 6px; border-bottom: 1px solid var(--border); }
+  .nav-section:last-of-type { border-bottom: none; }
+  .nav-section-label { font-family: "DM Mono", monospace; font-size: 9px; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; padding: 0 24px 8px; }
+  .nav-link { display: flex; align-items: center; gap: 10px; padding: 9px 24px; font-family: "DM Mono", monospace; font-size: 12px; color: var(--muted); text-decoration: none; letter-spacing: 0.04em; transition: all 0.15s; border-left: 2px solid transparent; }
+  .nav-link:hover { color: var(--text); background: #ffffff05; border-left-color: var(--border); }
+  .nav-link.active { color: var(--accent); border-left-color: var(--accent); background: #00e5c008; }
+  .nav-icon { font-size: 12px; width: 16px; text-align: center; flex-shrink: 0; }
+  .nav-badge { margin-left: auto; background: var(--accent); color: var(--bg); font-size: 8px; padding: 2px 6px; letter-spacing: 0.1em; font-weight: 500; }
+  .sidebar-cta { margin: 16px; padding: 12px 16px; background: var(--accent); color: var(--bg); font-family: "DM Mono", monospace; font-size: 11px; letter-spacing: 0.08em; text-decoration: none; text-align: center; display: block; font-weight: 500; }
+  .sidebar-footer { padding: 16px 24px; margin-top: auto; border-top: 1px solid var(--border); }
+  .sidebar-footer a { font-family: "DM Mono", monospace; font-size: 10px; color: var(--muted); text-decoration: none; display: block; margin-bottom: 4px; }
+  .hamburger { display: none; position: fixed; top: 16px; left: 16px; z-index: 9999; background: var(--surface); border: 1px solid var(--border); padding: 10px 12px; cursor: pointer; flex-direction: column; gap: 5px; }
+  .hamburger span { display: block; width: 20px; height: 1.5px; background: var(--accent); }
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 99; }
+
+  /* MAIN */
+  #mobile-top { display: none; }
+  .main-content { margin-left: var(--sidebar-width); min-width: 0; position: relative; z-index: 1; }
+  .container { max-width: 900px; margin: 0 auto; padding: 60px 40px 100px; }
+
+  /* PAGE */
+  .page-tag { font-family: "DM Mono", monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+  .page-tag::before { content: ""; display: block; width: 32px; height: 1px; background: var(--accent); }
+  h1 { font-family: "DM Serif Display", serif; font-size: clamp(36px, 5vw, 56px); font-weight: 400; line-height: 1.1; margin-bottom: 16px; }
+  h1 em { font-style: italic; color: var(--accent); }
+  .lead { font-size: 18px; color: var(--muted); max-width: 560px; line-height: 1.7; margin-bottom: 60px; }
+
+  /* PROMO BANNER */
+  .promo-banner { background: var(--accent); color: var(--bg); padding: 14px 24px; text-align: center; font-family: "DM Mono", monospace; font-size: 13px; letter-spacing: 0.05em; margin-bottom: 48px; }
+  .promo-banner strong { font-weight: 500; }
+  .promo-code { background: var(--bg); color: var(--accent); padding: 3px 10px; font-family: "DM Mono", monospace; font-size: 12px; letter-spacing: 0.1em; margin: 0 4px; }
+
+  /* SECTION HEADER */
+  .section-header { margin-bottom: 32px; }
+  .section-label { font-family: "DM Mono", monospace; font-size: 10px; color: var(--accent); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 10px; }
+  h2 { font-family: "DM Serif Display", serif; font-size: 32px; font-weight: 400; margin-bottom: 12px; }
+  .section-desc { font-size: 16px; color: var(--muted); max-width: 560px; }
+
+  /* REMOTE PRICING GRID */
+  .remote-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border); border: 1px solid var(--border); margin-bottom: 16px; }
+  .remote-plan { background: var(--surface); padding: 32px 24px; position: relative; transition: background 0.2s; }
+  .remote-plan:hover { background: #151c1e; }
+  .remote-plan.featured { background: var(--bg); border-top: 2px solid var(--accent); }
+  .plan-badge { position: absolute; top: -1px; left: 50%; transform: translateX(-50%); background: var(--accent); color: var(--bg); font-family: "DM Mono", monospace; font-size: 9px; letter-spacing: 0.15em; padding: 3px 10px; font-weight: 500; white-space: nowrap; }
+  .plan-period { font-family: "DM Mono", monospace; font-size: 16px; font-weight: 500; color: var(--text); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 16px; }
+  .plan-price { font-family: "DM Serif Display", serif; font-size: 40px; color: var(--accent); line-height: 1; margin-bottom: 4px; }
+  .plan-price-sub { font-family: "DM Mono", monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.06em; margin-bottom: 8px; }
+  .plan-savings { font-family: "DM Mono", monospace; font-size: 10px; color: var(--accent); letter-spacing: 0.08em; margin-bottom: 20px; min-height: 16px; }
+  .plan-btn { display: block; text-align: center; background: var(--accent); color: var(--bg); padding: 10px 16px; font-family: "DM Mono", monospace; font-size: 11px; letter-spacing: 0.08em; text-decoration: none; font-weight: 500; transition: background 0.2s; }
+  .plan-btn:hover { background: #00ffda; }
+  .plan-btn.outline { background: transparent; border: 1px solid var(--border); color: var(--muted); }
+  .plan-btn.outline:hover { border-color: var(--accent); color: var(--accent); background: transparent; }
+
+  /* DIVIDER */
+  .section-divider { border: none; border-top: 1px solid var(--border); margin: 64px 0; }
+
+  /* INSTALL CARD */
+  .install-card { border: 1px solid var(--border); background: var(--surface); padding: 48px; display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: start; margin-bottom: 1px; }
+  .install-price { font-family: "DM Serif Display", serif; font-size: 64px; color: var(--accent); line-height: 1; margin-bottom: 8px; }
+  .install-price-sub { font-family: "DM Mono", monospace; font-size: 12px; color: var(--muted); letter-spacing: 0.1em; margin-bottom: 32px; }
+  .install-includes { list-style: none; margin-bottom: 32px; }
+  .install-includes li { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 15px; color: var(--text); display: flex; gap: 14px; align-items: center; }
+  .install-includes li::before { content: "->"; font-family: "DM Mono", monospace; color: var(--accent); font-size: 11px; flex-shrink: 0; }
+  .install-includes li:last-child { border-bottom: none; }
+  .btn-primary { display: inline-block; background: var(--accent); color: var(--bg); padding: 14px 32px; font-family: "DM Mono", monospace; font-size: 13px; letter-spacing: 0.08em; text-decoration: none; font-weight: 500; }
+
+  /* ADDON GRID */
+  .addon-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border: 1px solid var(--border); margin-bottom: 24px; }
+  .addon { background: var(--surface); padding: 28px; }
+  .addon-label { font-family: "DM Mono", monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase; margin-bottom: 8px; }
+  .addon-price { font-family: "DM Serif Display", serif; font-size: 32px; color: var(--accent); margin-bottom: 6px; }
+  .addon-desc { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+  .addon-link { font-family: "DM Mono", monospace; font-size: 11px; color: var(--accent); text-decoration: none; letter-spacing: 0.05em; border-bottom: 1px solid var(--accent); padding-bottom: 2px; }
+
+  .price-note { font-size: 13px; color: var(--muted); font-family: "DM Mono", monospace; letter-spacing: 0.04em; margin-top: 16px; }
+
+  /* FOOTER */
+  footer { border-top: 1px solid var(--border); padding: 24px 40px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  footer span, footer a { font-family: "DM Mono", monospace; font-size: 11px; color: var(--muted); text-decoration: none; letter-spacing: 0.05em; }
+
+  /* MOBILE */
+  @media (max-width: 1100px) {
+    .sidebar { display: none !important; }
+    .sidebar.open { display: flex !important; flex-direction: column; }
+    .hamburger { display: flex !important; }
+    .sidebar-logo { display: none !important; }
+    .sidebar { padding-top: 56px; }
+    #mobile-top { display: block !important; }
+    .main-content { margin-left: 0; padding-top: 56px; }
+    footer { margin-left: 0; }
+    .remote-grid { grid-template-columns: 1fr 1fr; }
+    .install-card { grid-template-columns: 1fr; gap: 32px; padding: 32px; }
+    .addon-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .remote-grid { grid-template-columns: 1fr; }
+    .container { padding: 40px 20px 80px; }
+  }
+</style>
+<script>function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open");document.getElementById("overlay").classList.toggle("open");}</script>
+</head></head>
+<body>
+
+<script>function toggleSidebarDUP(){document.getElementById("sidebar").classList.toggle("open");document.getElementById("overlay").classList.toggle("open");}</script>
+
+<button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+  <span></span><span></span><span></span>
+</button>
+<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <a href="/">harbor<span>/</span>privacy</a>
+    <div class="tagline">Pembroke, MA · South Shore</div>
+  </div>
+  <a href="https://dashboard.harborprivacy.com" target="_blank" style="display:block;margin:16px;padding:12px 16px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;transition:all 0.2s;" onmouseover="this.style.background='#00e5c015'" onmouseout="this.style.background='transparent'">&#9635; My Dashboard</a>
+  <nav>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="/" class="nav-link"><span class="nav-icon">&#8962;</span> Home</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Learn</div>
+      <a href="/learn" class="nav-link"><span class="nav-icon">&#10216;</span> Overview</a>
+      <a href="/learn#email-filtering" class="nav-link"><span class="nav-icon">&#9993;</span> Email Filtering</a>
+      <a href="/learn#dns-privacy" class="nav-link"><span class="nav-icon">&#11041;</span> DNS Privacy</a>
+      <a href="/learn#isp-tracking" class="nav-link"><span class="nav-icon">&#9678;</span> ISP Tracking</a>
+      <a href="/learn#phishing" class="nav-link"><span class="nav-icon">&#9888;</span> Phishing &amp; Malware</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Services</div>
+      <a href="/pricing" class="nav-link active"><span class="nav-icon">$</span> Pricing</a>
+      <a href="/pricing#audit" class="nav-link"><span class="nav-icon">&#10022;</span> Network Audit</a>
+      <a href="/pricing#remote" class="nav-link"><span class="nav-icon">&#8651;</span> Harbor Remote <span class="nav-badge">NEW</span></a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Support</div>
+      <a href="/docs" class="nav-link"><span class="nav-icon">&#8801;</span> Documentation</a>
+      <a href="/nologs" class="nav-link"><span class="nav-icon">&#10003;</span> No-Logs Policy</a>
+      <a href="/privacy" class="nav-link"><span class="nav-icon">&#8857;</span> Privacy Policy</a>
+      <a href="/terms" class="nav-link"><span class="nav-icon">&#167;</span> Terms of Service</a>
+      <a href="/#contact" class="nav-link"><span class="nav-icon">&#9993;</span> Contact</a>
+    </div>
+  </nav>
+  <a href="/#contact" class="sidebar-cta">Get Started &#8594;</a>
+  <div class="sidebar-footer">
+    <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank">Manage Subscription</a>
+  </div>
+</aside>
+
+<div class="main-content">
+<div id="mobile-top" style="display:none;background:var(--surface);border-bottom:1px solid #1e2a2d;padding:28px 16px 16px 72px;font-family:monospace;font-size:20px;color:#00e5c0;letter-spacing:0.1em;">harbor<span style="color:#6b8a87;">/</span>privacy</div>
+<div class="container">
+
+  <!-- PROMO BANNER -->
+  <div class="promo-banner">
+    <strong>Founders Offer</strong> &mdash; 50% off any Harbor Remote plan. Use code <span class="promo-code">FOUNDERS10</span> at checkout. First 10 only &mdash; expires April 30.
+  </div>
+
+  <!-- PAGE HEADER -->
+  <div class="page-tag">Pricing</div>
+  <h1>Simple, honest<br><em>pricing.</em></h1>
+  <p class="lead">Privacy protection for your home network. Works anywhere in the world with Harbor Remote, or get a full on-site installation on the South Shore.</p>
+
+  <!-- HARBOR REMOTE -->
+  <div id="remote">
+    <div class="section-header">
+      <div class="section-label">Harbor Remote &mdash; Works Anywhere</div>
+      <h2>Private DNS. No hardware, no visit.</h2>
+      <p class="section-desc">We configure a private encrypted DNS endpoint for your devices. Blocks ads, trackers, and malware automatically on every device. Cancel anytime.</p>
+    </div>
+
+    <div class="remote-grid">
+      <div class="remote-plan">
+        <div class="plan-period">Monthly</div>
+        <div class="plan-price">$5.99</div>
+        <div class="plan-price-sub">per month</div>
+        <div class="plan-savings">&nbsp;</div>
+        <a href="https://buy.stripe.com/eVq00igZ15Tp3jf94X6kg0c" target="_blank" class="plan-btn outline">Get Started &#8594;</a>
+      </div>
+      <div class="remote-plan">
+        <div class="plan-period">3 Months</div>
+        <div class="plan-price">$14.99</div>
+        <div class="plan-price-sub">$4.99/month</div>
+        <div class="plan-savings">Save 17%</div>
+        <a href="https://buy.stripe.com/00w9AS38b6XtdXTch96kg0b" target="_blank" class="plan-btn outline">Get Started &#8594;</a>
+      </div>
+      <div class="remote-plan">
+        <div class="plan-period">6 Months</div>
+        <div class="plan-price">$24.99</div>
+        <div class="plan-price-sub">$4.16/month</div>
+        <div class="plan-savings">Save 31%</div>
+        <a href="https://buy.stripe.com/7sYcN47or2HdbPLeph6kg0a" target="_blank" class="plan-btn outline">Get Started &#8594;</a>
+      </div>
+      <div class="remote-plan featured">
+        <div class="plan-badge">BEST VALUE</div>
+        <div class="plan-period">12 Months</div>
+        <div class="plan-price">$39.99</div>
+        <div class="plan-price-sub">$3.33/month</div>
+        <div class="plan-savings">Save 44%</div>
+        <a href="https://buy.stripe.com/9B69AS6knepVbPL2Gz6kg09" target="_blank" class="plan-btn">Get Started &#8594;</a>
+      </div>
+    </div>
+    <p class="price-note">* Use code FOUNDERS10 for 50% off at checkout. Free trial included on monthly plan. Cancel anytime.</p>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- ON-SITE INSTALL -->
+  <div id="install">
+    <div class="section-header">
+      <div class="section-label">On-Site Installation &mdash; South Shore MA</div>
+      <h2>Full privacy setup in your home.</h2>
+      <p class="section-desc">I come to you, install a dedicated Raspberry Pi privacy device on your network, and configure everything from scratch. Works on every device automatically.</p>
+    </div>
+
+    <div class="install-card">
+      <div>
+        <div class="install-price">$399</div>
+        <div class="install-price-sub">one-time &middot; includes hardware</div>
+        <ul class="install-includes">
+          <li>Raspberry Pi 4 hardware included</li>
+          <li>AdGuard Home with Hagezi threat blocklists</li>
+          <li>Encrypted DNS over HTTPS</li>
+          <li>Secure admin dashboard</li>
+          <li>Cloud failover backup DNS</li>
+          <li>On-site installation and testing</li>
+          <li>Mobile profile setup for your phones</li>
+          <li>Written documentation</li>
+          <li>30 days of included support</li>
+        </ul>
+        <a href="https://buy.stripe.com/3cI28qfUX5Tp5rn80T6kg00" class="btn-primary" target="_blank">Pay &amp; Book Install &#8594;</a>
+      </div>
+      <div>
+        <div class="section-label" style="margin-bottom:24px;">Add-Ons &amp; Support</div>
+        <div class="addon-grid">
+          <div class="addon">
+            <div class="addon-label">Monthly Support</div>
+            <div class="addon-price">$29</div>
+            <div class="addon-desc">Remote monitoring, whitelist requests, priority response</div>
+            <a href="https://buy.stripe.com/6oUdR8fUX6Xt1b74OH6kg06" target="_blank" class="addon-link">Subscribe &#8594;</a>
+          </div>
+          <div class="addon">
+            <div class="addon-label">Remote Support</div>
+            <div class="addon-price">$19</div>
+            <div class="addon-desc">One-time incident, no subscription</div>
+            <a href="https://buy.stripe.com/14A8wObEH0z54nj2Gz6kg05" target="_blank" class="addon-link">Pay now &#8594;</a>
+          </div>
+          <div class="addon">
+            <div class="addon-label">On-site Visit</div>
+            <div class="addon-price">$79</div>
+            <div class="addon-desc">First hour included, South Shore MA</div>
+            <a href="https://buy.stripe.com/9B6bJ0247chNg61ch96kg04" target="_blank" class="addon-link">Book &#8594;</a>
+          </div>
+          <div class="addon">
+            <div class="addon-label">Additional Hours</div>
+            <div class="addon-price">$39</div>
+            <div class="addon-desc">Per hour after first</div>
+            <a href="https://buy.stripe.com/aFa28q6kn6Xt6vr94X6kg03" target="_blank" class="addon-link">Pay now &#8594;</a>
+          </div>
+        </div>
+        <p class="price-note">* Travel outside South Shore may incur additional fee. Use code FOUNDERS10INSTALL for 10% off your install.</p>
+      </div>
+    </div>
+  </div>
+
+  <hr class="section-divider">
+
+  <!-- NETWORK AUDIT -->
+  <div id="audit">
+    <div class="section-header">
+      <div class="section-label">Network Audit</div>
+      <h2>Find out what is actually happening on your network.</h2>
+      <p class="section-desc">Not sure what your devices are doing? I review your setup and deliver a plain-English report with findings and recommendations.</p>
+    </div>
+    <div class="addon-grid">
+      <div class="addon" style="padding:32px;">
+        <div class="addon-label">Remote Audit</div>
+        <div class="addon-price">$49</div>
+        <div class="addon-desc">DNS leak check, router firmware review, device risk assessment, WiFi security check. Written report delivered within 24 hours.</div>
+        <a href="/#contact" class="addon-link">Book Remote Audit &#8594;</a>
+      </div>
+      <div class="addon" style="padding:32px;">
+        <div class="addon-label">On-Site Audit</div>
+        <div class="addon-price">$99</div>
+        <div class="addon-desc">Everything in remote audit plus a live walkthrough in your home. $49 credit toward a full install if you decide to proceed.</div>
+        <a href="/#contact" class="addon-link">Book On-Site Audit &#8594;</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <span>&copy; 2026 Harbor Privacy &middot; Pembroke, MA</span>
+  <div style="display:flex;gap:20px;">
+    <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank">Manage Subscription</a>
+    <a href="/privacy">Privacy</a>
+    <a href="/terms">Terms</a>
+    <a href="/#contact">Contact</a>
+  </div>
+</footer>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>No-Logs Policy — Harbor Privacy</title>
+<meta name="description" content="Harbor Privacy's no-logs policy. We do not collect, store, or monitor your DNS queries or browsing history.">
+<link rel="canonical" href="https://harborprivacy.com/nologs">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e0f;
+    --surface: #111618;
+    --border: #1e2a2d;
+    --accent: #00e5c0;
+    --text: #e8f0ef;
+    --muted: #6b8a87;
+    --danger: #ff4e4e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; line-height: 1.7; font-size: 16px; }
+  body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px); background-size: 60px 60px; opacity: 0.4; pointer-events: none; z-index: 0; }
+  .container { max-width: 800px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+  nav { padding: 24px 0; border-bottom: 1px solid var(--border); position: relative; z-index: 1; }
+  .nav-inner { max-width: 800px; margin: 0 auto; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; }
+  .logo { font-family: 'DM Mono', monospace; font-size: 14px; color: var(--accent); letter-spacing: 0.1em; text-decoration: none; }
+  .logo span { color: var(--muted); }
+  .nav-links { display: flex; gap: 24px; align-items: center; }
+  .nav-links a { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); text-decoration: none; letter-spacing: 0.08em; transition: color 0.2s; }
+  .nav-links a:hover { color: var(--text); }
+  .nav-links a.active { color: var(--accent); }
+  .page-header { padding: 60px 0 48px; border-bottom: 1px solid var(--border); margin-bottom: 60px; }
+  .page-tag { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+  .page-tag::before { content: ''; display: block; width: 32px; height: 1px; background: var(--accent); }
+  h1 { font-family: 'DM Serif Display', serif; font-size: clamp(36px, 5vw, 56px); font-weight: 400; line-height: 1.1; margin-bottom: 20px; }
+  .page-sub { font-size: 18px; color: var(--muted); line-height: 1.7; max-width: 600px; }
+  .badge { display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: var(--bg); font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.1em; padding: 6px 16px; margin-top: 24px; font-weight: 500; }
+  .section { margin-bottom: 60px; }
+  .section-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--accent); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 16px; }
+  h2 { font-family: 'DM Serif Display', serif; font-size: 28px; font-weight: 400; margin-bottom: 24px; color: var(--text); }
+  p { color: var(--muted); margin-bottom: 16px; font-size: 16px; }
+  .card { border: 1px solid var(--border); background: var(--surface); padding: 32px; margin-bottom: 24px; }
+  .card-title { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.15em; margin-bottom: 20px; }
+  .check-list { list-style: none; }
+  .check-list li { padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 16px; color: var(--text); display: flex; gap: 14px; align-items: flex-start; }
+  .check-list li:last-child { border-bottom: none; }
+  .check-list li.yes::before { content: '✓'; color: var(--accent); font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .check-list li.no::before { content: '✕'; color: var(--danger); font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .alert { border: 1px solid var(--accent); background: #00e5c008; padding: 28px; margin-bottom: 32px; }
+  .alert-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--accent); letter-spacing: 0.2em; margin-bottom: 12px; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 48px 0; }
+  .subpoena-box { border: 1px solid var(--border); background: var(--surface); padding: 32px; }
+  .subpoena-box h3 { font-family: 'DM Serif Display', serif; font-size: 22px; font-weight: 400; margin-bottom: 16px; color: var(--text); }
+  footer { border-top: 1px solid var(--border); padding: 32px 0; margin-top: 100px; position: relative; z-index: 1; }
+  .footer-inner { max-width: 800px; margin: 0 auto; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+  .footer-copy { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.08em; }
+  .footer-links { display: flex; gap: 20px; }
+  .footer-links a { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); text-decoration: none; letter-spacing: 0.08em; }
+  .footer-links a:hover { color: var(--accent); }
+  @media (max-width: 640px) {
+    .nav-links { gap: 16px; }
+    .nav-links a { font-size: 11px; }
+  }
+</style>
+<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="logo">harbor<span>/</span>privacy</a>
+    <div class="nav-links">
+      <a href="/">Home</a>
+      <a href="/nologs" class="active">No-Logs</a>
+      <a href="/pricing">Pricing</a>
+      <a href="/docs">Docs</a>
+      <a href="/#contact">Contact</a>
+      <a href="https://dashboard.harborprivacy.com" target="_blank" style="color:var(--accent);border:1px solid var(--accent);padding:4px 12px;">Dashboard</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="page-header">
+    <div class="page-tag">Data Transparency</div>
+    <h1>No-Logs Policy.</h1>
+    <p class="page-sub">We don't log your DNS queries. We can't see your browsing history. This page explains exactly what we can and cannot see — in plain English.</p>
+    <div class="badge">✓ No-Logs Verified</div>
+  </div>
+
+  <!-- WHAT WE CANNOT SEE -->
+  <div class="section">
+    <div class="section-label">What We Cannot See</div>
+    <h2>Your browsing history is invisible to us.</h2>
+    <div class="card">
+      <div class="card-title">HARBOR PRIVACY HAS NO ACCESS TO</div>
+      <ul class="check-list">
+        <li class="no">Your DNS queries — the websites your devices look up</li>
+        <li class="no">Your browsing history or search terms</li>
+        <li class="no">Your IP address or physical location</li>
+        <li class="no">What sites you visit or how long you spend on them</li>
+        <li class="no">Any past query history — logs are off by default</li>
+        <li class="no">Content of any web traffic</li>
+      </ul>
+    </div>
+    <p>AdGuard Home's query logging is <strong style="color:var(--text);">intentionally disabled</strong> on every Harbor Privacy installation. We did not turn it on and we do not turn it on unless you specifically request help troubleshooting a site that isn't loading.</p>
+  </div>
+
+  <hr class="divider">
+
+  <!-- WHAT WE CAN SEE -->
+  <div class="section">
+    <div class="section-label">What We Can See</div>
+    <h2>Only anonymous statistics.</h2>
+    <div class="card">
+      <div class="card-title">HARBOR PRIVACY CAN SEE</div>
+      <ul class="check-list">
+        <li class="yes">Your client ID — a random identifier like <span style="font-family:'DM Mono',monospace;color:var(--accent);font-size:14px;">timothy4821</span>. Not linked to your name or identity.</li>
+        <li class="yes">Total DNS queries processed today and this week — a number only, no detail</li>
+        <li class="yes">Total queries blocked — a number only</li>
+        <li class="yes">Percentage of queries blocked by category — aggregated, not individual</li>
+        <li class="yes">Your name and email — provided at signup, used only to contact you</li>
+        <li class="yes">Payment information — handled entirely by Stripe, we never see your card details</li>
+      </ul>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- TROUBLESHOOTING -->
+  <div class="section">
+    <div class="section-label">Support & Troubleshooting</div>
+    <h2>What happens if I need help?</h2>
+    <p>If a specific site stops loading for you and you contact us for help, we may temporarily enable query logging for that one domain so we can diagnose the issue. Here is exactly how that works:</p>
+    <div class="card">
+      <div class="card-title">TEMPORARY TROUBLESHOOTING LOGS</div>
+      <ul class="check-list">
+        <li class="yes">Logging is only enabled with your knowledge and consent</li>
+        <li class="yes">We can only see queries going forward — not historical data</li>
+        <li class="yes">You must reproduce the issue for us to see anything</li>
+        <li class="yes">Logs are reviewed only to fix your specific issue</li>
+        <li class="yes">Logs are deleted immediately after the issue is resolved</li>
+        <li class="no">We cannot pull up past browsing history — it does not exist</li>
+        <li class="no">We do not retain logs after troubleshooting is complete</li>
+      </ul>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- LEGAL REQUESTS -->
+  <div class="section">
+    <div class="section-label">Legal Requests & Subpoenas</div>
+    <h2>What happens if we receive a legal request?</h2>
+    <div class="subpoena-box">
+      <h3>We have nothing to give.</h3>
+      <p>Harbor Privacy does not retain DNS query logs, browsing history, or any record of what websites you have visited. If we receive a subpoena or legal request for your browsing data, we cannot provide what we do not have.</p>
+      <p>The only information we retain is:</p>
+      <ul class="check-list" style="margin-bottom:16px;">
+        <li class="yes">Your name and email address</li>
+        <li class="yes">Your subscription status</li>
+        <li class="yes">Payment records handled by Stripe</li>
+      </ul>
+      <p style="margin-bottom:0;">We comply with lawful legal requests. We will always notify you if we receive a request related to your account unless prohibited by law from doing so.</p>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <!-- WHY THIS MATTERS -->
+  <div class="section">
+    <div class="section-label">Why This Matters</div>
+    <h2>This is intentional, not incidental.</h2>
+    <div class="alert">
+      <div class="alert-label">OUR COMMITMENT</div>
+      <p style="color:var(--text);margin-bottom:8px;">We built Harbor Privacy specifically because we believe your browsing history is none of your ISP's business — and none of ours either.</p>
+      <p style="margin-bottom:0;">A privacy service that logs your data is not a privacy service. We designed our infrastructure from the ground up to collect as little as technically possible while still delivering the service.</p>
+    </div>
+    <p>If you have questions about our data practices, email us at <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="731a1d151c331b1201111c0103011a0512100a5d101c1e">[email&#160;protected]</a>. We will answer in plain English.</p>
+  </div>
+
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <span class="footer-copy">© 2026 Harbor Privacy · Pembroke, MA</span>
+    <div class="footer-links">
+      <a href="/nologs">No-Logs Policy</a>
+      <a href="/privacy">Priva

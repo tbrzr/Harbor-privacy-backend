@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harbor Privacy — Customer Documentation</title>
+<meta name="description" content="Everything you need to know about your Harbor Privacy installation. Dashboard guide, device setup, troubleshooting, and FAQ.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://harborprivacy.com/docs">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e0f;
+    --surface: #111618;
+    --border: #1e2a2d;
+    --accent: #00e5c0;
+    --text: #e8f0ef;
+    --muted: #6b8a87;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; line-height: 1.6; overflow-x: hidden; }
+  body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px); background-size: 60px 60px; opacity: 0.4; pointer-events: none; z-index: 0; }
+  nav { padding: 24px 0; border-bottom: 1px solid var(--border); position: relative; z-index: 1; }
+  .nav-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; }
+  .logo { font-family: 'DM Mono', monospace; font-size: 14px; color: var(--accent); letter-spacing: 0.1em; text-decoration: none; }
+  .logo span { color: var(--muted); }
+  nav a.cta-nav { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--accent); text-decoration: none; border: 1px solid var(--accent); padding: 8px 18px; letter-spacing: 0.08em; transition: all 0.2s; }
+  nav a.cta-nav:hover { background: var(--accent); color: var(--bg); }
+  .layout { max-width: 900px; margin: 0 auto; padding: 60px 24px 100px; position: relative; z-index: 1; display: grid; grid-template-columns: 220px 1fr; gap: 60px; }
+  .sidebar { position: sticky; top: 40px; height: fit-content; }
+  .sidebar-section { margin-bottom: 32px; }
+  .sidebar-label { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 12px; }
+  .sidebar a { display: block; font-size: 13px; color: var(--muted); text-decoration: none; padding: 6px 0; border-left: 2px solid var(--border); padding-left: 12px; transition: all 0.2s; }
+  .sidebar a:hover, .sidebar a.active { color: var(--accent); border-left-color: var(--accent); }
+  .content h1 { font-family: 'DM Serif Display', serif; font-size: clamp(32px, 5vw, 48px); font-weight: 400; margin-bottom: 16px; line-height: 1.1; }
+  .content h1 em { font-style: italic; color: var(--accent); }
+  .content .lead { font-size: 16px; color: var(--muted); margin-bottom: 60px; max-width: 560px; }
+  .doc-section { margin-bottom: 72px; scroll-margin-top: 40px; }
+  .section-tag { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 12px; }
+  h2 { font-family: 'DM Serif Display', serif; font-size: clamp(24px, 3vw, 32px); font-weight: 400; margin-bottom: 24px; line-height: 1.2; }
+  h3 { font-size: 16px; font-weight: 500; margin-bottom: 12px; color: var(--text); margin-top: 28px; }
+  p { font-size: 15px; color: var(--muted); margin-bottom: 16px; line-height: 1.7; }
+  ul, ol { padding-left: 20px; margin-bottom: 16px; }
+  li { font-size: 15px; color: var(--muted); margin-bottom: 8px; line-height: 1.6; }
+  li strong { color: var(--text); font-weight: 500; }
+  .card { border: 1px solid var(--border); padding: 24px 28px; background: var(--surface); margin-bottom: 16px; }
+  .card-title { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--accent); letter-spacing: 0.05em; margin-bottom: 10px; }
+  .card p { margin-bottom: 0; }
+  .steps-list { display: flex; flex-direction: column; gap: 1px; background: var(--border); border: 1px solid var(--border); margin-bottom: 24px; }
+  .step-item { background: var(--bg); padding: 20px 24px; display: grid; grid-template-columns: 32px 1fr; gap: 16px; }
+  .step-item:hover { background: var(--surface); }
+  .step-num { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent); padding-top: 2px; }
+  .step-content strong { display: block; font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+  .step-content span { font-size: 13px; color: var(--muted); }
+  .faq-item { border-bottom: 1px solid var(--border); padding: 20px 0; }
+  .faq-item:first-child { border-top: 1px solid var(--border); }
+  .faq-q { font-size: 15px; font-weight: 500; color: var(--text); margin-bottom: 10px; cursor: pointer; display: flex; justify-content: space-between; align-items: start; gap: 16px; }
+  .faq-q::after { content: '+'; font-family: 'DM Mono', monospace; color: var(--accent); font-size: 18px; flex-shrink: 0; }
+  .faq-q.open::after { content: '−'; }
+  .faq-a { font-size: 14px; color: var(--muted); line-height: 1.7; display: none; }
+  .faq-a.open { display: block; }
+  .alert { border: 1px solid var(--accent); background: #00e5c008; padding: 16px 20px; margin-bottom: 24px; }
+  .alert-title { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.1em; margin-bottom: 6px; }
+  .alert p { margin-bottom: 0; font-size: 14px; }
+  .device-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .device-card { border: 1px solid var(--border); padding: 20px; background: var(--surface); }
+  .device-icon { font-size: 24px; margin-bottom: 10px; }
+  .device-name { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--accent); margin-bottom: 8px; }
+  .device-steps { font-size: 13px; color: var(--muted); line-height: 1.7; }
+  .contact-cta { border: 1px solid var(--border); padding: 32px; text-align: center; background: var(--surface); }
+  .contact-cta h3 { font-family: 'DM Serif Display', serif; font-size: 24px; font-weight: 400; margin-bottom: 12px; color: var(--text); }
+  .contact-cta p { margin-bottom: 24px; }
+  .btn-primary { background: var(--accent); color: var(--bg); padding: 12px 28px; font-family: 'DM Mono', monospace; font-size: 13px; letter-spacing: 0.08em; text-decoration: none; font-weight: 500; transition: all 0.2s; display: inline-block; border: none; cursor: pointer; }
+  .btn-primary:hover { background: #00ffda; }
+  footer { border-top: 1px solid var(--border); padding: 32px 0; margin-top: 60px; position: relative; z-index: 1; }
+  .footer-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; justify-content: space-between; align-items: center; }
+  .footer-copy { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.08em; }
+  @media (max-width: 700px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+    .device-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="logo">harbor<span>/</span>privacy</a>
+    info@harborprivacy.com
+  </div>
+</nav>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Getting Started</div>
+      <a href="#overview">How It Works</a>
+      <a href="#dashboard">Your Dashboard</a>
+      <a href="#devices">Device Setup</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Managing Your Network</div>
+      <a href="#blocking">What Gets Blocked</a>
+      <a href="#whitelist">Unblocking a Site</a>
+      <a href="#querylogs">Query Logs</a>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Help</div>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#faq">FAQ</a>
+      <a href="#cancel">Cancelling</a>
+      <a href="#contact">Contact</a>
+    </div>
+  </aside>
+
+  <!-- CONTENT -->
+  <main class="content">
+
+    <h1>Your network,<br><em>explained.</em></h1>
+    <p class="lead">Everything you need to know about your Harbor Privacy installation — how it works, how to manage it, and what to do if something doesn't load.</p>
+
+    <!-- HOW IT WORKS -->
+    <div class="doc-section" id="overview">
+      <div class="section-tag">Getting Started</div>
+      <h2>How Your Network Works</h2>
+      <p>Your Harbor Privacy device is a small Raspberry Pi computer that sits quietly on your network and handles all DNS queries for every device in your home. DNS is essentially the phone book of the internet — every time you visit a website, your device first asks a DNS server for directions.</p>
+      <p>Normally, those requests go to your ISP (Comcast, Verizon, etc.) which can log and sell your browsing data. Your Harbor Privacy device intercepts those requests, blocks the bad ones, and sends the rest through an encrypted, private channel so your ISP never sees them.</p>
+
+      <div class="card">
+        <div class="card-title">WHAT HAPPENS WHEN YOU VISIT A WEBSITE</div>
+        <p>Your device asks your Harbor Privacy Pi for directions → Pi checks if the domain is on a blocklist → If clean, it looks up the address privately → Your device connects to the website. The whole process takes under 20 milliseconds.</p>
+      </div>
+
+      <h3>What It Protects</h3>
+      <ul>
+        <li><strong>Every device automatically</strong> — phones, laptops, smart TVs, game consoles, tablets. Anything connected to your WiFi or ethernet is protected without installing any software.</li>
+        <li><strong>Ads and trackers</strong> — blocked before they even load, which means faster page loads and less data usage.</li>
+        <li><strong>Malware and phishing domains</strong> — known malicious sites are blocked at the DNS level.</li>
+        <li><strong>ISP snooping</strong> — all your DNS queries are encrypted so Comcast can't see what sites you're visiting.</li>
+      </ul>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="doc-section" id="dashboard">
+      <div class="section-tag">Getting Started</div>
+      <h2>Your Dashboard</h2>
+      <p>Your Harbor Privacy device has a web dashboard where you can see what's being blocked, manage settings, and whitelist sites that aren't loading correctly.</p>
+
+      <div class="alert">
+        <div class="alert-title">ACCESS YOUR DASHBOARD</div>
+        <p>Open a browser on any device connected to your home network and go to the address provided in your setup documentation. You'll need the username and password from your setup sheet.</p>
+      </div>
+
+      <h3>Dashboard Overview</h3>
+      <div class="steps-list">
+        <div class="step-item">
+          <div class="step-num">01</div>
+          <div class="step-content">
+            <strong>DNS Queries</strong>
+            <span>Total number of requests processed. A typical home network sees 5,000--20,000 queries per day across all devices.</span>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">02</div>
+          <div class="step-content">
+            <strong>Blocked by Filters</strong>
+            <span>Percentage of queries blocked. Typically 10--20%. Higher means more ads and trackers on the sites you visit.</span>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">03</div>
+          <div class="step-content">
+            <strong>Query Log</strong>
+            <span>Real-time list of every DNS request from every device. Useful for finding out what's being blocked.</span>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">04</div>
+          <div class="step-content">
+            <strong>Filters</strong>
+            <span>The blocklists your device uses. These update automatically to catch new threats.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEVICE SETUP -->
+    <div class="doc-section" id="devices">
+      <div class="section-tag">Getting Started</div>
+      <h2>Device Setup</h2>
+      <p>Most devices are automatically protected once connected to your home network. For phones and tablets that leave your home network, a DNS profile was installed during setup to keep you protected anywhere.</p>
+
+      <div class="device-grid">
+        <div class="device-card">
+          <div class="device-icon">📱</div>
+          <div class="device-name">iPhone / iPad</div>
+          <div class="device-steps">A DNS profile was installed during setup. Go to <strong>Settings → General → VPN & Device Management</strong> to confirm it's active. The profile activates automatically when you leave home.</div>
+        </div>
+        <div class="device-card">
+          <div class="device-icon">🤖</div>
+          <div class="device-name">Android / Pixel</div>
+          <div class="device-steps">Go to <strong>Settings → Network &amp; Internet → Private DNS → Private DNS provider hostname</strong> and enter the address from your setup sheet (format: <strong>doh.harborprivacy.com/dns-query/yourname</strong>). Tap Save. This protects you on cellular and all WiFi networks.</div>
+        </div>
+        <div class="device-card">
+          <div class="device-icon">💻</div>
+          <div class="device-name">Windows / Mac</div>
+          <div class="device-steps">Automatically protected when connected to your home network. No additional setup required. For protection on other networks, contact me for setup instructions.</div>
+        </div>
+        <div class="device-card">
+          <div class="device-icon">📺</div>
+          <div class="device-name">Smart TV / Streaming</div>
+          <div class="device-steps">Automatically protected on your home network. DNS was configured in your TV's network settings during installation. No action needed.</div>
+        </div>
+        <div class="device-card">
+          <div class="device-icon">📡</div>
+          <div class="device-name">Xfinity Router</div>
+          <div class="device-steps">Open a browser and go to <strong>10.0.0.1</strong>. Log in with the credentials on your router sticker. Go to <strong>Advanced → DNS Settings</strong>. Set Primary DNS to the address from your setup sheet. Save and reboot your router. All devices on your network will be protected automatically.</div>
+        </div>
+        <div class="device-card">
+          <div class="device-icon">🌐</div>
+          <div class="device-name">Other Routers</div>
+          <div class="device-steps">Most routers have a DNS settings page under Advanced or WAN settings. Set the Primary DNS to the address from your setup sheet. If you need help finding it, contact me and I can walk you through it for your specific router model.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WHAT GETS BLOCKED -->
+    <div class="doc-section" id="blocking">
+      <div class="section-tag">Managing Your Network</div>
+      <h2>What Gets Blocked</h2>
+      <p>Your device uses carefully selected blocklists that catch ads and threats without breaking legitimate services. Here's what each category covers:</p>
+
+      <div class="card">
+        <div class="card-title">ADS & TRACKERS</div>
+        <p>Advertising networks, social media trackers, analytics services, and data brokers. These are blocked on every device without affecting the websites themselves.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">MALWARE & PHISHING</div>
+        <p>Known malicious domains, phishing sites, and command-and-control servers used by malware. Updated regularly from threat intelligence feeds.</p>
+      </div>
+      <div class="card">
+        <div class="card-title">TELEMETRY</div>
+        <p>Smart device "phone home" traffic — TVs, appliances, and IoT devices that send usage data back to manufacturers without your knowledge.</p>
+      </div>
+
+      <div class="alert">
+        <div class="alert-title">WHAT IS NOT BLOCKED</div>
+        <p>Legitimate websites, streaming services, online gaming, video calls, and anything you actually want to use. The blocklists are tuned to avoid false positives. If something you use stops working, see the section below on whitelisting.</p>
+      </div>
+    </div>
+
+    <!-- WHITELIST -->
+    <div class="doc-section" id="whitelist">
+      <div class="section-tag">Managing Your Network</div>
+      <h2>Unblocking a Site</h2>
+      <p>Occasionally a legitimate site or service may be blocked. This is uncommon but can happen. Here's how to fix it:</p>
+
+      <h3>Option 1 — Contact Me (Easiest)</h3>
+      <p>Email or text me the domain that's not loading. I can unblock it remotely within a few hours. This is the recommended option for most people.</p>
+
+      <h3>Option 2 — Use Your Dashboard</h3>
+      <div class="steps-list">
+        <div class="step-item">
+          <div class="step-num">01</div>
+          <div class="step-content">
+            <strong>Open your dashboard</strong>
+            <span>Go to the dashboard address from your setup sheet and log in.</span>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">02</div>
+          <div class="step-content">
+            <strong>Open Query Log</strong>
+            <span>Click Query Log in the top navigation. Find the domain that's being blocked — it will show in red.</span>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">03</div>
+          <div class="step-content">
+            <strong>Unblock the domain</strong>
+            <span>Click the domain name → click the green checkmark to add it to your personal allowlist. It will load immediately.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUERY LOGS -->
+    <div class="doc-section" id="querylogs">
+      <div class="section-tag">Managing Your Network</div>
+      <h2>Query Logs</h2>
+      <p>The query log shows every DNS request made by every device on your network in real time. Green entries are allowed, red entries are blocked.</p>
+
+      <h3>What You'll See</h3>
+      <ul>
+        <li><strong>A lot of requests</strong> — a typical household generates thousands of queries per day. Most are background app activity, not active browsing.</li>
+        <li><strong>Unfamiliar domain names</strong> — many are legitimate services running in the background. Apple, Google, and app developers all make regular background requests.</li>
+        <li><strong>Blocked entries</strong> — shown in red. These are ads, trackers, or malicious domains that were stopped before loading.</li>
+      </ul>
+
+      <div class="alert">
+        <div class="alert-title">PRIVACY NOTE</div>
+        <p>Query logs are stored locally on your device only. They are never sent anywhere or shared with anyone. You can clear them at any time from the dashboard settings.</p>
+      </div>
+    </div>
+
+    <!-- TROUBLESHOOTING -->
+    <div class="doc-section" id="troubleshooting">
+      <div class="section-tag">Help</div>
+      <h2>Troubleshooting</h2>
+
+      <h3>A website or app stopped working</h3>
+      <div class="steps-list">
+        <div class="step-item">
+          <div class="step-num">01</div>
+          <div class="step-content">
+            <strong>Check the query log</strong>
+            <span>Open your dashboard and look at the query log. If you see the domain in red, it's being blocked. Use the whitelist steps above to unblock it, or contact me.</span>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">02</div>
+          <div class="step-content">
+            <strong>Try on a different device</strong>
+            <span>If the site works on another device, the issue may be specific to that device's cache. Try clearing the browser cache or restarting the device.</span>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-num">03</div>
+          <div class="step-content">
+            <strong>Contact me</strong>
+            <span>If you can't figure it out, email or text me. I can usually diagnose and fix remotely within a few hours.</span>
+          </div>
+        </div>
+      </div>
+
+      <h3>Internet seems slow</h3>
+      <p>Your Harbor Privacy device adds less than 5 milliseconds to DNS resolution — this is imperceptible in normal use. If your internet feels slow, the cause is almost certainly your ISP or WiFi, not the DNS device. Run a speed test at <strong>fast.com</strong> to check your connection.</p>
+
+      <h3>The Pi device lost power</h3>
+      <p>If the Raspberry Pi is unplugged or loses power, your internet will still work — your router will fall back to a backup DNS server automatically. Simply plug the Pi back in and wait about 60 seconds for it to restart. Everything will return to normal on its own.</p>
+
+      <h3>Something changed on my router</h3>
+      <p>If you get a new router, change your router settings, or your ISP makes changes, your Harbor Privacy setup may need to be reconfigured. Contact me before making major changes to your network and I can advise.</p>
+    </div>
+
+    <!-- FAQ -->
+    <div class="doc-section" id="faq">
+      <div class="section-tag">Help</div>
+      <h2>Frequently Asked Questions</h2>
+
+      <div class="faq-item">
+        <div class="faq-q">Will this slow down my internet?</div>
+        <div class="faq-a">No. DNS resolution typically takes under 5 milliseconds and is only a tiny fraction of the time it takes to load a page. Most customers notice pages loading faster because ads and trackers are no longer loading.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Does it block Netflix, YouTube, or streaming services?</div>
+        <div class="faq-a">No. Streaming services are never blocked. If you ever have an issue with a streaming service, check the query log or contact me — it can usually be resolved in minutes.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What happens if the Pi goes offline?</div>
+        <div class="faq-a">Your internet continues to work normally. There is a cloud backup DNS server that automatically takes over within about 60 seconds if your Pi is unreachable. You won't lose internet access.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Can I see what websites my family is visiting?</div>
+        <div class="faq-a">The query log shows domain names that were requested, not full URLs or page content. You can see that a device visited youtube.com but not which videos were watched. This is by design — the system is built for privacy, not surveillance.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Does it protect my phone when I'm not at home?</div>
+        <div class="faq-a">Yes, if a DNS profile was installed on your phone during setup. The profile routes your DNS queries through your home network even when you're on cellular or other WiFi networks. Check Settings → General → VPN & Device Management on iPhone to confirm it's active.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Do I need to do anything to maintain it?</div>
+        <div class="faq-a">No. The device updates its blocklists automatically and is configured to restart itself if anything goes wrong. The only maintenance needed is keeping it plugged in and connected to your router.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What if I get a new router or move?</div>
+        <div class="faq-a">Contact me before making changes. A new router usually requires a quick reconfiguration that I can walk you through or handle remotely. If you move within the South Shore area, I can come out to reconfigure for your new network.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">Is my browsing data being collected?</div>
+        <div class="faq-a">No. Your DNS queries are processed locally on the device in your home. Nothing is sent to me or any third party. The whole point of the system is to keep your data private.</div>
+      </div>
+      <div class="faq-item">
+        <div class="faq-q">What's covered in the 30-day support period?</div>
+        <div class="faq-a">Any issues related to your installation — blocked sites, device configuration, performance questions, or anything else that comes up as you get familiar with the system. After 30 days, I'm still happy to help — reach out and we can discuss options.</div>
+      </div>
+
+      <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+        document.querySelectorAll('.faq-q').forEach(q => {
+          q.addEventListener('click', () => {
+            q.classList.toggle('open');
+            q.nextElementSibling.classList.toggle('open');
+          });
+        });
+      </script>
+    </div>
+
+    <!-- CANCELLATION -->
+    <div class="doc-section" id="cancel">
+      <div class="section-tag">Managing Your Subscription</div>
+      <h2>Cancelling Your Subscription</h2>
+      <p>You can cancel your Harbor Privacy subscription anytime from the <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank" style="color:var(--accent);">customer portal</a>. Your DNS access stops automatically within minutes of cancellation. However your devices will still have Harbor Privacy configured — follow the steps below to remove it.</p>
+
+      <h3>iPhone / iPad</h3>
+      <div class="steps-list">
+        <div class="step-item"><div class="step-num">01</div><div class="step-content"><strong>Open Settings</strong><span>Go to Settings → General → VPN & Device Management</span></div></div>
+        <div class="step-item"><div class="step-num">02</div><div class="step-content"><strong>Find the Harbor Privacy profile</strong><span>Tap on "Harbor Privacy DNS" in the list</span></div></div>
+        <div class="step-item"><div class="step-num">03</div><div class="step-content"><strong>Remove it</strong><span>Tap "Remove Profile" and confirm. Your phone will revert to your carrier's default DNS.</span></div></div>
+      </div>
+
+      <h3>Android / Pixel</h3>
+      <div class="steps-list">
+        <div class="step-item"><div class="step-num">01</div><div class="step-content"><strong>Open Settings</strong><span>Go to Settings → Network & Internet → Private DNS</span></div></div>
+        <div class="step-item"><div class="step-num">02</div><div class="step-content"><strong>Turn it off</strong><span>Select "Off" or "Automatic" to remove the Harbor Privacy DNS setting</span></div></div>
+      </div>
+
+      <h3>Xfinity Router</h3>
+      <div class="steps-list">
+        <div class="step-item"><div class="step-num">01</div><div class="step-content"><strong>Log into your router</strong><span>Open a browser and go to 10.0.0.1. Log in with the credentials on your router sticker.</span></div></div>
+        <div class="step-item"><div class="step-num">02</div><div class="step-content"><strong>Go to DNS Settings</strong><span>Navigate to Advanced → DNS Settings</span></div></div>
+        <div class="step-item"><div class="step-num">03</div><div class="step-content"><strong>Restore default DNS</strong><span>Delete the Harbor Privacy DNS entry and set DNS back to Automatic or your ISP's default. Save and reboot your router.</span></div></div>
+      </div>
+
+      <h3>Other Routers</h3>
+      <div class="steps-list">
+        <div class="step-item"><div class="step-num">01</div><div class="step-content"><strong>Log into your router admin panel</strong><span>Usually found at 192.168.1.1 or 192.168.0.1 in your browser. Check the sticker on your router for the address and login credentials.</span></div></div>
+        <div class="step-item"><div class="step-num">02</div><div class="step-content"><strong>Find DNS settings</strong><span>Usually under WAN, Internet, or Advanced settings. Look for "DNS Server" or "DNS Configuration".</span></div></div>
+        <div class="step-item"><div class="step-num">03</div><div class="step-content"><strong>Restore default DNS</strong><span>Delete the Harbor Privacy entry and set DNS to Automatic or leave blank to use your ISP's DNS. Save and reboot.</span></div></div>
+      </div>
+
+      <div class="alert">
+        <div class="alert-title">NEED HELP REMOVING IT?</div>
+        <p>If you have trouble removing Harbor Privacy from any device or router, reach out and I'll walk you through it. No hard feelings — happy to help even after cancellation.</p>
+      </div>
+    </div>
+
+    <!-- CONTACT -->
+    <div class="doc-section" id="contact">
+      <div class="contact-cta">
+        <h3>Still need help?</h3>
+        <p>Reach out and I'll get back to you within 24 hours.</p>
+        info@harborprivacy.com
+        <p style="margin-top: 16px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.08em;">📍 Pembroke, MA · Serving the South Shore</p>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<footer>
+  <div class="footer-inner">
+    <sp

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Learn — Home Network Privacy Tips | Harbor Privacy</title>
+<meta name="description" content="Free guides on email filtering, DNS privacy, ISP tracking, and phishing protection. Learn how to protect your home network and inbox.">
+<meta name="keywords" content="how to filter junk email Gmail, stop ISP tracking, DNS privacy home network, phishing email detection, unsubscribe email safely, Xfinity email spam filter, Yahoo spam filter">
+<link rel="canonical" href="https://harborprivacy.com/learn">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+<style>
+  :root {
+    --bg: #0a0e0f; --surface: #111618; --border: #1e2a2d;
+    --accent: #00e5c0; --text: #e8f0ef; --muted: #6b8a87;
+    --danger: #ff4e4e; --sidebar-width: 240px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; line-height: 1.7; font-size: 16px; display: flex; min-height: 100vh; }
+  body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px); background-size: 60px 60px; opacity: 0.3; pointer-events: none; z-index: 0; }
+
+/* SIDEBAR */
+.sidebar { width: var(--sidebar-width); min-height: 100vh; background: var(--surface); border-right: 1px solid var(--border); position: fixed; top: 0; left: 0; z-index: 100; display: flex; flex-direction: column; overflow-y: auto; transition: transform 0.3s ease; }
+.sidebar-logo { padding: 28px 24px 20px; border-bottom: 1px solid var(--border); }
+.sidebar-logo a { font-family: ‘DM Mono’, monospace; font-size: 15px; color: var(--accent); letter-spacing: 0.1em; text-decoration: none; display: block; }
+.sidebar-logo a span { color: var(--muted); }
+.sidebar-logo .tagline { font-family: ‘DM Mono’, monospace; font-size: 10px; color: var(--muted); letter-spacing: 0.06em; margin-top: 5px; }
+.nav-section { padding: 18px 0 6px; border-bottom: 1px solid var(--border); }
+.nav-section:last-of-type { border-bottom: none; }
+.nav-section-label { font-family: ‘DM Mono’, monospace; font-size: 9px; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; padding: 0 24px 8px; }
+.nav-link { display: flex; align-items: center; gap: 10px; padding: 9px 24px; font-family: ‘DM Mono’, monospace; font-size: 12px; color: var(--muted); text-decoration: none; letter-spacing: 0.04em; transition: all 0.15s; border-left: 2px solid transparent; }
+.nav-link:hover { color: var(--text); background: #ffffff05; border-left-color: var(--border); }
+.nav-link.active { color: var(--accent); border-left-color: var(--accent); background: #00e5c008; }
+.nav-icon { font-size: 12px; width: 16px; text-align: center; flex-shrink: 0; }
+.nav-badge { margin-left: auto; background: var(--accent); color: var(--bg); font-size: 8px; padding: 2px 6px; letter-spacing: 0.1em; font-weight: 500; }
+.sidebar-cta { margin: 16px; padding: 12px 16px; background: var(--accent); color: var(--bg); font-family: ‘DM Mono’, monospace; font-size: 11px; letter-spacing: 0.08em; text-decoration: none; text-align: center; display: block; font-weight: 500; transition: background 0.2s; }
+.sidebar-cta:hover { background: #00ffda; }
+.sidebar-footer { padding: 16px 24px; margin-top: auto; border-top: 1px solid var(--border); }
+.sidebar-footer a { font-family: ‘DM Mono’, monospace; font-size: 10px; color: var(--muted); text-decoration: none; letter-spacing: 0.05em; display: block; margin-bottom: 4px; }
+.sidebar-footer a:hover { color: var(--accent); }
+.sidebar-footer .copy { font-family: ‘DM Mono’, monospace; font-size: 10px; color: #1e2a2d; letter-spacing: 0.05em; margin-top: 8px; }
+
+/* HAMBURGER */
+.hamburger { display: none; position: fixed; top: 16px; left: 16px; z-index: 200; background: var(--surface); border: 1px solid var(--border); padding: 10px 12px; cursor: pointer; flex-direction: column; gap: 5px; }
+.hamburger span { display: block; width: 20px; height: 1.5px; background: var(--accent); }
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 99; }
+
+/* MAIN */
+.main-content { margin-left: var(--sidebar-width); flex: 1; min-width: 0; position: relative; z-index: 1; }
+.content-inner { max-width: 860px; padding: 60px 48px 100px; }
+
+/* PAGE HEADER */
+.page-header { padding-bottom: 48px; border-bottom: 1px solid var(--border); margin-bottom: 64px; }
+.page-tag { font-family: ‘DM Mono’, monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; }
+.page-tag::before { content: ‘’; display: block; width: 32px; height: 1px; background: var(--accent); }
+h1 { font-family: ‘DM Serif Display’, serif; font-size: clamp(36px, 5vw, 56px); font-weight: 400; line-height: 1.1; margin-bottom: 20px; }
+.page-sub { font-size: 18px; color: var(--muted); line-height: 1.7; max-width: 620px; }
+
+/* TOPIC CARDS */
+.topic-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border: 1px solid var(--border); margin-bottom: 80px; }
+.topic-card { background: var(--surface); padding: 32px; text-decoration: none; transition: background 0.2s; display: block; }
+.topic-card:hover { background: #151c1e; }
+.topic-num { font-family: ‘DM Mono’, monospace; font-size: 10px; color: var(--accent); letter-spacing: 0.15em; margin-bottom: 12px; }
+.topic-title { font-family: ‘DM Serif Display’, serif; font-size: 22px; font-weight: 400; color: var(--text); margin-bottom: 10px; line-height: 1.2; }
+.topic-desc { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+.topic-arrow { font-family: ‘DM Mono’, monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.05em; }
+
+/* ARTICLE SECTIONS */
+.article { margin-bottom: 80px; padding-bottom: 80px; border-bottom: 1px solid var(--border); }
+.article:last-child { border-bottom: none; }
+.article-tag { font-family: ‘DM Mono’, monospace; font-size: 10px; color: var(--accent); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 16px; }
+h2 { font-family: ‘DM Serif Display’, serif; font-size: clamp(28px, 3vw, 38px); font-weight: 400; margin-bottom: 20px; line-height: 1.2; }
+h3 { font-family: ‘DM Serif Display’, serif; font-size: 22px; font-weight: 400; margin-bottom: 14px; margin-top: 36px; color: var(--text); }
+p { color: var(--muted); margin-bottom: 18px; font-size: 16px; line-height: 1.75; }
+p strong { color: var(--text); font-weight: 500; }
+.step-list { list-style: none; margin-bottom: 28px; }
+.step-list li { padding: 14px 0; border-bottom: 1px solid var(--border); font-size: 15px; color: var(--muted); display: flex; gap: 16px; align-items: flex-start; }
+.step-list li:last-child { border-bottom: none; }
+.step-num { font-family: ‘DM Mono’, monospace; font-size: 11px; color: var(--accent); flex-shrink: 0; padding-top: 2px; min-width: 28px; }
+.tip-box { border: 1px solid var(--accent); background: #00e5c008; padding: 24px; margin: 28px 0; }
+.tip-label { font-family: ‘DM Mono’, monospace; font-size: 10px; color: var(--accent); letter-spacing: 0.15em; margin-bottom: 10px; }
+.warning-box { border: 1px solid var(--danger); background: #ff4e4e08; padding: 24px; margin: 28px 0; }
+.warning-label { font-family: ‘DM Mono’, monospace; font-size: 10px; color: var(--danger); letter-spacing: 0.15em; margin-bottom: 10px; }
+.code-block { background: #0d1214; border: 1px solid var(--border); padding: 20px 24px; font-family: ‘DM Mono’, monospace; font-size: 13px; color: var(--muted); margin: 20px 0; line-height: 1.8; overflow-x: auto; }
+.code-block .highlight { color: var(--accent); }
+.cta-inline { display: inline-block; background: var(--accent); color: var(--bg); padding: 12px 28px; font-family: ‘DM Mono’, monospace; font-size: 12px; letter-spacing: 0.08em; text-decoration: none; font-weight: 500; margin-top: 8px; transition: background 0.2s; }
+.cta-inline:hover { background: #00ffda; }
+.divider { border: none; border-top: 1px solid var(--border); margin: 48px 0; }
+
+/* MOBILE */
+@media (max-width: 768px) {
+body { display: block; }
+.sidebar { transform: translateX(-100%); width: 280px; }
+.sidebar.open { transform: translateX(0); }
+.hamburger { display: flex; }
+.main-content { margin-left: 0; }
+.overlay.open { display: block; }
+.content-inner { padding: 60px 24px 80px; }
+.topic-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+</head>
+<body>
+
+<button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Menu">
+  <span></span><span></span><span></span>
+</button>
+<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div style="padding:12px 16px 0;display:flex;flex-direction:column;gap:8px;">
+    <a href="https://dashboard.harborprivacy.com" target="_blank" style="display:block;padding:12px 16px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;">⊞ My Dashboard</a>
+    <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank" style="display:block;padding:12px 16px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;">⇌ Manage Subscription</a>
+  </div>
+  <div class="sidebar-logo">
+    <a href="/">harbor<span>/</span>privacy</a>
+    <div class="tagline">Pembroke, MA · South Shore</div>
+  </div>
+  <nav>
+    <div class="nav-section">
+      <div class="nav-section-label">Main</div>
+      <a href="/" class="nav-link"><span class="nav-icon">⌂</span> Home</a>
+      <a href="/how-it-works" class="nav-link"><span class="nav-icon">◈</span> How It Works</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Learn</div>
+      <a href="/learn" class="nav-link active"><span class="nav-icon">◈</span> Overview</a>
+      <a href="/learn#email-filtering" class="nav-link"><span class="nav-icon">✉</span> Email Filtering</a>
+      <a href="/learn#dns-privacy" class="nav-link"><span class="nav-icon">⬡</span> DNS Privacy</a>
+      <a href="/learn#isp-tracking" class="nav-link"><span class="nav-icon">◎</span> ISP Tracking</a>
+      <a href="/learn#phishing" class="nav-link"><span class="nav-icon">⚠</span> Phishing & Malware</a>
+      <a href="/learn#unbound" class="nav-link"><span class="nav-icon">⬡</span> Unbound & Recursive DNS</a>
+      <a href="/learn#smart-home" class="nav-link"><span class="nav-icon">⌂</span> Smart Home Tracking</a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Services</div>
+      <a href="/pricing" class="nav-link"><span class="nav-icon">$</span> Pricing</a>
+      <a href="/pricing#audit" class="nav-link"><span class="nav-icon">✦</span> Network Audit</a>
+      <a href="/pricing#remote" class="nav-link"><span class="nav-icon">⇌</span> Harbor Remote <span class="nav-badge">NEW</span></a>
+    </div>
+    <div class="nav-section">
+      <div class="nav-section-label">Support</div>
+      <a href="/docs" class="nav-link"><span class="nav-icon">≡</span> Documentation</a>
+      <a href="/nologs" class="nav-link"><span class="nav-icon">✓</span> No-Logs Policy</a>
+      <a href="/privacy" class="nav-link"><span class="nav-icon">⊙</span> Privacy Policy</a>
+      <a href="/terms" class="nav-link"><span class="nav-icon">§</span> Terms of Service</a>
+      <a href="/#contact" class="nav-link"><span class="nav-icon">✉</span> Contact</a>
+    </div>
+  </nav>
+
+  <a href="/#contact" class="sidebar-cta">Get Started →</a>
+  <div class="sidebar-footer">
+    <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank">Manage Subscription</a>
+    <div class="copy">© 2026 Harbor Privacy</div>
+  </div>
+</aside>
+
+<div class="main-content">
+<div class="content-inner">
+
+  <div class="page-header">
+    <div class="page-tag">Free Resources</div>
+    <h1>Learn to protect<br><em style="font-style:italic;color:var(--accent);">your privacy.</em></h1>
+    <p class="page-sub">Free guides on email filtering, DNS privacy, ISP tracking, and phishing. No purchase required — just useful information to help you take back control of your digital life.</p>
+  </div>
+
+  <!-- TOPIC CARDS -->
+
+  <div class="topic-grid">
+    <a href="#email-filtering" class="topic-card">
+      <div class="topic-num">01 — EMAIL</div>
+      <div class="topic-title">How to Filter Junk Email</div>
+      <div class="topic-desc">Gmail, Yahoo, and Xfinity filters, hidden tracking pixels, and the safest way to unsubscribe.</div>
+      <div class="topic-arrow">Read guide →</div>
+    </a>
+    <a href="#dns-privacy" class="topic-card">
+      <div class="topic-num">02 — DNS</div>
+      <div class="topic-title">What Is DNS Privacy?</div>
+      <div class="topic-desc">Why your ISP can see every website you visit and what you can do about it.</div>
+      <div class="topic-arrow">Read guide →</div>
+    </a>
+    <a href="#isp-tracking" class="topic-card">
+      <div class="topic-num">03 — ISP</div>
+      <div class="topic-title">How Your ISP Tracks You</div>
+      <div class="topic-desc">What Comcast, Verizon, and AT&amp;T can legally collect and sell about your browsing.</div>
+      <div class="topic-arrow">Read guide →</div>
+    </a>
+    <a href="#phishing" class="topic-card">
+      <div class="topic-num">04 — SECURITY</div>
+      <div class="topic-title">Spotting Phishing &amp; Malware</div>
+      <div class="topic-desc">How to identify dangerous emails, fake links, and malicious sites before they get you.</div>
+      <div class="topic-arrow">Read guide →</div>
+    </a>
+    <a href="#unbound" class="topic-card">
+      <div class="topic-num">05 — DNS</div>
+      <div class="topic-title">What Is Unbound &amp; Recursive DNS?</div>
+      <div class="topic-desc">Why Harbor Privacy uses Unbound to resolve DNS directly from root servers — with no middleman.</div>
+      <div class="topic-arrow">Read guide →</div>
+    </a>
+    <a href="#smart-home" class="topic-card">
+      <div class="topic-num">06 — SMART HOME</div>
+      <div class="topic-title">How Smart Devices Track You</div>
+      <div class="topic-desc">Your TV, thermostat, and doorbell are constantly phoning home. Here's what they collect.</div>
+      <div class="topic-arrow">Read guide →</div>
+    </a>
+  </div>
+
+  <!-- ARTICLE 1: EMAIL FILTERING -->
+
+  <div class="article" id="email-filtering">
+    <div class="article-tag">01 — Email Privacy</div>
+    <h2>How to Filter Junk Email in Gmail, Yahoo &amp; Xfinity</h2>
+    <p>Your inbox is a battlefield. Every day, marketers, spammers, and scammers compete for your attention — and your data. Learning to filter, block, and unsubscribe safely is one of the most practical privacy skills you can develop.</p>
+
+```
+<h3>Gmail — Setting Up Filters</h3>
+<p>Gmail's filter system is powerful but buried. Here's how to use it to automatically delete, archive, or label junk before it hits your inbox.</p>
+<ol class="step-list">
+  <li><span class="step-num">01</span>Open Gmail on desktop → click the search bar → click the filter icon (three sliders) on the right side of the search bar.</li>
+  <li><span class="step-num">02</span>Enter the sender's email address or a keyword that appears in junk mail — like "unsubscribe" or "offer expires".</li>
+  <li><span class="step-num">03</span>Click <strong>Create filter</strong> → choose what to do: Delete it, Skip Inbox, Mark as read, or Apply a label.</li>
+  <li><span class="step-num">04</span>Check <strong>Also apply filter to matching conversations</strong> to clean up existing emails too.</li>
+  <li><span class="step-num">05</span>Click <strong>Create filter</strong> to save. Gmail will now automatically handle matching emails.</li>
+</ol>
+
+<div class="tip-box">
+  <div class="tip-label">PRO TIP</div>
+  <p style="margin:0;color:var(--text);">Filter by domain instead of individual senders. If you get junk from multiple @marketing.example.com addresses, filter the entire domain by entering <span style="font-family:'DM Mono',monospace;color:var(--accent);">@example.com</span> in the From field.</p>
+</div>
+
+<h3>Yahoo Mail — Spam Filters &amp; Blocked Senders</h3>
+<ol class="step-list">
+  <li><span class="step-num">01</span>Open Yahoo Mail → Settings (gear icon) → More Settings → Filters.</li>
+  <li><span class="step-num">02</span>Click <strong>Add new filters</strong> → give it a name → set your conditions (From, Subject, Body).</li>
+  <li><span class="step-num">03</span>Choose the folder — select Trash to auto-delete matching emails.</li>
+  <li><span class="step-num">04</span>To block a sender directly: right-click any email → Block Sender. Yahoo will move future emails from that address to spam.</li>
+</ol>
+
+<h3>Xfinity / Comcast Email</h3>
+<ol class="step-list">
+  <li><span class="step-num">01</span>Log into your Xfinity email at connect.xfinity.com.</li>
+  <li><span class="step-num">02</span>Go to Settings → Email Settings → Spam Filter.</li>
+  <li><span class="step-num">03</span>Enable spam filtering and set the sensitivity level. Medium is a good starting point.</li>
+  <li><span class="step-num">04</span>Add specific senders to your blocked list under <strong>Blocked Senders</strong>.</li>
+</ol>
+
+<h3>Unsubscribe vs. Delete — Which Is Safer?</h3>
+<p><strong>Legitimate marketing emails:</strong> Use the unsubscribe link. Reputable companies are required by law (CAN-SPAM Act) to honor unsubscribe requests within 10 business days.</p>
+<p><strong>Suspicious or unknown senders:</strong> Never click unsubscribe. Clicking confirms your email address is active, which can result in more spam. Just delete or block.</p>
+
+<div class="warning-box">
+  <div class="warning-label">WARNING</div>
+  <p style="margin:0;color:var(--text);">If an email looks off — unusual sender address, poor grammar, urgent language — do not click any links including unsubscribe. Mark it as spam instead. Clicking any link in a phishing email can compromise your device.</p>
+</div>
+
+<h3>Hidden Tracking Pixels</h3>
+<p>Many marketing emails contain invisible 1x1 pixel images. When you open the email, your email client loads the image, silently notifying the sender that you opened it, along with your approximate location and device type.</p>
+<p><strong>How to block tracking pixels in Gmail:</strong> Settings → See all settings → General → Images → select <strong>"Ask before displaying external images"</strong>. This prevents automatic image loading and stops tracking pixels from firing.</p>
+<p><strong>In Apple Mail (iPhone/Mac):</strong> Settings → Mail → Privacy Protection → enable <strong>Protect Mail Activity</strong>. Apple routes images through their proxy servers, masking your IP and blocking pixel tracking.</p>
+
+<div class="tip-box">
+  <div class="tip-label">HARBOR PRIVACY TIP</div>
+  <p style="margin:0;color:var(--text);">DNS-level blocking can also block tracking pixel domains at the network level — before they ever reach your email client. This protects every email app on every device in your home automatically.</p>
+</div>
+```
+
+  </div>
+
+  <!-- ARTICLE 2: DNS PRIVACY -->
+
+  <div class="article" id="dns-privacy">
+    <div class="article-tag">02 — DNS Privacy</div>
+    <h2>What Is DNS &amp; Why Does It Matter for Your Privacy?</h2>
+    <p>Every time you visit a website, your device performs a DNS lookup — a query that translates a domain name like <span style="font-family:'DM Mono',monospace;color:var(--accent);">google.com</span> into an IP address your device can connect to. This happens thousands of times per day, for every device on your network.</p>
+    <p>The problem: by default, these queries are sent in plain text to your ISP's DNS servers. Your ISP can see every domain you look up — every website, app, and service your household uses.</p>
+
+```
+<h3>What Is DNS Over HTTPS (DoH)?</h3>
+<p>DNS over HTTPS (DoH) encrypts your DNS queries so they can't be intercepted or logged by your ISP. Instead of plain text queries going to Comcast, your queries travel encrypted to a private DNS resolver.</p>
+
+<div class="code-block">
+  <span style="color:var(--muted);"># Without DoH:</span><br>
+  <span class="highlight">your-device</span> → <span style="color:var(--text);">Comcast DNS</span> → <span style="color:var(--danger);">Comcast can log it</span><br><br>
+  <span style="color:var(--muted);"># With DoH:</span><br>
+  <span class="highlight">your-device</span> → <span style="color:var(--text);">Encrypted tunnel</span> → <span class="highlight">Private DNS resolver</span> → <span style="color:var(--text);">Comcast sees nothing</span>
+</div>
+
+<h3>How to Enable DoH on Your Devices</h3>
+<p><strong>iPhone/iPad:</strong> The easiest way is to install a DNS profile. Harbor Privacy customers receive a personal profile — but you can also use Cloudflare's free profile at <span style="font-family:'DM Mono',monospace;color:var(--accent);">1.1.1.1/dns/</span>.</p>
+<p><strong>Android/Pixel:</strong> Settings → Network &amp; Internet → Private DNS → enter a DoH hostname. Cloudflare's free option is <span style="font-family:'DM Mono',monospace;color:var(--accent);">one.one.one.one</span>.</p>
+<p><strong>Windows 11:</strong> Settings → Network &amp; Internet → your connection → DNS server assignment → Edit → set to Manual → enable DNS over HTTPS.</p>
+<p><strong>Mac:</strong> System Preferences → Network → Advanced → DNS — add a DoH server. Requires a configuration profile for full DoH support.</p>
+
+<div class="tip-box">
+  <div class="tip-label">WANT THIS DONE FOR YOU?</div>
+  <p style="margin:0;color:var(--text);">Harbor Privacy configures encrypted DNS for your entire home network — every device, automatically. <a href="/#contact" style="color:var(--accent);">Get started here.</a></p>
+</div>
+```
+
+  </div>
+
+  <!-- ARTICLE 3: ISP TRACKING -->
+
+  <div class="article" id="isp-tracking">
+    <div class="article-tag">03 — ISP Tracking</div>
+    <h2>How Your ISP Tracks You — And What You Can Do About It</h2>
+    <p>In 2017, Congress voted to allow ISPs to collect and sell your browsing data to advertisers without your consent. Comcast, Verizon, AT&amp;T, and others can legally monitor your internet activity and monetize it.</p>
+
+```
+<h3>What ISPs Can Collect</h3>
+<ol class="step-list">
+  <li><span class="step-num">→</span>Every website you visit via DNS queries — even in incognito mode</li>
+  <li><span class="step-num">→</span>How long you spend on each site</li>
+  <li><span class="step-num">→</span>What devices are on your network</li>
+  <li><span class="step-num">→</span>Your general location based on IP address</li>
+  <li><span class="step-num">→</span>Unencrypted browsing traffic (HTTP sites)</li>
+</ol>
+
+<div class="warning-box">
+  <div class="warning-label">IMPORTANT NOTE</div>
+  <p style="margin:0;color:var(--text);">Incognito mode does NOT hide your activity from your ISP. It only prevents your browser from saving your local history. Your ISP can still see every site you visit.</p>
+</div>
+
+<h3>How to Limit ISP Tracking</h3>
+<ol class="step-list">
+  <li><span class="step-num">01</span><strong>Use DNS over HTTPS</strong> — encrypts your DNS queries so your ISP can't log which domains you visit. This is the single most effective step for most households.</li>
+  <li><span class="step-num">02</span><strong>Use HTTPS websites</strong> — look for the padlock in your browser. HTTPS encrypts the content of your browsing so your ISP can only see the domain, not the specific pages.</li>
+  <li><span class="step-num">03</span><strong>Use a VPN</strong> — routes all traffic through an encrypted tunnel. Effective but requires trust in the VPN provider. Free VPNs often sell your data themselves.</li>
+  <li><span class="step-num">04</span><strong>DNS-level ad blocking</strong> — blocks tracker domains before they load, reducing the data footprint your devices create.</li>
+</ol>
+```
+
+  </div>
+
+  <!-- ARTICLE 4: PHISHING -->
+
+  <div class="article" id="phishing">
+    <div class="article-tag">04 — Security</div>
+    <h2>How to Spot Phishing Emails &amp; Malicious Links</h2>
+    <p>Phishing attacks are responsible for the majority of data breaches and identity theft cases. They work by tricking you into clicking a link or entering credentials on a fake website. Learning to spot them takes minutes — and can save you from major consequences.</p>
+
+```
+<h3>Red Flags in Emails</h3>
+<ol class="step-list">
+  <li><span class="step-num">→</span><strong>Urgency and fear</strong> — "Your account will be suspended in 24 hours." Legitimate companies don't rush you into clicking links.</li>
+  <li><span class="step-num">→</span><strong>Mismatched sender address</strong> — the display name says "PayPal" but the actual email is from <span style="font-family:'DM Mono',monospace;color:var(--danger);"><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="cdbdacb4bdaca1e0bea8aeb8bfa4b9b48daaa0aca4a1e3aea2a0">[email&#160;protected]</a></span>. Always check the full email address.</li>
+  <li><span class="step-num">→</span><strong>Suspicious links</strong> — hover over any link before clicking (on desktop). The URL that appears should match the company. <span style="font-family:'DM Mono',monospace;color:var(--danger);">paypa1.com</span> is not PayPal.</li>
+  <li><span class="step-num">→</span><strong>Generic greetings</strong> — "Dear Customer" instead of your name. Legitimate companies know your name.</li>
+  <li><span class="step-num">→</span><strong>Unexpected attachments</strong> — never open attachments you weren't expecting, even from people you know. Their account may be compromised.</li>
+</ol>
+
+<h3>How to Check a Suspicious Link</h3>
+<p>Before clicking any link in an email, text, or social media post:</p>
+<ol class="step-list">
+  <li><span class="step-num">01</span>On desktop — hover over the link. The actual URL appears in the bottom of your browser. Read it carefully.</li>
+  <li><span class="step-num">02</span>On mobile — press and hold the link. A preview of the URL appears. Don't tap if it looks wrong.</li>
+  <li><span class="step-num">03</span>Use <span style="font-family:'DM Mono',monospace;color:var(--accent);">virustotal.com</span> — paste any suspicious URL and it will scan it against dozens of security databases.</li>
+  <li><span class="step-num">04</span>When in doubt — go directly to the website by typing it in your browser instead of clicking the link.</li>
+</ol>
+
+<div class="tip-box">
+  <div class="tip-label">DNS PROTECTION</div>
+  <p style="margin:0;color:var(--text);">Harbor Privacy uses Hagezi threat intelligence blocklists that are updated daily with known phishing and malware domains. Even if you accidentally click a malicious link, your DNS resolver will block the connection before it loads.</p>
+</div>
+
+<h3>If You Think You've Been Phished</h3>
+<ol class="step-list">
+  <li><span class="step-num">01</span>Change your password immediately on the affected account — from a different device if possible.</li>
+  <li><span class="step-num">02</span>Enable two-factor authentication (2FA) on the account.</li>
+  <li><span class="step-num">03</span>Check for unauthorized activity — logins, purchases, sent emails.</li>
+  <li><span class="step-num">04</span>If financial information was entered, contact your bank or card issuer immediately.</li>
+  <li><span class="step-num">05</span>Run a malware scan on the device you used.</li>
+</ol>
+
+<a href="/#contact" class="cta-inline">Want automatic phishing protection? Get Harbor Privacy →</a>
+```
+
+  </div>
+
+</div>
+</div>
+
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare

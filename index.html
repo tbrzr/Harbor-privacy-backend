@@ -106,7 +106,8 @@ footer { border-top: 1px solid var(--border); padding: 32px 0; margin-top: 80px;
 @media (max-width: 1100px) {
 body { display: block; }
 .sidebar { display: none !important; padding-top: 56px; }
-.sidebar.open { display: flex !important; flex-direction: column; }
+.sidebar.open { display: flex !important; flex-direction: column; overflow-y: auto; max-height: 100vh; }
+  .sidebar.open::after { content: ''; position: fixed; bottom: 0; left: 0; width: var(--sidebar-width); height: 80px; background: linear-gradient(transparent, var(--surface) 60%); pointer-events: none; z-index: 101; }
 .sidebar-logo { display: none !important; }
 .hamburger { display: flex !important; }
 .main-content { margin-left: 0; }
@@ -133,6 +134,10 @@ footer { margin-left: 0; }
 <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
 <aside class="sidebar" id="sidebar">
+  <div style="padding:12px 16px 0;display:flex;flex-direction:column;gap:8px;">
+    <a href="https://dashboard.harborprivacy.com" target="_blank" style="display:block;padding:12px 16px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;">⊞ My Dashboard</a>
+    <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank" style="display:block;padding:12px 16px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;">⇌ Manage Subscription</a>
+  </div>
   <div class="sidebar-logo">
     <a href="/">harbor<span>/</span>privacy</a>
     <div class="tagline">Pembroke, MA · South Shore</div>
@@ -168,7 +173,7 @@ footer { margin-left: 0; }
       <a href="#contact" class="nav-link"><span class="nav-icon">✉</span> Contact</a>
     </div>
   </nav>
-  <a href="https://dashboard.harborprivacy.com" target="_blank" style="display:block;margin:16px;padding:12px 16px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;">⊞ My Dashboard</a>
+
   <a href="#get-started" class="sidebar-cta">Get Started →</a>
   <div class="sidebar-footer">
     <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank">Manage Subscription</a>
