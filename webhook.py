@@ -199,13 +199,51 @@ def wipe_customer(client_id):
         log.error(f"Error removing customer log: {e}")
     log.info(f"Full wipe complete: {client_id}")
 
+PENDING_WIPES_FILE = "/var/log/harbor-pending-wipes.json"
+
+def schedule_wipe(client_id, delay=3600):
+    """Write pending wipe to disk so it survives restarts"""
+    import time
+    wipe_at = time.time() + delay
+    try:
+        try:
+            with open(PENDING_WIPES_FILE) as f2:
+                pending = json.load(f2)
+        except:
+            pending = {}
+        pending[client_id] = wipe_at
+        with open(PENDING_WIPES_FILE, "w") as f2:
+            json.dump(pending, f2)
+        log.info(f"Scheduled wipe for {client_id} at {wipe_at}")
+    except Exception as e:
+        log.error(f"Error scheduling wipe: {e}")
+
+def process_pending_wipes():
+    """Check pending wipes file and execute any that are due"""
+    import time
+    try:
+        try:
+            with open(PENDING_WIPES_FILE) as f2:
+                pending = json.load(f2)
+        except:
+            return
+        now = time.time()
+        executed = []
+        for client_id, wipe_at in pending.items():
+            if now >= wipe_at:
+                log.info(f"Executing scheduled wipe for {client_id}")
+                wipe_customer(client_id)
+                executed.append(client_id)
+        if executed:
+            for cid in executed:
+                del pending[cid]
+            with open(PENDING_WIPES_FILE, "w") as f2:
+                json.dump(pending, f2)
+    except Exception as e:
+        log.error(f"Error processing pending wipes: {e}")
+
 def deactivate_after_grace(client_id, delay=3600):
-    def _run():
-        import time
-        log.info(f"Grace period started for {client_id} - {delay}s")
-        time.sleep(delay)
-        wipe_customer(client_id)
-    threading.Thread(target=_run, daemon=True).start()
+    schedule_wipe(client_id, delay)
 
 def find_customer(stripe_customer_id):
     try:
