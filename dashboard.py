@@ -140,6 +140,30 @@ def get_client_stats(client_id):
     except:
         return {"total": 0, "blocked": 0, "pct": 0, "top_blocked": []}
 
+def get_all_blocked_services():
+    data = agh_get("/control/blocked_services/all")
+    services = data.get("blocked_services", [])
+    groups = {}
+    for s in services:
+        g = s.get("group_id", "other")
+        if g not in groups:
+            groups[g] = []
+        groups[g].append({"id": s["id"], "name": s["name"]})
+    return groups
+
+def get_client_blocked_services(client_id):
+    client = get_client(client_id)
+    if not client:
+        return []
+    return client.get("blocked_services") or []
+
+def set_client_blocked_services(client_id, services):
+    client = get_client(client_id)
+    if not client:
+        return False
+    data = build_client_data(client, {"blocked_services": services, "use_global_blocked_services": False})
+    return agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": data})
+
 def add_custom_rule(client_id, domain, block=True):
     prefix = "||" if block else "@@||"
     rule = f"{prefix}{domain}^"
@@ -662,9 +686,9 @@ def dashboard():
         {% for svc in services %}
         <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg);border:1px solid var(--border);">
           <span style="font-size:13px;color:var(--text);">{{ svc.name }}</span>
-          <label class="toggle" style="width:36px;height:20px;flex-shrink:0;">
+          <label class="toggle" style="width:44px;height:24px;flex-shrink:0;">
             <input type="checkbox" {% if svc.id in blocked_services %}checked{% endif %} onchange="toggleService('{{ svc.id }}',this.checked)">
-            <span class="slider" style="border-radius:20px;"></span>
+            <span class="slider" style="border-radius:24px;"></span>
           </label>
         </div>
         {% endfor %}
@@ -714,10 +738,13 @@ async function removeRule(rule){
 }
 </script>
 </html>"""
+    service_groups = get_all_blocked_services() if is_active else {}
+    blocked_services = get_client_blocked_services(client_id) if is_active and client_id else []
     return render_template_string(html, name=name, client_id=client_id,
         is_active=is_active, total=total, blocked=blocked, pct=pct,
         rules=rules, family_safe=family_safe, has_family=has_family,
-        is_founder=is_founder, top_blocked=top_blocked, active="dashboard")
+        is_founder=is_founder, top_blocked=top_blocked, customer=customer,
+        service_groups=service_groups, blocked_services=blocked_services, active="dashboard")
 
 # ── ADMIN DASHBOARD ───────────────────────────────────────
 
@@ -1153,7 +1180,7 @@ def api_addon():
         return jsonify({"ok": False})
     if data.get("type") == "family":
         enabled = data.get("enabled", False)
-        updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True}
+        updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True, "use_global_settings": False, "safe_search": {"enabled": enabled, "bing": enabled, "duckduckgo": enabled, "ecosia": enabled, "google": enabled, "pixabay": enabled, "yandex": enabled, "youtube": enabled}}
         return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
     return jsonify({"ok": False})
 
@@ -1167,7 +1194,7 @@ def api_admin_addon():
         return jsonify({"ok": False})
     if data.get("type") == "family":
         enabled = data.get("enabled", False)
-        updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True}
+        updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True, "use_global_settings": False, "safe_search": {"enabled": enabled, "bing": enabled, "duckduckgo": enabled, "ecosia": enabled, "google": enabled, "pixabay": enabled, "yandex": enabled, "youtube": enabled}}
         return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
     return jsonify({"ok": False})
 
