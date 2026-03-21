@@ -92,7 +92,8 @@ footer span, footer a { font-family: ‘DM Mono’, monospace; font-size: 11px; 
 @media (max-width: 1100px) {
 body { display: block; }
 .sidebar { display: none !important; }
-.sidebar.open { display: flex !important; flex-direction: column; }
+.sidebar.open { display: flex !important; flex-direction: column; overflow-y: auto; max-height: 100vh; }
+  .sidebar.open::after { content: ''; position: fixed; bottom: 0; left: 0; width: var(--sidebar-width); height: 80px; background: linear-gradient(transparent, var(--surface) 60%); pointer-events: none; z-index: 101; }
 .hamburger { display: flex !important; z-index: 9999; }
 .main-content { margin-left: 0; padding-top: 56px; }
 .sidebar-logo { display: none !important; }
