@@ -765,7 +765,7 @@ async function toggleAddon(type,enabled){
 async function toggleService(id, blocked){
   const r=await fetch('/api/service',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service_id:id,blocked:blocked})});
   const d=await r.json();
-  if(d.ok){} else alert('Failed to update service.');
+  // toggle updates silently
 }
 async function genCode(){
   const r=await fetch('/api/support-code',{method:'POST'});
@@ -986,7 +986,7 @@ async function toggleFamily(enabled){
 async function toggleService(id, blocked){
   const r=await fetch('/api/service',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service_id:id,blocked:blocked})});
   const d=await r.json();
-  if(d.ok){} else alert('Failed to update service.');
+  // toggle updates silently
 }
 async function genCode(){
   const r=await fetch('/api/support-code',{method:'POST'});
