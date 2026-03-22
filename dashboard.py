@@ -496,27 +496,27 @@ def login():
                     error = "Incorrect password."
                     step = "2"
                     show_2fa = bool(user.get("totp_secret"))
-            else:
-                if user.get("totp_secret"):
-                    if not totp_code:
-                        show_2fa = True
-                        step = "2"
-                    elif not pyotp.TOTP(user["totp_secret"]).verify(totp_code, valid_window=1):
-                        error = "Invalid 2FA code."
-                        show_2fa = True
-                        step = "2"
+                else:
+                    if user.get("totp_secret"):
+                        if not totp_code:
+                            show_2fa = True
+                            step = "2"
+                        elif not pyotp.TOTP(user["totp_secret"]).verify(totp_code, valid_window=1):
+                            error = "Invalid 2FA code."
+                            show_2fa = True
+                            step = "2"
+                        else:
+                            is_admin = email == ADMIN_EMAIL
+                            token = make_token(email, is_admin=is_admin)
+                            resp = make_response(redirect("/admin" if is_admin else "/dashboard"))
+                            resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=86400)
+                            return resp
                     else:
                         is_admin = email == ADMIN_EMAIL
                         token = make_token(email, is_admin=is_admin)
                         resp = make_response(redirect("/admin" if is_admin else "/dashboard"))
                         resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=86400)
                         return resp
-                else:
-                    is_admin = email == ADMIN_EMAIL
-                    token = make_token(email, is_admin=is_admin)
-                    resp = make_response(redirect("/admin" if is_admin else "/dashboard"))
-                    resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=86400)
-                    return resp
 
     html = STYLE + """
 <nav>
@@ -1048,10 +1048,6 @@ def admin_customer(client_id):
   </div>
   {% endif %}
 
-  <div class="card">
-    <div class="card-label">DoH Address</div>
-    <div class="doh-box">https://doh.harborprivacy.com/dns-query/{{ client_id }}</div>
-  </div>
 </div>
 <script>
 const CID='{{ client_id }}';
