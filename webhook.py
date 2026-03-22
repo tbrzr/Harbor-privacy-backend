@@ -259,7 +259,7 @@ def find_customer(stripe_customer_id):
         pass
     return {}
 
-def log_customer(client_id, name, email, plan, stripe_customer_id=""):
+def log_customer(client_id, name, email, plan, stripe_customer_id="", plan_type=None, is_trial=False):
     entry = {"date": datetime.utcnow().isoformat(), "client_id": client_id,
              "name": name, "email": email, "plan": plan,
             "plan_type": plan_type or plan,
