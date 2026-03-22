@@ -583,7 +583,7 @@ def setup():
             users[email.lower()] = {"email": email.lower(), "password": hashed, "created": datetime.utcnow().isoformat()}
             save_users(users)
             token = make_token(email.lower(), is_admin=is_admin)
-            resp = make_response(redirect("/admin" if is_admin else "/dashboard"))
+            resp = make_response(redirect("/admin" if is_admin else "/setup/2fa-prompt"))
             resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=86400)
             return resp
 
@@ -606,6 +606,25 @@ def setup():
   </form>
 </div>"""
     return render_template_string(html, email=email, is_admin=is_admin, error=error)
+
+
+@app.route("/setup/2fa-prompt")
+@login_required
+def setup_2fa_prompt():
+    html = STYLE + """
+<nav>
+  <a href="https://harborprivacy.com" class="logo">harbor<span>/</span>privacy</a>
+</nav>
+<div class="wrap-sm" style="text-align:center;">
+  <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">Account Security</p>
+  <h1 style="margin-bottom:12px;">Add two-factor authentication?</h1>
+  <p class="note" style="margin-bottom:32px;">2FA adds an extra layer of security to your account. You can always set it up later in Settings.</p>
+  <div style="display:flex;flex-direction:column;gap:12px;">
+    <a href="/settings/2fa/setup" class="btn" style="width:100%;text-align:center;">Set Up 2FA Now →</a>
+    <a href="/dashboard" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);text-align:center;padding:12px;">Skip for now</a>
+  </div>
+</div>"""
+    return render_template_string(html)
 
 @app.route("/logout")
 def logout():
