@@ -60,6 +60,30 @@ def load_customers():
         pass
     return customers
 
+def update_customer_email(old_email, new_email):
+    lines = []
+    updated = False
+    try:
+        with open(CUSTOMERS_LOG) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    c = json.loads(line)
+                    if c.get("email", "").lower() == old_email.lower():
+                        c["email"] = new_email.lower()
+                        updated = True
+                    lines.append(json.dumps(c))
+                except:
+                    lines.append(line)
+        if updated:
+            with open(CUSTOMERS_LOG, 'w') as f:
+                f.write("\n".join(lines) + "\n")
+        return updated
+    except:
+        return False
+
 def find_customer(email):
     for c in load_customers():
         if c.get("email", "").lower() == email.lower():
@@ -965,13 +989,23 @@ def admin():
         total_queries=total_queries, block_pct=block_pct,
         get_client=get_client, active="admin")
 
-@app.route("/admin/customer/<client_id>")
+@app.route("/admin/customer/<client_id>", methods=["GET", "POST"])
 @admin_required
 def admin_customer(client_id):
     customers = load_customers()
     customer = next((c for c in customers if c.get("client_id") == client_id), None)
     if not customer:
         return redirect("/admin")
+
+    if request.method == "POST":
+        action = request.form.get("action", "")
+        if action == "update_email":
+            old_email = request.form.get("old_email", "").strip()
+            new_email = request.form.get("new_email", "").strip().lower()
+            if old_email and new_email and old_email != new_email:
+                updated = update_customer_email(old_email, new_email)
+                log.info(f"Admin email update: {old_email} -> {new_email} success={updated}")
+        return redirect(f"/admin/customer/{client_id}")
 
     client = get_client(client_id)
     rules = get_client_rules(client_id) if client_id else []
@@ -993,6 +1027,44 @@ def admin_customer(client_id):
     <div class="stat"><div class="stat-num">{{ cstats.total }}</div><div class="stat-label">Queries Today</div></div>
     <div class="stat"><div class="stat-num">{{ cstats.blocked }}</div><div class="stat-label">Blocked Today</div></div>
     <div class="stat"><div class="stat-num">{{ cstats.pct }}%</div><div class="stat-label">Block Rate</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Customer Info</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">EMAIL</span>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);">{{ customer.email }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">PLAN</span>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">{{ customer.plan }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">STATUS</span>
+        <span class="badge {% if customer.status == 'active' %}badge-on{% else %}badge-off{% endif %}">{{ customer.status|upper }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">JOINED</span>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">{{ customer.date[:10] }}</span>
+      </div>
+      {% if is_founder %}
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">TIER</span>
+        <span class="badge" style="background:#00e5c0;color:#0a0e0f;">FOUNDER</span>
+      </div>
+      {% endif %}
+    </div>
+    <div style="border-top:1px solid var(--border);margin:16px 0;"></div>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:12px;">Update Email</div>
+    <form method="POST" action="/admin/customer/{{ customer.client_id }}">
+      <input type="hidden" name="action" value="update_email">
+      <input type="hidden" name="old_email" value="{{ customer.email }}">
+      <div style="display:flex;gap:8px;">
+        <input type="email" name="new_email" placeholder="New email address" style="flex:1;margin:0;">
+        <button type="submit" class="btn btn-sm">Update</button>
+      </div>
+    </form>
   </div>
 
   {% if not code_valid %}
