@@ -1056,7 +1056,13 @@ def admin_customer(client_id):
       {% endif %}
     </div>
     <div style="border-top:1px solid var(--border);margin:16px 0;"></div>
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:12px;">Update Email</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;">Update Email</div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="resendWelcome('{{ customer.client_id }}')" class="btn btn-sm" style="background:transparent;border-color:var(--accent);color:var(--accent);">Resend Welcome</button>
+        <button onclick="reprovision('{{ customer.client_id }}')" class="btn btn-sm btn-danger">Re-provision</button>
+      </div>
+    </div>
     <form method="POST" action="/admin/customer/{{ customer.client_id }}">
       <input type="hidden" name="action" value="update_email">
       <input type="hidden" name="old_email" value="{{ customer.email }}">
@@ -1146,6 +1152,23 @@ function submitCode(){
   const code=document.getElementById('code-input').value.trim();
   if(!code)return;
   window.location.href='/admin/customer/'+CID+'?code='+code;
+}
+async function resendWelcome(cid){
+  const btn=event.target;btn.textContent='Sending...';btn.disabled=true;
+  const r=await fetch('/api/admin/resend-welcome',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid})});
+  const d=await r.json();
+  btn.textContent=d.ok?'Sent!':'Error';
+  setTimeout(()=>{btn.textContent='Resend Welcome';btn.disabled=false;},3000);
+}
+async function reprovision(cid){
+  const newEmail=prompt('Enter correct email (blank to keep current):');
+  if(newEmail===null)return;
+  if(!confirm('This deletes the old DoH address and creates a new one. Customer must update devices. Continue?'))return;
+  const btn=event.target;btn.textContent='Working...';btn.disabled=true;
+  const r=await fetch('/api/admin/reprovision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid,new_email:newEmail})});
+  const d=await r.json();
+  if(d.ok){alert('Done! New ID: '+d.new_client_id+' Email: '+d.email);window.location.reload();}
+  else{alert('Error: '+d.error);btn.textContent='Re-provision';btn.disabled=false;}
 }
 async function revokeCode(){
   await fetch('/api/admin/revoke-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CID})});
@@ -1511,6 +1534,77 @@ def api_addon():
         updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True, "use_global_settings": False, "safe_search": {"enabled": enabled, "bing": enabled, "duckduckgo": enabled, "ecosia": enabled, "google": enabled, "pixabay": enabled, "yandex": enabled, "youtube": enabled}}
         return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
     return jsonify({"ok": False})
+
+@app.route("/api/admin/resend-welcome", methods=["POST"])
+@admin_required
+def admin_resend_welcome():
+    data = request.get_json()
+    client_id = data.get("client_id", "")
+    customers = load_customers()
+    customer = next((c for c in customers if c.get("client_id") == client_id), None)
+    if not customer:
+        return jsonify({"ok": False, "error": "Customer not found"})
+    try:
+        import sys
+        sys.path.insert(0, "/home/ubuntu/harbor-backend")
+        from webhook import send_welcome_email
+        email = customer.get("email", "")
+        name = customer.get("name", "Customer")
+        plan = customer.get("plan", "remote")
+        profile_url = f"https://harborprivacy.com/profiles/{client_id}.mobileconfig"
+        send_welcome_email(email, name, client_id, plan, profile_url)
+        log.info(f"Admin resent welcome to {email} for {client_id}")
+        return jsonify({"ok": True})
+    except Exception as e:
+        log.error(f"Resend welcome error: {e}")
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.route("/api/admin/reprovision", methods=["POST"])
+@admin_required
+def admin_reprovision():
+    data = request.get_json()
+    client_id = data.get("client_id", "")
+    new_email = data.get("new_email", "").strip().lower()
+    customers = load_customers()
+    customer = next((c for c in customers if c.get("client_id") == client_id), None)
+    if not customer:
+        return jsonify({"ok": False, "error": "Customer not found"})
+    try:
+        import sys, json as _json
+        sys.path.insert(0, "/home/ubuntu/harbor-backend")
+        from webhook import (wipe_customer, generate_client_id, create_adguard_client,
+                             add_to_allowed_clients, save_ios_profile, send_welcome_email, log_customer)
+        name = customer.get("name", "Customer")
+        plan = customer.get("plan", "remote")
+        stripe_id = customer.get("stripe_customer_id", "")
+        old_email = customer.get("email", "")
+        email = new_email if new_email else old_email
+        wipe_customer(client_id)
+        log.info(f"Reprovision: wiped {client_id}")
+        new_client_id = generate_client_id(name, email)
+        create_adguard_client(new_client_id, name)
+        add_to_allowed_clients(new_client_id)
+        profile_url = save_ios_profile(new_client_id, name)
+        lines = []
+        with open("/var/log/harbor-customers.json") as f2:
+            for line in f2:
+                line = line.strip()
+                if not line: continue
+                try:
+                    r = _json.loads(line)
+                    if r.get("client_id") != client_id:
+                        lines.append(_json.dumps(r))
+                except:
+                    lines.append(line)
+        with open("/var/log/harbor-customers.json", "w") as f2:
+            f2.write("\n".join(lines) + "\n")
+        log_customer(new_client_id, name, email, plan, stripe_id)
+        send_welcome_email(email, name, new_client_id, plan, profile_url)
+        log.info(f"Reprovision complete: {old_email} -> {email} old={client_id} new={new_client_id}")
+        return jsonify({"ok": True, "new_client_id": new_client_id, "email": email})
+    except Exception as e:
+        log.error(f"Reprovision error: {e}")
+        return jsonify({"ok": False, "error": str(e)})
 
 @app.route("/api/admin/addon", methods=["POST"])
 @admin_required
