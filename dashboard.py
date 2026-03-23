@@ -783,7 +783,7 @@ def dashboard():
             Family Safe
             <span class="badge {% if family_safe %}badge-on{% else %}badge-off{% endif %}">{% if family_safe %}ON{% else %}OFF{% endif %}</span>
           </div>
-          <div class="toggle-desc">SafeSearch enforcement, adult content blocking, family-friendly filtering</div>
+          <div class="toggle-desc">SafeSearch enforcement, adult content blocking, NSFW filtering</div>
         </div>
         <label class="toggle" style="width:44px;height:24px;flex-shrink:0;">
           <input type="checkbox" {% if family_safe %}checked{% endif %} {% if not is_active or not has_family %}disabled{% else %}onchange="toggleAddon('family',this.checked)"{% endif %}>
@@ -1096,12 +1096,19 @@ def admin_customer(client_id):
     <div class="card-label">Add-Ons</div>
     <div class="toggle-row">
       <div>
-        <div class="toggle-label">Family Safe <span class="badge {% if family_safe %}badge-on{% else %}badge-off{% endif %}">{% if family_safe %}ON{% else %}OFF{% endif %}</span></div>
-        <div class="toggle-desc">Parental controls, SafeSearch, Hagezi NSFW blocklist</div>
+        <div class="toggle-label">
+          Family Safe
+          {% if has_family %}
+          <span class="badge {% if family_safe %}badge-on{% else %}badge-off{% endif %}">{% if family_safe %}ON{% else %}OFF{% endif %}</span>
+          {% else %}
+          <span class="badge badge-locked">NOT PURCHASED</span>
+          {% endif %}
+        </div>
+        <div class="toggle-desc">Parental controls, SafeSearch, NSFW filtering</div>
       </div>
       <label class="toggle">
-        <input type="checkbox" {% if family_safe %}checked{% endif %} onchange="toggleFamily(this.checked)">
-        <span class="slider"></span>
+        <input type="checkbox" {% if family_safe %}checked{% endif %} {% if not has_family %}disabled{% else %}onchange="toggleFamily(this.checked)"{% endif %}>
+        <span class="slider {% if not has_family %}locked{% endif %}"></span>
       </label>
     </div>
   </div>
