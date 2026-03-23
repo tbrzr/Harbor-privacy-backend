@@ -813,6 +813,49 @@ def dashboard():
     plan_type = customer.get("plan_type", "") if customer else ""
     is_trial = customer.get("is_trial", False) if customer else False
     plan_badge = ""
+
+    # Harbor Light plan — stripped dashboard
+    if plan_type == "harbor-remote-light":
+        html = STYLE + NAV_CUSTOMER + """
+<div class="wrap" style="max-width:580px;">
+  <div style="margin-bottom:32px;">
+    <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">Harbor Light</p>
+    <h1>{{ name }}</h1>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Your DoH Address</div>
+    <div class="doh-box">https://doh.harborprivacy.com/dns-query/{{ client_id }}</div>
+    <p class="note" style="margin-top:12px;">Add this to your iPhone under Settings → General → VPN & Device Management, or Android under Settings → Private DNS.</p>
+  </div>
+
+  <div class="card" style="border-color:var(--accent);background:rgba(0,229,192,0.04);">
+    <div class="card-label" style="color:var(--accent);">Upgrade to Harbor Remote</div>
+    <p style="color:var(--text);font-size:14px;margin-bottom:16px;">Get your full dashboard — see your stats, block specific services, set custom rules, and more.</p>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <a href="https://buy.stripe.com/cNi3cugZ1dlR07380T6kg0e" target="_blank" class="btn">Upgrade to Remote — $5.99/mo →</a>
+      <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">Cancel anytime</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Support</div>
+    <p class="note" style="margin-bottom:16px;">Need help with setup or have a question?</p>
+    <a href="mailto:support@harborprivacy.com" class="btn" style="background:transparent;border-color:var(--border);color:var(--text);">Email Support →</a>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Settings</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <a href="/settings" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);text-decoration:none;">Change Password →</a>
+      <a href="/settings" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);text-decoration:none;">Two-Factor Authentication →</a>
+      <a href="/settings/data-request" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);text-decoration:none;">Download My Data →</a>
+    </div>
+  </div>
+
+</div>
+</html>"""
+        return render_template_string(html, name=name, client_id=client_id, active="dashboard")
     if plan_type == "3month": plan_badge = "3-MONTH"
     elif plan_type == "6month": plan_badge = "6-MONTH"
     elif plan_type == "annual": plan_badge = "ANNUAL"

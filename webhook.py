@@ -424,8 +424,33 @@ def send_family_safe_email(email, name, enabled):
 </div>'''
     send_email(email, f"Harbor Privacy - Family Safe {action.title()}", html)
 
-def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url=""):
+def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url="", plan_type=""):
     doh = f"https://{DOH_BASE}/{client_id}"
+
+    if plan_type == "harbor-remote-light":
+        html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
+<h1 style="font-family:Georgia,serif;font-weight:400;">Welcome to Harbor Light</h1>
+<p>Hi {name},</p>
+<p>Your personal DNS privacy address is ready. Add it to your devices to start blocking ads and trackers.</p>
+<h2 style="font-family:Georgia,serif;font-weight:400;">Your Personal DoH Address</h2>
+<p style="background:#111618;border-left:3px solid #00e5c0;padding:16px;font-family:monospace;font-size:14px;color:#00e5c0;word-break:break-all;">{doh}</p>
+<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">iPhone / iPad</h3>
+<p style="color:#6b8a87;font-size:13px;">Settings &gt; General &gt; VPN &amp; Device Management &gt; Install Profile</p>
+<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">Android</h3>
+<ol style="color:#6b8a87;"><li>Settings &gt; Network and Internet &gt; Private DNS</li><li>Enter: <strong style="color:#e8f0ef;">{doh}</strong></li><li>Save</li></ol>
+<div style="background:#111618;border:1px solid #00e5c0;padding:20px;margin:24px 0;">
+<p style="font-family:monospace;font-size:11px;color:#00e5c0;letter-spacing:0.1em;margin-bottom:8px;">WANT MORE CONTROL?</p>
+<p style="color:#e8f0ef;margin-bottom:12px;">Upgrade to Harbor Remote for the full dashboard, stats, custom rules and more.</p>
+<a href="https://buy.stripe.com/cNi3cugZ1dlR07380T6kg0e" style="background:#00e5c0;color:#0a0e0f;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Upgrade to Remote $5.99/mo</a>
+</div>
+<div style="border-top:1px solid #1e2a2d;padding-top:20px;margin-top:20px;">
+<a href="https://dashboard.harborprivacy.com" style="display:inline-block;border:1px solid #00e5c0;color:#00e5c0;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Your Dashboard</a>
+</div>
+<p style="padding-top:24px;color:#6b8a87;">Questions? Reply or text <strong style="color:#e8f0ef;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a></p>
+</div>'''
+        send_email(email, "Welcome to Harbor Light - Your DNS Privacy Address", html)
+        return
+
     if plan == "remote":
         ios_btn = f'<p><a href="{profile_url}" style="display:inline-block;background:#00e5c0;color:#0a0e0f;padding:12px 24px;text-decoration:none;font-family:monospace;font-size:13px;">Download iOS DNS Profile</a></p><p style="font-size:12px;color:#6b8a87;">Tap on iPhone/iPad then Settings > General > VPN & Device Management > Install</p>' if profile_url else "<p style='color:#6b8a87;'>iOS profile will be sent separately.</p>"
         html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
@@ -552,7 +577,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                                 invoice_url = inv_data.get("hosted_invoice_url", "")
                             except Exception as ie:
                                 log.error(f"invoice fetch error: {ie}")
-                        send_welcome_email(email, name, client_id, plan, profile_url, invoice_url)
+                        send_welcome_email(email, name, client_id, plan, profile_url, invoice_url, plan_type=plan_type)
                         plan_type = meta.get("plan_type", plan)
                         is_trial = s.get("payment_status", "") == "no_payment_required"
                         log_customer(client_id, name, email, plan, stripe_id, plan_type=plan_type, is_trial=is_trial)
