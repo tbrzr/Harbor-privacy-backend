@@ -977,10 +977,10 @@ def admin():
         <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);">{{ c.client_id }}</div>
         <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">{{ c.plan }}</div>
         <div><span class="badge {% if cl and cl.parental_enabled %}badge-on{% else %}badge-off{% endif %}">{% if cl and cl.parental_enabled %}ON{% else %}OFF{% endif %}</span></div>
-        <div style="display:flex;gap:6px;">
-          <a href="/admin/customer/{{ c.client_id }}" class="btn btn-sm">View →</a>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <a href="/admin/customer/{{ c.client_id }}" class="btn btn-sm" style="padding:4px 10px;font-size:10px;">View →</a>
           {% if c.client_id != "harbor7066" %}
-          <button onclick="deleteCustomer('{{ c.client_id }}','{{ c.name }}')" class="btn btn-sm btn-danger">Delete</button>
+          <button onclick="deleteCustomer('{{ c.client_id }}','{{ c.name }}')" class="btn btn-sm" style="background:rgba(255,107,107,0.12);color:#ff6b6b;border-color:rgba(255,107,107,0.3);">✕</button>
           {% endif %}
         </div>
       </div>
@@ -1241,7 +1241,9 @@ async function removeRule(rule){
 </html>"""
     service_groups = get_all_blocked_services()
     blocked_services = get_client_blocked_services(client_id)
-    code_valid = True  # Admin always has full access
+    # Auto-grant access for internal/test accounts, require code for real customers
+    customer_email = customer.get("email", "")
+    code_valid = customer_email.endswith("@harborprivacy.com") or verify_support_code(client_id, request.args.get("code", ""))
     return render_template_string(html, customer=customer, client_id=client_id,
         rules=rules, family_safe=family_safe, cstats=cstats,
         service_groups=service_groups, blocked_services=blocked_services,
