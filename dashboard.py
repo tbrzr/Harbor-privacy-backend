@@ -255,12 +255,97 @@ def get_client_blocked_services(client_id):
         return []
     return client.get("blocked_services") or []
 
+PROFILES = {
+    "kid": {
+        "name": "Kid Mode",
+        "icon": "👧",
+        "desc": "Blocks social media, adult content, dating apps, gambling and streaming",
+        "services": ["tiktok","snapchat","instagram","twitter","facebook","reddit","tumblr",
+                     "tinder","discord","youtube","twitch","4chan","9gag",
+                     "amino","bigo_live","vk","wechat","telegram","whatsapp","viber","signal",
+                     "dailymotion","vimeo","bluesky","clubhouse","wizz","chatgpt","deepseek",
+                     "copilot","claude","betano","betfair","betway","blaze"]
+    },
+    "work": {
+        "name": "Work Focus",
+        "icon": "💼",
+        "desc": "Blocks social media, streaming and gaming to keep you focused",
+        "services": ["tiktok","snapchat","instagram","twitter","facebook","reddit","youtube",
+                     "twitch","netflix","disneyplus","amazon_streaming","spotify","spotify_video",
+                     "steam","discord","dailymotion","vimeo","crunchyroll","plex","pluto_tv",
+                     "apple_streaming","tidal","soundcloud","deezer","bilibili",
+                     "activision_blizzard","battle_net","epic_games","electronic_arts",
+                     "riot_games","roblox","rockstar_games","ubisoft","xboxlive"]
+    },
+    "gaming": {
+        "name": "Gaming Mode",
+        "icon": "🎮",
+        "desc": "Blocks social media and distractions, leaves gaming services open",
+        "services": ["tiktok","snapchat","instagram","twitter","facebook","reddit","youtube",
+                     "amazon_streaming","netflix","disneyplus","tinder","tumblr",
+                     "dailymotion","vimeo","bilibili","shein","temu","betano","betfair","betway"]
+    }
+}
+
+def save_profile_snapshot(client_id, services):
+    """Save current services as custom snapshot before applying a profile"""
+    lines = []
+    updated = False
+    try:
+        with open(CUSTOMERS_LOG) as f:
+            for line in f:
+                line = line.strip()
+                if not line: continue
+                try:
+                    r = json.loads(line)
+                    if r.get("client_id") == client_id:
+                        r["custom_services_snapshot"] = services
+                        updated = True
+                    lines.append(json.dumps(r))
+                except:
+                    lines.append(line)
+        if updated:
+            with open(CUSTOMERS_LOG, "w") as f:
+                f.write("\n".join(lines) + "\n")
+    except Exception as e:
+        print(f"Snapshot save error: {e}")
+
+def save_active_profile(client_id, profile_name):
+    """Save the active profile name to customer record"""
+    lines = []
+    try:
+        with open(CUSTOMERS_LOG) as f:
+            for line in f:
+                line = line.strip()
+                if not line: continue
+                try:
+                    r = json.loads(line)
+                    if r.get("client_id") == client_id:
+                        r["active_profile"] = profile_name
+                    lines.append(json.dumps(r))
+                except:
+                    lines.append(line)
+        with open(CUSTOMERS_LOG, "w") as f:
+            f.write("\n".join(lines) + "\n")
+    except Exception as e:
+        print(f"Profile save error: {e}")
+
 def set_client_blocked_services(client_id, services):
     client = get_client(client_id)
     if not client:
+        with open("/tmp/profile_debug.txt", "a") as dbg:
+            dbg.write(f"set_client_blocked: no client found for {client_id}\n")
         return False
     updated = {**client, "blocked_services": services, "use_global_blocked_services": False}
-    return agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})
+    try:
+        r = requests.post(f"{ADGUARD_URL}/control/clients/update", json={"name": client.get("name", client_id), "data": updated}, auth=(ADGUARD_USER, ADGUARD_PASS), timeout=10)
+        with open("/tmp/profile_debug.txt", "a") as dbg:
+            dbg.write(f"set_client_blocked: status={r.status_code} response={r.text[:100]}\n")
+        return r.status_code == 200
+    except Exception as e:
+        with open("/tmp/profile_debug.txt", "a") as dbg:
+            dbg.write(f"set_client_blocked error: {e}\n")
+        return False
 
 def add_custom_rule(client_id, domain, block=True):
     prefix = "||" if block else "@@||"
@@ -420,6 +505,9 @@ STYLE = """<!DOCTYPE html>
   .badge-annual{background:#047857;color:#fff;}
   .badge-family{background:#7c3aed;color:#fff;}
   .badge-locked{background:var(--border);color:var(--muted);}
+  .profile-btn{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:16px;cursor:pointer;text-align:center;font-family:'DM Mono',monospace;font-size:12px;transition:border-color 0.2s;}
+  .profile-btn:hover{border-color:var(--accent);}
+  .profile-active{border-color:var(--accent) !important;background:rgba(0,229,192,0.08) !important;}
   .doh-box{background:var(--bg);border-left:3px solid var(--accent);padding:16px;font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);word-break:break-all;margin:12px 0;}
   .doh-box.locked{border-left-color:var(--border);color:var(--muted);filter:blur(4px);user-select:none;}
   .error{color:var(--danger);font-family:'DM Mono',monospace;font-size:12px;margin-bottom:16px;padding:12px 16px;border:1px solid var(--danger);}
@@ -869,6 +957,36 @@ def dashboard():
 
   {% if is_active %}
   <div class="card">
+    <div class="card-label">Quick Profiles {% if not is_active %}<span class="badge badge-locked">LOCKED</span>{% endif %}</div>
+    {% if is_active %}
+    <p class="note" style="margin-bottom:20px;">Apply a preset profile to quickly block groups of services. Your custom settings are saved automatically. Current: {{ active_profile }}</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:16px;">
+      <button onclick="applyProfile('kid')" class="profile-btn {% if active_profile == 'kid' %}profile-active{% endif %}" data-profile="kid">
+        <div style="font-size:24px;margin-bottom:6px;">👧</div>
+        <div style="font-weight:700;margin-bottom:4px;">Kid Mode</div>
+        <div style="font-size:11px;opacity:0.7;">Blocks social, adult, gambling</div>
+      </button>
+      <button onclick="applyProfile('work')" class="profile-btn {% if active_profile == 'work' %}profile-active{% endif %}" data-profile="work">
+        <div style="font-size:24px;margin-bottom:6px;">💼</div>
+        <div style="font-weight:700;margin-bottom:4px;">Work Focus</div>
+        <div style="font-size:11px;opacity:0.7;">Blocks social, streaming, gaming</div>
+      </button>
+      <button onclick="applyProfile('gaming')" class="profile-btn {% if active_profile == 'gaming' %}profile-active{% endif %}" data-profile="gaming">
+        <div style="font-size:24px;margin-bottom:6px;">🎮</div>
+        <div style="font-weight:700;margin-bottom:4px;">Gaming Mode</div>
+        <div style="font-size:11px;opacity:0.7;">Blocks social, keeps gaming open</div>
+      </button>
+      <button onclick="applyProfile('custom')" class="profile-btn {% if active_profile == 'custom' or not active_profile %}profile-active{% endif %}" data-profile="custom">
+        <div style="font-size:24px;margin-bottom:6px;">⚙️</div>
+        <div style="font-weight:700;margin-bottom:4px;">Custom</div>
+        <div style="font-size:11px;opacity:0.7;">Your saved settings</div>
+      </button>
+    </div>
+    <button onclick="applyProfile('clear')" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);background:transparent;border:1px solid var(--border);padding:6px 14px;cursor:pointer;">Clear All Blocks</button>
+    {% endif %}
+  </div>
+
+  <div class="card">
     <div class="card-label">Blocked Services {% if not is_active %}<span class="badge badge-locked">LOCKED</span>{% endif %}</div>
     <p class="note" style="margin-bottom:20px;">Block entire services on your network. Toggle on to block, off to allow.</p>
     {% for group_name, services in service_groups.items() %}
@@ -920,6 +1038,17 @@ async function togglePause(pause){
   const d=await r.json();
   if(d.ok) location.reload(); else alert('Failed to update. Try again.');
 }
+async function applyProfile(profile){
+  if(profile === 'clear' && !confirm('Remove all blocked services?')) return;
+  const btns = document.querySelectorAll('.profile-btn');
+  btns.forEach(b => b.classList.remove('profile-active'));
+  const activeBtn = document.querySelector('[data-profile="'+profile+'"]');
+  if(activeBtn) activeBtn.classList.add('profile-active');
+  const r = await fetch('/api/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile})});
+  const d = await r.json();
+  if(d.ok) location.reload();
+  else alert('Error: ' + (d.error || 'Unknown error'));
+}
 async function toggleAddon(type,enabled){
   const r=await fetch('/api/addon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,enabled})});
   const d=await r.json();
@@ -960,6 +1089,7 @@ async function removeRule(rule){
     return render_template_string(html, name=name, client_id=client_id,
         is_active=is_active, total=total, blocked=blocked, pct=pct,
         rules=rules, family_safe=family_safe, has_family=has_family,
+        active_profile=customer.get("active_profile", "custom") if customer else "custom",
         user_email=email, is_trial=is_trial, plan_badge=plan_badge, has_family_badge=has_family_badge,
         filtering_paused=filtering_paused,
         is_founder=is_founder, top_blocked=top_blocked, customer=customer,
@@ -1334,6 +1464,21 @@ def settings():
 
   {% if not is_admin %}
   <div class="card">
+    <div class="card-label">Weekly Stats Email</div>
+    <p class="note" style="margin-bottom:16px;">Get a summary of your blocking stats every Monday morning. No browsing history — just your numbers.</p>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">Weekly Email <span class="badge {% if weekly_email %}badge-on{% else %}badge-off{% endif %}">{% if weekly_email %}ON{% else %}OFF{% endif %}</span></div>
+        <div class="toggle-desc">Sent every Monday at 8am</div>
+      </div>
+      <label class="toggle" style="width:44px;height:24px;flex-shrink:0;">
+        <input type="checkbox" {% if weekly_email %}checked{% endif %} onchange="toggleWeeklyEmail(this.checked)">
+        <span class="slider" style="border-radius:24px;"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-label">Your Data</div>
     <p class="note" style="margin-bottom:16px;">Request a report of everything Harbor Privacy holds about you. We'll email it within 24 hours.</p>
     <div style="display:flex;gap:12px;flex-wrap:wrap;">
@@ -1351,8 +1496,17 @@ def settings():
   {% endif %}
 
 </div>
+<script>
+async function toggleWeeklyEmail(enabled){
+  const r = await fetch('/api/weekly-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled})});
+  const d = await r.json();
+  if(!d.ok) alert('Error updating preference');
+}
+</script>
 </html>"""
-    return render_template_string(html, has_2fa=has_2fa, is_admin=is_admin,
+    user = get_user(request.user_email)
+    weekly_email = user.get("weekly_email", False) if user else False
+    return render_template_string(html, has_2fa=has_2fa, is_admin=is_admin, weekly_email=weekly_email,
         msg=msg, msg_ok=msg_ok, email=email, active="settings")
 
 @app.route("/settings/password", methods=["POST"])
@@ -1547,6 +1701,60 @@ def reset():
     return render_template_string(html, token=token, error=error)
 
 # ── API ───────────────────────────────────────────────────
+
+@app.route("/api/weekly-email", methods=["POST"])
+@login_required
+def api_weekly_email():
+    data = request.get_json()
+    enabled = data.get("enabled", False)
+    users = load_users()
+    email = request.user_email
+    if email in users:
+        users[email]["weekly_email"] = enabled
+        save_users(users)
+        log.info(f"Weekly email {enabled} for {email}")
+        return jsonify({"ok": True})
+    return jsonify({"ok": False})
+
+@app.route("/api/profile", methods=["POST"])
+@login_required
+def api_apply_profile():
+    data = request.get_json()
+    profile_name = data.get("profile", "")
+    customer = find_customer(request.user_email)
+    if not customer:
+        return jsonify({"ok": False, "error": "No active plan"})
+    client_id = customer.get("client_id", "")
+
+    if profile_name == "clear":
+        set_client_blocked_services(client_id, [])
+        save_active_profile(client_id, "clear")
+        return jsonify({"ok": True})
+
+    if profile_name == "custom":
+        # Restore snapshot
+        snapshot = customer.get("custom_services_snapshot", [])
+        set_client_blocked_services(client_id, snapshot)
+        save_active_profile(client_id, "custom")
+        return jsonify({"ok": True})
+
+    if profile_name not in PROFILES:
+        return jsonify({"ok": False, "error": "Unknown profile"})
+
+    print(f"DEBUG profile: client_id={client_id} profile={profile_name}")
+    client_check = get_client(client_id)
+    print(f"DEBUG get_client result: {client_check.get('name') if client_check else None}")
+    # Save current as custom snapshot before switching
+    current = get_client_blocked_services(client_id)
+    if customer.get("active_profile", "custom") == "custom":
+        save_profile_snapshot(client_id, current)
+
+    # Apply profile
+    services = PROFILES[profile_name]["services"]
+    result = set_client_blocked_services(client_id, services)
+    save_active_profile(client_id, profile_name)
+    print(f"Profile {profile_name} applied for {client_id}")
+    return jsonify({"ok": True, "profile": profile_name})
 
 @app.route("/api/pause", methods=["POST"])
 @login_required
