@@ -775,6 +775,8 @@ def dashboard():
   <div class="card">
     <div class="card-label">Add-Ons {% if not is_active %}<span class="badge badge-locked">LOCKED</span>{% endif %}</div>
     <div style="position:relative;">
+      <div style="position:relative;">
+      <div style="position:relative;">
       <div class="toggle-row">
         <div>
           <div class="toggle-label">
