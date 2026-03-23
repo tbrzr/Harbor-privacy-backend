@@ -15,9 +15,10 @@ import jwt
 import pyotp
 import qrcode
 import requests
-from flask import Flask, request, jsonify, render_template_string, redirect, make_response
+from flask import Flask, request, jsonify, render_template_string, redirect, make_response, session
 
 app = Flask(__name__)
+app.secret_key = os.environ.get("FLASK_SECRET", "harbor-privacy-secret-2026")
 
 SECRET_KEY = os.environ.get("DASHBOARD_SECRET", "change-me")
 ADGUARD_URL = os.environ.get("ADGUARD_URL", "http://127.0.0.1:8080")
@@ -112,7 +113,22 @@ def has_family_addon(client_id):
 
 # ── SUPPORT CODES ────────────────────────────────────────
 import secrets, time as _time
-SUPPORT_CODES = {}  # {client_id: {code, expires, attempts}}
+SUPPORT_CODES_FILE = "/var/log/harbor-support-codes.json"
+
+def _load_codes():
+    try:
+        with open(SUPPORT_CODES_FILE) as f:
+            return json.load(f)
+    except:
+        return {}
+
+def _save_codes(codes):
+    try:
+        with open(SUPPORT_CODES_FILE, 'w') as f:
+            json.dump(codes, f)
+        os.chmod(SUPPORT_CODES_FILE, 0o600)
+    except Exception as e:
+        print(f"Support code save error: {e}")
 LOGIN_ATTEMPTS = {}  # {ip: {count, locked_until}}
 
 def check_rate_limit(ip):
@@ -136,26 +152,37 @@ def clear_failed_logins(ip):
 
 def generate_support_code(client_id):
     code = str(secrets.randbelow(900000) + 100000)
-    SUPPORT_CODES[client_id] = {"code": code, "expires": _time.time() + 1800}
+    codes = _load_codes()
+    codes[client_id] = {"code": code, "expires": _time.time() + 1800, "attempts": 0, "created": _time.time(), "used": False}
+    _save_codes(codes)
     return code
 
 def verify_support_code(client_id, code):
-    entry = SUPPORT_CODES.get(client_id)
+    if not code:
+        return False
+    codes = _load_codes()
+    entry = codes.get(client_id)
     if not entry:
         return False
     if _time.time() > entry["expires"]:
-        del SUPPORT_CODES[client_id]
+        del codes[client_id]
+        _save_codes(codes)
         return False
     if entry.get("attempts", 0) >= 5:
-        del SUPPORT_CODES[client_id]
+        del codes[client_id]
+        _save_codes(codes)
         return False
     if entry["code"] == str(code):
         return True
     entry["attempts"] = entry.get("attempts", 0) + 1
+    codes[client_id] = entry
+    _save_codes(codes)
     return False
 
 def revoke_support_code(client_id):
-    SUPPORT_CODES.pop(client_id, None)
+    codes = _load_codes()
+    codes.pop(client_id, None)
+    _save_codes(codes)
 
 # ── ADGUARD ──────────────────────────────────────────────
 
@@ -523,13 +550,19 @@ def login():
                 else:
                     if user.get("totp_secret"):
                         if not totp_code:
+                            session["pw_verified"] = email
                             show_2fa = True
                             step = "2"
+                        elif session.get("pw_verified") != email:
+                            error = "Session expired. Please start over."
+                            step = "1"
+                            session.pop("pw_verified", None)
                         elif not pyotp.TOTP(user["totp_secret"]).verify(totp_code, valid_window=1):
                             error = "Invalid 2FA code."
                             show_2fa = True
                             step = "2"
                         else:
+                            session.pop("pw_verified", None)
                             is_admin = email == ADMIN_EMAIL
                             token = make_token(email, is_admin=is_admin)
                             resp = make_response(redirect("/admin" if is_admin else "/dashboard"))
@@ -570,11 +603,13 @@ def login():
       <span>{{ email }}</span>
       <a href="/login" style="font-size:11px;color:var(--accent);text-decoration:none;">Change</a>
     </div>
-    <input type="password" name="password" placeholder="Your password" required autocomplete="current-password" autofocus>
     {% if show_2fa %}
-    <input type="text" name="totp" placeholder="6-digit authenticator code" maxlength="6" autocomplete="one-time-code">
+    <p style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;margin-bottom:8px;">AUTHENTICATOR CODE</p>
+    <input type="text" name="totp" placeholder="6-digit code" maxlength="6" autocomplete="one-time-code" autofocus>
+    {% else %}
+    <input type="password" name="password" placeholder="Your password" required autocomplete="current-password" autofocus>
     {% endif %}
-    <button type="submit" class="btn" style="width:100%;margin-top:4px;">Sign In →</button>
+    <button type="submit" class="btn" style="width:100%;margin-top:4px;">{% if show_2fa %}Verify →{% else %}Sign In →{% endif %}</button>
   </form>
   <div style="margin-top:16px;">
     <a href="/forgot?email={{ email }}" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">Forgot password?</a>
@@ -1085,8 +1120,10 @@ def admin_customer(client_id):
     <div class="card-label">Support Access Required</div>
     <p style="color:var(--muted);font-size:13px;margin-bottom:16px;">Ask the customer to generate a support code from their dashboard, then enter it below to view and manage their settings.</p>
     <div style="display:flex;gap:12px;">
-      <input type="text" id="code-input" placeholder="6-digit code" style="margin:0;flex:1;letter-spacing:0.2em;font-size:18px;" maxlength="6">
-      <button onclick="submitCode()" class="btn">Unlock</button>
+      <form method="GET" action="/admin/customer/{{ client_id }}" style="display:flex;gap:12px;flex:1;">
+        <input type="text" name="code" placeholder="6-digit code" style="margin:0;flex:1;letter-spacing:0.2em;font-size:18px;" maxlength="6" inputmode="numeric" pattern="[0-9]*">
+        <button type="submit" class="btn">Unlock</button>
+      </form>
     </div>
     <p id="code-error" style="display:none;color:var(--danger);font-family:'DM Mono',monospace;font-size:11px;margin-top:8px;">Invalid or expired code.</p>
   </div>
@@ -1357,9 +1394,11 @@ def setup_2fa():
 <div class="wrap" style="max-width:480px;">
   <h1 style="margin-bottom:8px;">Set up 2FA.</h1>
   <p class="note" style="margin-bottom:28px;">Scan this QR code with Google Authenticator or Authy, then confirm with the 6-digit code.</p>
-  <div style="background:#fff;display:inline-block;padding:16px;margin-bottom:24px;border:1px solid var(--border);">
+  <div style="background:#fff;display:inline-block;padding:16px;margin-bottom:16px;border:1px solid var(--border);">
     <img src="data:image/png;base64,{{ qr }}" width="200" height="200">
   </div>
+  <p style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:8px;letter-spacing:0.1em;">CAN'T SCAN? ENTER THIS CODE MANUALLY:</p>
+  <div style="background:var(--bg);border:1px solid var(--border);padding:12px 16px;font-family:'DM Mono',monospace;font-size:14px;color:var(--accent);letter-spacing:0.2em;word-break:break-all;margin-bottom:24px;">{{ secret }}</div>
   <form method="POST" action="/settings/2fa/enable">
     <input type="hidden" name="secret" value="{{ secret }}">
     <input type="text" name="code" placeholder="Enter 6-digit code to confirm" maxlength="6" required autofocus>
@@ -1485,6 +1524,7 @@ def reset():
                     users[email]["password"] = bcrypt.hashpw(new_pw.encode(), bcrypt.gensalt()).decode()
                     users[email].pop("reset_token", None)
                     users[email].pop("reset_exp", None)
+                    users[email].pop("totp_secret", None)
                     save_users(users)
                     return redirect("/login")
                 break
