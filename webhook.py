@@ -4,6 +4,7 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
 
 STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_SECRET = os.environ.get("STRIPE_SECRET", "")
 STRIPE_WEBHOOK_SECRET_TEST = os.environ.get("STRIPE_WEBHOOK_SECRET_TEST", "")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 ADGUARD_URL = os.environ.get("ADGUARD_URL", "http://127.0.0.1:8080")

@@ -977,7 +977,12 @@ def admin():
         <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);">{{ c.client_id }}</div>
         <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">{{ c.plan }}</div>
         <div><span class="badge {% if cl and cl.parental_enabled %}badge-on{% else %}badge-off{% endif %}">{% if cl and cl.parental_enabled %}ON{% else %}OFF{% endif %}</span></div>
-        <div><a href="/admin/customer/{{ c.client_id }}" class="btn btn-sm">View →</a></div>
+        <div style="display:flex;gap:6px;">
+          <a href="/admin/customer/{{ c.client_id }}" class="btn btn-sm">View →</a>
+          {% if c.client_id != "harbor7066" %}
+          <button onclick="deleteCustomer('{{ c.client_id }}','{{ c.name }}')" class="btn btn-sm btn-danger">Delete</button>
+          {% endif %}
+        </div>
       </div>
       {% endfor %}
     </div>
@@ -1161,6 +1166,22 @@ function submitCode(){
   const code=document.getElementById('code-input').value.trim();
   if(!code)return;
   window.location.href='/admin/customer/'+CID+'?code='+code;
+}
+async function deleteCustomer(cid, name){
+  if(!confirm('DELETE ' + name + '?\nThis will:\n- Cancel their Stripe subscription\n- Remove their DoH access\n- Delete their dashboard login\n\nThis cannot be undone.')) return;
+  const btn = event.target;
+  btn.textContent = 'Deleting...';
+  btn.disabled = true;
+  const r = await fetch('/api/admin/delete-customer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid})});
+  const d = await r.json();
+  if(d.ok){
+    alert('Deleted ' + d.name + ' (' + d.email + ')');
+    window.location.reload();
+  } else {
+    alert('Error: ' + d.error);
+    btn.textContent = 'Delete';
+    btn.disabled = false;
+  }
 }
 async function resendWelcome(cid){
   const btn=event.target;btn.textContent='Sending...';btn.disabled=true;
@@ -1543,6 +1564,50 @@ def api_addon():
         updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True, "use_global_settings": False, "safe_search": {"enabled": enabled, "bing": enabled, "duckduckgo": enabled, "ecosia": enabled, "google": enabled, "pixabay": enabled, "yandex": enabled, "youtube": enabled}}
         return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
     return jsonify({"ok": False})
+
+@app.route("/api/admin/delete-customer", methods=["POST"])
+@admin_required
+def admin_delete_customer():
+    data = request.get_json()
+    client_id = data.get("client_id", "")
+    customers = load_customers()
+    customer = next((c for c in customers if c.get("client_id") == client_id), None)
+    if not customer:
+        return jsonify({"ok": False, "error": "Customer not found"})
+    if client_id in ["harbor7066"]:
+        return jsonify({"ok": False, "error": "Cannot delete owner account"})
+    try:
+        import sys, requests as _req
+        sys.path.insert(0, "/home/ubuntu/harbor-backend")
+        from webhook import wipe_customer, STRIPE_SECRET
+        name = customer.get("name", "Customer")
+        email = customer.get("email", "")
+        stripe_id = customer.get("stripe_customer_id", "")
+
+        # 1. Cancel Stripe subscription
+        if stripe_id and STRIPE_SECRET:
+            try:
+                subs = _req.get(
+                    f"https://api.stripe.com/v1/subscriptions",
+                    params={"customer": stripe_id, "status": "active"},
+                    auth=(STRIPE_SECRET, "")
+                ).json()
+                for sub in subs.get("data", []):
+                    _req.delete(
+                        f"https://api.stripe.com/v1/subscriptions/{sub['id']}",
+                        auth=(STRIPE_SECRET, "")
+                    )
+                    log.info(f"Cancelled Stripe sub {sub['id']} for {client_id}")
+            except Exception as e:
+                log.error(f"Stripe cancel error: {e}")
+
+        # 2. Full wipe — AdGuard, profile, customers.json, dashboard login
+        wipe_customer(client_id)
+        log.info(f"Admin deleted customer {client_id} {email}")
+        return jsonify({"ok": True, "name": name, "email": email})
+    except Exception as e:
+        log.error(f"Delete customer error: {e}")
+        return jsonify({"ok": False, "error": str(e)})
 
 @app.route("/api/admin/resend-welcome", methods=["POST"])
 @admin_required
