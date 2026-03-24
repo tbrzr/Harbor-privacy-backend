@@ -825,7 +825,18 @@ def dashboard():
 
   <div class="card">
     <div class="card-label">Your DoH Address</div>
-    <div class="doh-box">https://doh.harborprivacy.com/dns-query/{{ client_id }}</div>
+    <div class="doh-box" id="doh-address">https://doh.harborprivacy.com/dns-query/{{ client_id }}</div>
+    <button onclick="copyDoH()" style="margin-top:8px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;cursor:pointer;" id="copy-btn">Copy Address</button>
+    <script>
+    function copyDoH(){
+      var text = document.getElementById('doh-address').innerText;
+      navigator.clipboard.writeText(text).then(function(){
+        var btn = document.getElementById('copy-btn');
+        btn.innerText = 'Copied!';
+        setTimeout(function(){ btn.innerText = 'Copy Address'; }, 2000);
+      });
+    }
+    </script>
     <p class="note" style="margin-top:12px;">Add this to your iPhone under Settings → General → VPN & Device Management, or Android under Settings → Private DNS.</p>
   </div>
 
@@ -929,8 +940,19 @@ def dashboard():
   <div class="card">
     <div class="card-label">Your Private DNS Address</div>
     {% if is_active %}
-    <div class="doh-box">https://doh.harborprivacy.com/dns-query/{{ client_id }}</div>
-    <p class="note">Use this address in your DNS over HTTPS settings. <a href="https://harborprivacy.com/docs" style="color:var(--accent);">Setup guide →</a></p>
+    <div class="doh-box" id="doh-address">https://doh.harborprivacy.com/dns-query/{{ client_id }}</div>
+    <button onclick="copyDoH()" style="margin-top:8px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;cursor:pointer;" id="copy-btn">Copy Address</button>
+    <script>
+    function copyDoH(){
+      var text = document.getElementById('doh-address').innerText;
+      navigator.clipboard.writeText(text).then(function(){
+        var btn = document.getElementById('copy-btn');
+        btn.innerText = 'Copied!';
+        setTimeout(function(){ btn.innerText = 'Copy Address'; }, 2000);
+      });
+    }
+    </script>
+    <p class="note" style="margin-top:12px;">Use this address in your DNS over HTTPS settings. <a href="https://harborprivacy.com/docs" style="color:var(--accent);">Setup guide →</a></p>
     {% else %}
     <div class="doh-box locked">https://doh.harborprivacy.com/dns-query/••••••••••</div>
     <p class="note">Your personal DNS address will appear here once your subscription is active.</p>
