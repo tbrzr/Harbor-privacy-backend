@@ -46,6 +46,16 @@ def save_users(users):
 def get_user(email):
     return load_users().get(email.lower())
 
+def save_customers(customers):
+    try:
+        with open(CUSTOMERS_LOG, "w") as fh:
+            for c in customers:
+                fh.write(json.dumps(c) + "\n")
+        return True
+    except Exception as e:
+        print("save_customers error: " + str(e))
+        return False
+
 def load_customers():
     customers = []
     try:
@@ -784,7 +794,7 @@ def logout():
 @app.route("/dashboard")
 @login_required
 def dashboard():
-    if request.is_admin:
+    if request.is_admin and not request.args.get("preview"):
         return redirect("/admin")
 
     email = request.user_email
@@ -840,6 +850,34 @@ def dashboard():
     <p class="note" style="margin-top:12px;">Add this to your iPhone under Settings → General → VPN & Device Management, or Android under Settings → Private DNS.</p>
   </div>
 
+  <div class="card">
+    <div class="card-label">Block or Allow a Site</div>
+    <p class="note" style="margin-bottom:16px;">If something gets blocked that should not be, allow it here. Or block a specific site on your network.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <input type="text" id="light-domain" placeholder="example.com" style="flex:1;min-width:140px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-family:'DM Mono',monospace;font-size:13px;">
+      <button onclick="lightAddRule(false)" class="btn" style="background:var(--accent);color:var(--bg);">Allow</button>
+      <button onclick="lightAddRule(true)" class="btn" style="background:transparent;border:1px solid var(--danger);color:var(--danger);">Block</button>
+    </div>
+    <div id="light-rules-list">
+      {% for rule in rules %}
+      <div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+        <span class="{% if rule.startswith('@@') %}rule-allow{% else %}rule-block{% endif %}" style="font-family:'DM Mono',monospace;font-size:12px;">{{ rule }}</span>
+        <button onclick="removeRule('{{ rule }}')" class="btn btn-danger btn-sm">Remove</button>
+      </div>
+      {% else %}
+      <p class="note">No custom rules yet.</p>
+      {% endfor %}
+    </div>
+    <script>
+    function lightAddRule(block){
+      var domain = document.getElementById('light-domain').value.trim();
+      if(!domain) return;
+      fetch('/api/rule', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({domain:domain, block:block})})
+        .then(r=>r.json()).then(d=>{ if(d.ok) location.reload(); else alert('Error: '+d.error); });
+    }
+    </script>
+  </div>
+
   <div class="card" style="border-color:var(--accent);background:rgba(0,229,192,0.04);">
     <div class="card-label" style="color:var(--accent);">Upgrade to Harbor Remote</div>
     <p style="color:var(--text);font-size:14px;margin-bottom:16px;">Get your full dashboard — see your stats, block specific services, set custom rules, and more.</p>
@@ -872,6 +910,7 @@ def dashboard():
     elif plan_type == "annual": plan_badge = "ANNUAL"
     elif is_active and not is_trial: plan_badge = "MONTHLY"
     has_family_badge = family_safe
+
 
     html = STYLE + NAV_CUSTOMER + """
 <div class="wrap">
@@ -1242,6 +1281,16 @@ def admin_customer(client_id):
             if old_email and new_email and old_email != new_email:
                 updated = update_customer_email(old_email, new_email)
                 log.info(f"Admin email update: {old_email} -> {new_email} success={updated}")
+        elif action == "toggle_plan" and customer.get("email") == ADMIN_EMAIL:
+            new_plan = request.form.get("plan_type", "remote")
+            customers = load_customers()
+            for c in customers:
+                if c.get("client_id") == client_id:
+                    c["plan_type"] = new_plan
+                    c["plan"] = "remote"
+                    break
+            save_customers(customers)
+            print(f"Admin plan toggle: {client_id} -> {new_plan}")
         return redirect(f"/admin/customer/{client_id}")
 
     client = get_client(client_id)
@@ -1292,6 +1341,28 @@ def admin_customer(client_id):
       </div>
       {% endif %}
     </div>
+
+    {% if customer.email == "admin@harborprivacy.com" %}
+    <div style="border-top:1px solid var(--border);margin:16px 0;"></div>
+    <a href="https://dashboard.harborprivacy.com/dashboard?preview=1" target="_blank" class="btn" style="display:block;text-align:center;margin-bottom:16px;">Preview Customer Dashboard</a>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:12px;">Test Plan Mode</div>
+    <form method="POST" action="/admin/customer/{{ customer.client_id }}">
+      <input type="hidden" name="action" value="toggle_plan">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <select name="plan_type" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;font-family:'DM Mono',monospace;font-size:12px;flex:1;">
+          <option value="remote" {% if customer.plan_type == "remote" %}selected{% endif %}>Harbor Remote</option>
+          <option value="harbor-remote-light" {% if customer.plan_type == "harbor-remote-light" %}selected{% endif %}>Harbor Light</option>
+          <option value="install" {% if customer.plan_type == "install" %}selected{% endif %}>On-Site Install</option>
+          <option value="3month" {% if customer.plan_type == "3month" %}selected{% endif %}>Remote 3-Month</option>
+          <option value="6month" {% if customer.plan_type == "6month" %}selected{% endif %}>Remote 6-Month</option>
+          <option value="annual" {% if customer.plan_type == "annual" %}selected{% endif %}>Remote Annual</option>
+        </select>
+        <button type="submit" class="btn" style="padding:8px 16px;">Switch</button>
+      </div>
+      <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:8px;">Current: {{ customer.plan_type }}</p>
+    </form>
+    {% endif %}
+
     <div style="border-top:1px solid var(--border);margin:16px 0;"></div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
       <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;">Update Email</div>
@@ -1883,6 +1954,12 @@ def api_addon():
 @app.route("/api/admin/delete-customer", methods=["POST"])
 @admin_required
 def admin_delete_customer():
+    data = request.get_json()
+    protected = ["admin@harborprivacy.com", "tim@harborprivacy.com"]
+    customers = load_customers()
+    target = next((c for c in customers if c.get("client_id") == data.get("client_id")), None)
+    if target and target.get("email") in protected:
+        return jsonify({"ok": False, "error": "Cannot delete protected account"})
     data = request.get_json()
     client_id = data.get("client_id", "")
     customers = load_customers()
