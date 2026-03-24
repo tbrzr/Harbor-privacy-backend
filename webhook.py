@@ -157,6 +157,12 @@ def delete_profile(client_id):
         log.error(f"Profile delete error: {e}")
 
 def wipe_customer(client_id):
+    # Never wipe admin account
+    customers = load_customers()
+    customer = next((c for c in customers if c.get("client_id") == client_id), None)
+    if customer and customer.get("email") in ("admin@harborprivacy.com", "tim@harborprivacy.com"):
+        log.warning(f"Blocked attempt to wipe protected account {client_id}")
+        return False
     """Full data wipe — removes all traces of a customer from every system"""
     # 1. Remove from AdGuard allowed clients
     remove_from_allowed_clients(client_id)
