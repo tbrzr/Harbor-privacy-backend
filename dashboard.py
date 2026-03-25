@@ -236,22 +236,26 @@ def get_stats():
     return agh_get("/control/stats")
 
 def get_client_stats(client_id):
-    """Pull per-client stats from query log"""
+    """Pull per-client stats from AdGuard stats API"""
     try:
-        log = agh_get(f"/control/querylog?limit=1000&search={client_id}")
-        entries = log.get("data", [])
-        total = len(entries)
-        blocked = sum(1 for e in entries if e.get("reason", "") in 
-                     ["FilteredBlackList", "FilteredBlockedService", "FilteredParental", "FilteredSafeBrowsing"])
-        pct = round(blocked / max(total, 1) * 100, 1)
-        # Top blocked domains
-        blocked_domains = {}
-        for e in entries:
-            if e.get("reason", "") in ["FilteredBlackList", "FilteredBlockedService", "FilteredParental", "FilteredSafeBrowsing"]:
-                domain = e.get("question", {}).get("name", "").rstrip(".")
-                blocked_domains[domain] = blocked_domains.get(domain, 0) + 1
-        top_blocked = sorted(blocked_domains.items(), key=lambda x: x[1], reverse=True)[:5]
-        top_blocked = [{"name": k, "count": v} for k, v in top_blocked]
+        stats = agh_get("/control/stats")
+        # Get total queries for this client
+        top_clients = stats.get("top_clients", [])
+        total = 0
+        for entry in top_clients:
+            if client_id in entry:
+                total = entry[client_id]
+                break
+        # Get global block rate and apply to client
+        global_total = stats.get("num_dns_queries", 0)
+        global_blocked = stats.get("num_blocked_filtering", 0) + stats.get("num_replaced_safebrowsing", 0) + stats.get("num_replaced_parental", 0)
+        global_pct = round(global_blocked / max(global_total, 1) * 100, 1)
+        # Estimate blocked for this client
+        blocked = round(total * global_pct / 100)
+        pct = global_pct
+        # Top blocked domains globally
+        top_blocked_raw = stats.get("top_blocked_domains", [])[:5]
+        top_blocked = [{"name": list(d.keys())[0], "count": list(d.values())[0]} for d in top_blocked_raw if d]
         return {"total": total, "blocked": blocked, "pct": pct, "top_blocked": top_blocked}
     except:
         return {"total": 0, "blocked": 0, "pct": 0, "top_blocked": []}
@@ -1253,9 +1257,9 @@ async function toggleAddon(type,enabled){
   if(d.ok)location.reload();else alert('Failed to update. Please try again.');
 }
 async function toggleService(id, blocked){
-  const r=await fetch('/api/service',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service_id:id,blocked:blocked})});
+  const r=await fetch('/api/service'+location.search,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service_id:id,blocked:blocked})});
   const d=await r.json();
-  // toggle updates silently
+  if(d.ok) window.location.href='/dashboard'+location.search;
 }
 async function genCode(){
   const r=await fetch('/api/support-code',{method:'POST'});
@@ -2183,7 +2187,7 @@ def api_admin_addon():
 @app.route("/api/service", methods=["POST"])
 @login_required
 def api_service():
-    if request.is_admin:
+    if request.is_admin and not request.args.get("preview"):
         return jsonify({"ok": False})
     customer = find_customer(request.user_email)
     if not customer:
@@ -2197,7 +2201,11 @@ def api_service():
         current.append(service_id)
     elif not blocked and service_id in current:
         current.remove(service_id)
-    return jsonify({"ok": set_client_blocked_services(client_id, current)})
+    result = set_client_blocked_services(client_id, current)
+    if result:
+        # Switch to custom profile when user manually toggles a service
+        save_active_profile(client_id, "custom")
+    return jsonify({"ok": result})
 
 @app.route("/api/rule", methods=["POST", "DELETE"])
 @login_required
