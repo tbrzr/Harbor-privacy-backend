@@ -147,6 +147,102 @@ def delete_adguard_client(client_id):
         log.error(f"AdGuard delete error: {e}")
         return False
 
+def generate_qr_code(client_id):
+    try:
+        import qrcode
+        QR_DIR = "/var/www/network/qrcodes"
+        os.makedirs(QR_DIR, exist_ok=True)
+        doh = f"https://{DOH_BASE}/{client_id}"
+        qr = qrcode.QRCode(version=1, box_size=10, border=4)
+        qr.add_data(doh)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="#00e5c0", back_color="#0a0e0f")
+        img.save(f"{QR_DIR}/{client_id}.png")
+        log.info(f"QR code saved: {QR_DIR}/{client_id}.png")
+        return f"https://harborprivacy.com/qrcodes/{client_id}.png"
+    except Exception as e:
+        log.error(f"QR code error: {e}")
+        return ""
+
+def generate_android_page(client_id):
+    try:
+        ANDROID_DIR = "/var/www/network/setup/android"
+        os.makedirs(ANDROID_DIR, exist_ok=True)
+        doh = f"https://{DOH_BASE}/{client_id}"
+        qr_url = f"https://harborprivacy.com/qrcodes/{client_id}.png"
+        html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Android Setup - Harbor Privacy</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{{box-sizing:border-box;margin:0;padding:0;}}
+body{{background:#0a0e0f;color:#e8f0ef;font-family:'Space Grotesk',sans-serif;padding:32px 20px;max-width:480px;margin:0 auto;}}
+h1{{font-size:28px;font-weight:700;margin-bottom:8px;}}
+.accent{{color:#00e5c0;}}
+.note{{font-family:'DM Mono',monospace;font-size:11px;color:#6b8a87;margin-bottom:32px;}}
+.card{{background:#111618;border:1px solid #1e2a2d;padding:24px;margin-bottom:16px;}}
+.label{{font-family:'DM Mono',monospace;font-size:10px;color:#00e5c0;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:12px;}}
+.doh{{background:#0a0e0f;border-left:3px solid #00e5c0;padding:16px;font-family:'DM Mono',monospace;font-size:13px;color:#00e5c0;word-break:break-all;margin-bottom:12px;}}
+.btn{{display:block;text-align:center;background:#00e5c0;color:#0a0e0f;padding:12px 20px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.08em;text-decoration:none;margin-bottom:8px;cursor:pointer;border:none;width:100%;}}
+.btn-outline{{background:transparent;border:1px solid #1e2a2d;color:#6b8a87;display:block;text-align:center;}}
+.step{{display:flex;gap:16px;margin-bottom:16px;}}
+.step-num{{font-family:'DM Mono',monospace;font-size:20px;color:#00e5c0;flex-shrink:0;width:32px;}}
+.step-text{{font-size:14px;color:#6b8a87;line-height:1.6;}}
+.qr-img{{display:block;margin:0 auto;width:200px;height:200px;border:4px solid #1e2a2d;}}
+</style>
+</head>
+<body>
+<a href="https://harborprivacy.com" style="font-family:'DM Mono',monospace;font-size:12px;color:#6b8a87;text-decoration:none;display:block;margin-bottom:32px;">harbor/privacy</a>
+<h1>Android <span class="accent">Setup</span></h1>
+<p class="note">Your personal private DNS setup page</p>
+<div class="card">
+  <div class="label">Your Private DNS Address</div>
+  <div class="doh" id="doh-addr">{doh}</div>
+  <button class="btn" onclick="navigator.clipboard.writeText('{doh}').then(()=>{{this.innerText='Copied!';setTimeout(()=>this.innerText='Copy Address',2000)}})">Copy Address</button>
+</div>
+<div class="card">
+  <div class="label">Scan QR Code</div>
+  <img src="{qr_url}" class="qr-img" alt="QR Code">
+  <p style="font-family:'DM Mono',monospace;font-size:11px;color:#6b8a87;text-align:center;margin-top:12px;">Scan to copy your DNS address</p>
+</div>
+<div class="card">
+  <div class="label">Setup Instructions</div>
+  <div class="step"><div class="step-num">01</div><div class="step-text">Open Settings on your Android phone</div></div>
+  <div class="step"><div class="step-num">02</div><div class="step-text">Go to Network and Internet then Private DNS</div></div>
+  <div class="step"><div class="step-num">03</div><div class="step-text">Select Private DNS provider hostname</div></div>
+  <div class="step"><div class="step-num">04</div><div class="step-text">Paste your address above and tap Save</div></div>
+  <a href="intent:#Intent;action=android.settings.PRIVATE_DNS_SETTINGS;end" class="btn btn-outline" style="margin-top:16px;">Open Android DNS Settings</a>
+</div>
+</body>
+</html>"""
+        open(f"{ANDROID_DIR}/{client_id}.html", 'w').write(html)
+        log.info(f"Android setup page saved: {ANDROID_DIR}/{client_id}.html")
+        return f"https://harborprivacy.com/setup/android/{client_id}.html"
+    except Exception as e:
+        log.error(f"Android page error: {e}")
+        return ""
+
+def delete_android_page(client_id):
+    path = f"/var/www/network/setup/android/{client_id}.html"
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+            log.info(f"Deleted Android page: {path}")
+    except Exception as e:
+        log.error(f"Android page delete error: {e}")
+
+def delete_qr_code(client_id):
+    path = f"/var/www/network/qrcodes/{client_id}.png"
+    try:
+        if os.path.exists(path):
+            os.remove(path)
+            log.info(f"Deleted QR code: {path}")
+    except Exception as e:
+        log.error(f"QR delete error: {e}")
+
 def delete_profile(client_id):
     path = f"{PROFILES_DIR}/{client_id}.mobileconfig"
     try:
@@ -170,6 +266,10 @@ def wipe_customer(client_id):
     delete_adguard_client(client_id)
     # 3. Delete iOS profile file
     delete_profile(client_id)
+    # 3b. Delete QR code
+    delete_qr_code(client_id)
+    # 3c. Delete Android setup page
+    delete_android_page(client_id)
     # 4. Delete dashboard login account
     try:
         users_file = "/var/log/harbor-dashboard-users.json"
@@ -573,6 +673,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                             create_adguard_client(client_id, name)
                             add_to_allowed_clients(client_id)
                             profile_url = save_ios_profile(client_id, name)
+                        generate_qr_code(client_id)
                         invoice_id = s.get("invoice", "")
                         invoice_url = ""
                         if invoice_id:
