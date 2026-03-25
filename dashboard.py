@@ -256,7 +256,7 @@ def get_client_stats(client_id):
         # Top blocked domains globally
         top_blocked_raw = stats.get("top_blocked_domains", [])[:5]
         top_blocked = [{"name": list(d.keys())[0], "count": list(d.values())[0]} for d in top_blocked_raw if d]
-        return {"total": total, "blocked": blocked, "pct": pct, "top_blocked": top_blocked}
+        return {"total": total, "blocked": blocked, "pct": pct, "top_blocked": []}
     except:
         return {"total": 0, "blocked": 0, "pct": 0, "top_blocked": []}
 
@@ -998,38 +998,6 @@ def dashboard():
     </div>
   </div>
 
-  <!-- UPGRADE CARD — monthly only -->
-  {% if plan_badge == "MONTHLY" and is_active %}
-  <div class="card" style="border-color:#1e3a35;background:rgba(0,229,192,0.03);margin-bottom:20px;">
-    <div class="card-label" style="color:var(--accent);">Save More — Upgrade Your Plan</div>
-    <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <div>
-          <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">3 Months — Save 17%</div>
-          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">$4.99/mo billed quarterly</div>
-        </div>
-        <a href="https://buy.stripe.com/7sYcN47or2HdbPLeph6kg0a?prefilled_email={{ user_email }}" target="_blank" style="background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;padding:6px 14px;text-decoration:none;white-space:nowrap;">Switch →</a>
-      </div>
-      <div style="border-top:1px solid var(--border);"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <div>
-          <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">6 Months — Save 30%</div>
-          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">$4.16/mo billed every 6 months</div>
-        </div>
-        <a href="https://buy.stripe.com/00w9AS38b6XtdXTch96kg0b?prefilled_email={{ user_email }}" target="_blank" style="background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;padding:6px 14px;text-decoration:none;white-space:nowrap;">Switch →</a>
-      </div>
-      <div style="border-top:1px solid var(--border);"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <div>
-          <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">Annual — Save 44%</div>
-          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">$3.33/mo billed yearly</div>
-        </div>
-        <a href="https://buy.stripe.com/9B69AS6knepVbPL2Gz6kg09?prefilled_email={{ user_email }}" target="_blank" style="background:var(--accent);color:var(--bg);font-family:'DM Mono',monospace;font-size:11px;padding:6px 14px;text-decoration:none;white-space:nowrap;">Switch →</a>
-      </div>
-    </div>
-  </div>
-  {% endif %}
-
   <!-- CUSTOMER INFO CARD -->
   {% if is_active %}
   <div class="card" style="margin-bottom:20px;">
@@ -1095,6 +1063,38 @@ def dashboard():
     <p class="note">Your personal DNS address will appear here once your subscription is active.</p>
     {% endif %}
   </div>
+
+  <!-- UPGRADE CARD — monthly only -->
+  {% if plan_badge == "MONTHLY" and is_active %}
+  <div class="card" style="border-color:#1e3a35;background:rgba(0,229,192,0.03);margin-bottom:20px;">
+    <div class="card-label" style="color:var(--accent);">Save More — Upgrade Your Plan</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">3 Months — Save 17%</div>
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">$4.99/mo billed quarterly</div>
+        </div>
+        <a href="https://buy.stripe.com/7sYcN47or2HdbPLeph6kg0a?prefilled_email={{ user_email }}" target="_blank" style="background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;padding:6px 14px;text-decoration:none;white-space:nowrap;">Switch →</a>
+      </div>
+      <div style="border-top:1px solid var(--border);"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">6 Months — Save 30%</div>
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">$4.16/mo billed every 6 months</div>
+        </div>
+        <a href="https://buy.stripe.com/00w9AS38b6XtdXTch96kg0b?prefilled_email={{ user_email }}" target="_blank" style="background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;padding:6px 14px;text-decoration:none;white-space:nowrap;">Switch →</a>
+      </div>
+      <div style="border-top:1px solid var(--border);"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">Annual — Save 44%</div>
+          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">$3.33/mo billed yearly</div>
+        </div>
+        <a href="https://buy.stripe.com/9B69AS6knepVbPL2Gz6kg09?prefilled_email={{ user_email }}" target="_blank" style="background:var(--accent);color:var(--bg);font-family:'DM Mono',monospace;font-size:11px;padding:6px 14px;text-decoration:none;white-space:nowrap;">Switch →</a>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
   <!-- ADD-ONS -->
   <div class="card">
@@ -1220,18 +1220,6 @@ def dashboard():
   </div>
   {% endif %}
 
-  {% if is_active and top_blocked %}
-  <div class="card">
-    <div class="card-label">Top Blocked Today</div>
-    {% for d in top_blocked %}
-    <div class="row">
-      <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);">{{ d.name }}</span>
-      <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);">{{ d.count }}</span>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-
 </div>
 <script>
 async function togglePause(pause){
@@ -1252,7 +1240,7 @@ async function applyProfile(profile){
   else alert('Error: ' + (d.error || 'Unknown error'));
 }
 async function toggleAddon(type,enabled){
-  const r=await fetch('/api/addon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,enabled})});
+  const r=await fetch('/api/addon'+location.search,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,enabled})});
   const d=await r.json();
   if(d.ok)location.reload();else alert('Failed to update. Please try again.');
 }
@@ -2033,7 +2021,7 @@ def api_admin_revoke_code():
 @app.route("/api/addon", methods=["POST"])
 @login_required
 def api_addon():
-    if request.is_admin:
+    if request.is_admin and not request.args.get("preview"):
         return jsonify({"ok": False, "error": "Use admin endpoint"})
     customer = find_customer(request.user_email)
     if not customer:
