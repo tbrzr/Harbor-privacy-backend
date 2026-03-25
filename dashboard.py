@@ -457,6 +457,9 @@ def send_email(to, subject, html):
 STYLE = """<!DOCTYPE html>
 <html lang="en">
 <head>
+<link rel="icon" type="image/svg+xml" href="https://harborprivacy.com/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="https://harborprivacy.com/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="https://harborprivacy.com/favicon-180.png">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
