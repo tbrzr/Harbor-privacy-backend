@@ -734,6 +734,13 @@ def login():
 </div>"""
     return render_template_string(html, step=step, email=email, error=error, show_2fa=show_2fa)
 
+@app.route("/dns-check")
+def dns_check():
+    ip = request.headers.get("X-Real-IP") or request.headers.get("X-Forwarded-For","").split(",")[0].strip() or request.remote_addr
+    resp = jsonify({"ip": ip, "ok": True})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
 @app.route("/setup", methods=["GET", "POST"])
 def setup():
     email = request.args.get("email", "") or request.form.get("email", "")
