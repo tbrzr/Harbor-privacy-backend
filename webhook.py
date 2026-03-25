@@ -50,17 +50,21 @@ def generate_ios_profile(client_id, name):
 <key>ServerAddresses</key><array></array>
 <key>ServerURL</key><string>https://{DOH_BASE}/{client_id}</string>
 <key>SupplementalMatchDomains</key><array></array>
+<key>AllowFailover</key><true/>
 </dict>
+<key>PayloadDescription</key><string>Private encrypted DNS filtering for your devices. Blocks ads, trackers, and malware automatically.</string>
 <key>PayloadDisplayName</key><string>Harbor Privacy - {name}</string>
 <key>PayloadIdentifier</key><string>com.harborprivacy.doh.{client_id}.{pp}</string>
+<key>PayloadOrganization</key><string>Harbor Privacy</string>
 <key>PayloadType</key><string>com.apple.dnsSettings.managed</string>
 <key>PayloadUUID</key><string>{pp}</string>
 <key>PayloadVersion</key><integer>1</integer>
 <key>ProhibitDisablement</key><false/>
-<key>AllowFailover</key><true/>
 </dict></array>
+<key>PayloadDescription</key><string>Installs Harbor Privacy encrypted DNS to block ads, trackers, and malware on this device.</string>
 <key>PayloadDisplayName</key><string>Harbor Privacy DNS</string>
 <key>PayloadIdentifier</key><string>com.harborprivacy.doh.{client_id}</string>
+<key>PayloadOrganization</key><string>Harbor Privacy</string>
 <key>PayloadRemovalDisallowed</key><false/>
 <key>PayloadType</key><string>Configuration</string>
 <key>PayloadUUID</key><string>{pu}</string>
