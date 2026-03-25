@@ -18,6 +18,14 @@ import requests
 from flask import Flask, request, jsonify, render_template_string, redirect, make_response, session
 
 app = Flask(__name__)
+
+@app.after_request
+def add_no_cache(response):
+    if request.path == '/dashboard':
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
 app.secret_key = os.environ.get("FLASK_SECRET", "harbor-privacy-secret-2026")
 
 SECRET_KEY = os.environ.get("DASHBOARD_SECRET", "change-me")
@@ -451,6 +459,9 @@ STYLE = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>{% block title %}Harbor Privacy Dashboard{% endblock %}</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
 <style>
@@ -847,6 +858,10 @@ def dashboard():
       });
     }
     </script>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+      <a href="https://harborprivacy.com/profiles/{{ client_id }}.mobileconfig" style="display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Download iOS Profile</a>
+      <a href="https://harborprivacy.com/setup/android/{{ client_id }}" target="_blank" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Android Setup + QR</a>
+    </div>
     <p class="note" style="margin-top:12px;">Add this to your iPhone under Settings → General → VPN & Device Management, or Android under Settings → Private DNS.</p>
   </div>
 
@@ -882,7 +897,7 @@ def dashboard():
     <div class="card-label" style="color:var(--accent);">Upgrade to Harbor Remote</div>
     <p style="color:var(--text);font-size:14px;margin-bottom:16px;">Get your full dashboard — see your stats, block specific services, set custom rules, and more.</p>
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-      <a href="https://buy.stripe.com/cNi3cugZ1dlR07380T6kg0e" target="_blank" class="btn">Upgrade to Remote — $5.99/mo →</a>
+      <a href="https://buy.stripe.com/cNi3cugZ1dlR07380T6kg0e?prefilled_email={{ email }}" target="_blank" class="btn">Upgrade to Remote — $5.99/mo →</a>
       <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">Cancel anytime</span>
     </div>
   </div>
@@ -905,7 +920,8 @@ def dashboard():
 </div>
 </html>"""
         return render_template_string(html, name=name, client_id=client_id, active="dashboard")
-    if plan_type == "3month": plan_badge = "3-MONTH"
+    if plan_type == "harbor-remote-light": plan_badge = "LIGHT"
+    elif plan_type == "3month": plan_badge = "3-MONTH"
     elif plan_type == "6month": plan_badge = "6-MONTH"
     elif plan_type == "annual": plan_badge = "ANNUAL"
     elif is_active and not is_trial: plan_badge = "MONTHLY"
@@ -991,6 +1007,10 @@ def dashboard():
       });
     }
     </script>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+      <a href="https://harborprivacy.com/profiles/{{ client_id }}.mobileconfig" style="display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Download iOS Profile</a>
+      <a href="https://harborprivacy.com/setup/android/{{ client_id }}" target="_blank" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Android Setup + QR</a>
+    </div>
     <p class="note" style="margin-top:12px;">Use this address in your DNS over HTTPS settings. <a href="https://harborprivacy.com/docs" style="color:var(--accent);">Setup guide →</a></p>
     {% else %}
     <div class="doh-box locked">https://doh.harborprivacy.com/dns-query/••••••••••</div>
