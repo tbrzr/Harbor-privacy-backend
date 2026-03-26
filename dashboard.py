@@ -734,6 +734,32 @@ def login():
 </div>"""
     return render_template_string(html, step=step, email=email, error=error, show_2fa=show_2fa)
 
+@app.route("/dns-whoami/<token>")
+def dns_whoami(token):
+    import json as _json, os, time
+    RESULTS_FILE = "/tmp/harbor-whoami-results.json"
+    try:
+        if os.path.exists(RESULTS_FILE):
+            results = _json.loads(open(RESULTS_FILE).read())
+            if token in results:
+                entry = results[token]
+                if time.time() - entry["ts"] < 300:
+                    resp = jsonify({"ip": entry["ip"], "ok": True, "found": True})
+                    resp.headers["Access-Control-Allow-Origin"] = "*"
+                    return resp
+            now = time.time()
+            recent = [(k,v) for k,v in results.items() if now - v["ts"] < 10]
+            if recent:
+                latest = sorted(recent, key=lambda x: x[1]["ts"], reverse=True)[0]
+                resp = jsonify({"ip": latest[1]["ip"], "ok": True, "found": True})
+                resp.headers["Access-Control-Allow-Origin"] = "*"
+                return resp
+    except Exception as e:
+        print(f"dns_whoami error: {e}")
+    resp = jsonify({"ok": True, "found": False})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
 @app.route("/dns-check")
 def dns_check():
     ip = request.headers.get("X-Real-IP") or request.headers.get("X-Forwarded-For","").split(",")[0].strip() or request.remote_addr
