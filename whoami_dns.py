@@ -49,7 +49,7 @@ class WhoamiResolver(BaseResolver):
 
 if __name__ == "__main__":
     resolver = WhoamiResolver()
-    server = DNSServer(resolver, port=5354, address="0.0.0.0")
+    server = DNSServer(resolver, port=53, address="0.0.0.0")
     print(f"Harbor Whoami DNS server starting on port 5354")
     server.start_thread()
     try:
