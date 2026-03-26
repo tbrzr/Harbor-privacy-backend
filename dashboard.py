@@ -464,6 +464,12 @@ STYLE = """<!DOCTYPE html>
 <link rel="icon" type="image/svg+xml" href="https://harborprivacy.com/favicon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="https://harborprivacy.com/favicon-32.png">
 <link rel="apple-touch-icon" sizes="180x180" href="https://harborprivacy.com/favicon-180.png">
+<link rel="manifest" href="https://harborprivacy.com/manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Harbor Privacy">
+<meta name="theme-color" content="#00e5c0">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -1383,6 +1389,117 @@ def admin():
     return render_template_string(html, customers=customers,
         total_queries=total_queries, block_pct=block_pct,
         get_client=get_client, active="admin")
+
+@app.route("/admin/links", methods=["GET"])
+@admin_required
+def admin_links():
+    import json as _json
+    LINKS_FILE = "/var/www/link/links.json"
+    try:
+        links = _json.loads(open(LINKS_FILE).read())
+    except:
+        links = []
+    html = STYLE + NAV_ADMIN + """
+<div class="wrap">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;flex-wrap:wrap;gap:16px;">
+    <div>
+      <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">Admin</p>
+      <h1>Link Manager</h1>
+    </div>
+    <a href="/admin" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;">← Back to Admin</a>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Add New Link</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <input type="text" id="new-label" placeholder="Label (e.g. See Plans)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px;font-family:'DM Mono',monospace;font-size:12px;">
+      <input type="text" id="new-icon" placeholder="Icon (emoji or symbol)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px;font-family:'DM Mono',monospace;font-size:12px;">
+      <input type="url" id="new-url" placeholder="https://..." style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px;font-family:'DM Mono',monospace;font-size:12px;">
+      <label style="display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">
+        <input type="checkbox" id="new-featured"> Featured (teal highlight)
+      </label>
+      <button onclick="addLink()" class="btn">Add Link</button>
+      <div id="add-status" style="font-family:'DM Mono',monospace;font-size:11px;"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Current Links</div>
+    <div id="links-list">
+      {% for i, link in links %}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);gap:12px;" id="link-{{ i }}">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;color:{% if link.featured %}var(--accent){% else %}var(--text){% endif %};">{{ link.icon }} {{ link.label }}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ link.url }}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          <button onclick="moveLink({{ i }}, -1)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;cursor:pointer;font-size:12px;">↑</button>
+          <button onclick="moveLink({{ i }}, 1)" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:4px 8px;cursor:pointer;font-size:12px;">↓</button>
+          <button onclick="deleteLink({{ i }})" style="background:transparent;border:1px solid #ff4e4e;color:#ff4e4e;padding:4px 8px;cursor:pointer;font-family:'DM Mono',monospace;font-size:10px;">Remove</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div style="margin-top:16px;">
+    <a href="https://link.harborprivacy.com" target="_blank" class="btn" style="display:inline-block;text-decoration:none;">Preview Link Page →</a>
+  </div>
+</div>
+
+<script>
+async function addLink(){
+  const label = document.getElementById('new-label').value.trim();
+  const icon = document.getElementById('new-icon').value.trim();
+  const url = document.getElementById('new-url').value.trim();
+  const featured = document.getElementById('new-featured').checked;
+  if(!label || !url){ document.getElementById('add-status').textContent='Label and URL required'; return; }
+  const r = await fetch('/api/admin/links', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'add', label, icon, url, featured})});
+  const d = await r.json();
+  if(d.ok) location.reload();
+  else document.getElementById('add-status').textContent = 'Error: ' + d.error;
+}
+async function deleteLink(i){
+  if(!confirm('Remove this link?')) return;
+  const r = await fetch('/api/admin/links', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'delete', index:i})});
+  const d = await r.json();
+  if(d.ok) location.reload();
+}
+async function moveLink(i, dir){
+  const r = await fetch('/api/admin/links', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'move', index:i, dir:dir})});
+  const d = await r.json();
+  if(d.ok) location.reload();
+}
+</script>
+</html>"""
+    return render_template_string(html, links=enumerate(links), active="admin")
+
+@app.route("/api/admin/links", methods=["POST"])
+@admin_required
+def api_admin_links():
+    import json as _json
+    LINKS_FILE = "/var/www/link/links.json"
+    data = request.json
+    action = data.get("action")
+    try:
+        links = _json.loads(open(LINKS_FILE).read())
+    except:
+        links = []
+    if action == "add":
+        links.append({"label": data.get("label",""), "icon": data.get("icon","→"), "url": data.get("url",""), "featured": data.get("featured", False)})
+    elif action == "delete":
+        idx = data.get("index", -1)
+        if 0 <= idx < len(links):
+            links.pop(idx)
+    elif action == "move":
+        idx = data.get("index", -1)
+        direction = data.get("dir", 1)
+        new_idx = idx + direction
+        if 0 <= idx < len(links) and 0 <= new_idx < len(links):
+            links[idx], links[new_idx] = links[new_idx], links[idx]
+    _json.dump(links, open(LINKS_FILE, "w"), indent=2)
+    resp = jsonify({"ok": True})
+    return resp
 
 @app.route("/admin/customer/<client_id>", methods=["GET", "POST"])
 @admin_required
