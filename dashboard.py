@@ -1350,6 +1350,11 @@ def admin():
     <div class="stat"><div class="stat-num">{{ block_pct }}%</div><div class="stat-label">Network Block Rate</div></div>
   </div>
 
+  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
+    <a href="/admin/links" style="display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; Link Manager</a>
+    <a href="/admin/analytics" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; DNS Analytics</a>
+  </div>
+
   <div class="card">
     <div class="card-label">Active Customers</div>
     {% if customers %}
@@ -1389,6 +1394,89 @@ def admin():
     return render_template_string(html, customers=customers,
         total_queries=total_queries, block_pct=block_pct,
         get_client=get_client, active="admin")
+
+@app.route("/admin/analytics")
+@admin_required
+def admin_analytics():
+    import json as _json, time
+    ANALYTICS_FILE = "/var/log/harbor-dns-analytics.json"
+    try:
+        records = _json.loads(open(ANALYTICS_FILE).read())
+    except:
+        records = []
+
+    now = time.time()
+    today = [r for r in records if r["ts"] > now - 86400]
+    this_week = [r for r in records if r["ts"] > now - 604800]
+
+    isp_counts = {}
+    for r in this_week:
+        isp = r.get("isp","Unknown")
+        isp_counts[isp] = isp_counts.get(isp,0) + 1
+    isp_sorted = sorted(isp_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+
+    protected_week = sum(1 for r in this_week if r.get("protected"))
+    unprotected_week = len(this_week) - protected_week
+
+    hourly = [0]*24
+    for r in today:
+        hourly[r.get("hour",0)] += 1
+
+    daily_labels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
+    daily = [0]*7
+    for r in this_week:
+        daily[r.get("day",0)] += 1
+
+    ref_counts = {}
+    for r in this_week:
+        ref = r.get("referrer","Direct") or "Direct"
+        if "facebook" in ref.lower(): ref = "Facebook"
+        elif "linkedin" in ref.lower(): ref = "LinkedIn"
+        elif "google" in ref.lower(): ref = "Google"
+        elif "harborprivacy" in ref.lower(): ref = "Harbor Privacy Site"
+        else: ref = ref.split("/")[2] if ref.count("/") >= 2 else ref
+        ref_counts[ref] = ref_counts.get(ref,0) + 1
+    ref_sorted = sorted(ref_counts.items(), key=lambda x: x[1], reverse=True)[:8]
+
+    html = STYLE + NAV_ADMIN + """<div class="wrap">
+  <div style="margin-bottom:32px;">
+    <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">Admin</p>
+    <h1>DNS Checker Analytics</h1>
+  </div>
+  <div class="stat-grid" style="margin-bottom:20px;">
+    <div class="stat"><div class="stat-num">""" + str(len(today)) + """</div><div class="stat-label">Checks Today</div></div>
+    <div class="stat"><div class="stat-num">""" + str(len(this_week)) + """</div><div class="stat-label">This Week</div></div>
+    <div class="stat"><div class="stat-num">""" + str(len(records)) + """</div><div class="stat-label">All Time</div></div>
+  </div>
+  <div class="stat-grid" style="margin-bottom:20px;">
+    <div class="stat"><div class="stat-num" style="color:#ff4e4e;">""" + str(unprotected_week) + """</div><div class="stat-label">Unprotected</div></div>
+    <div class="stat"><div class="stat-num">""" + str(protected_week) + """</div><div class="stat-label">Harbor Protected</div></div>
+    <div class="stat"><div class="stat-num">""" + str(round(protected_week/max(len(this_week),1)*100)) + """%</div><div class="stat-label">Protection Rate</div></div>
+  </div>
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">ISPs Detected This Week</div>
+    """ + "".join([f'<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);"><span style="color:{"var(--accent)" if "Harbor" in isp else "var(--text)"};">{isp}</span><span style="font-family:DM Mono,monospace;font-size:12px;color:var(--muted);">{count}</span></div>' for isp,count in isp_sorted]) + """
+  </div>
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Traffic Sources This Week</div>
+    """ + "".join([f'<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);"><span>{ref}</span><span style="font-family:DM Mono,monospace;font-size:12px;color:var(--muted);">{count}</span></div>' for ref,count in ref_sorted]) + """
+  </div>
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Checks by Hour Today</div>
+    <div style="display:flex;align-items:flex-end;gap:3px;height:80px;margin-top:16px;">
+      """ + "".join([f'<div style="flex:1;background:{"var(--accent)" if hourly[i]==max(hourly+[1]) else "var(--border)"};height:{max(int(hourly[i]/max(max(hourly),1)*80),2)}px;" title="{i}:00"></div>' for i in range(24)]) + """
+    </div>
+    <div style="display:flex;justify-content:space-between;font-family:DM Mono,monospace;font-size:9px;color:var(--muted);margin-top:4px;"><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span></div>
+  </div>
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Checks by Day This Week</div>
+    <div style="display:flex;align-items:flex-end;gap:8px;height:80px;margin-top:16px;">
+      """ + "".join([f'<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;"><div style="width:100%;background:{"var(--accent)" if daily[i]==max(daily+[1]) else "var(--border)"};height:{max(int(daily[i]/max(max(daily),1)*60),2)}px;"></div><span style="font-family:DM Mono,monospace;font-size:9px;color:var(--muted);">{daily_labels[i]}</span></div>' for i in range(7)]) + """
+    </div>
+  </div>
+  <a href="/admin" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;">← Back to Admin</a>
+</div></html>"""
+    return render_template_string(html, active="admin")
 
 @app.route("/admin/links", methods=["GET"])
 @admin_required
