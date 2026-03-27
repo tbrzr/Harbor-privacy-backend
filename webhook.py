@@ -633,17 +633,6 @@ def update_customer_family_safe(email, enabled):
     except Exception as e:
         log.error(f"update_customer_family_safe error: {e}")
 
-def send_family_safe_email(email, name, enabled):
-    action = "activated" if enabled else "deactivated"
-    html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
-<h2 style="font-family:Georgia,serif;font-weight:400;">Family Safe {action.title()}</h2>
-<p>Hi {name},</p>
-<p>Your Family Safe add-on has been {action}. SafeSearch enforcement and adult content blocking are now {"enabled" if enabled else "disabled"} on your Harbor Privacy account.</p>
-<p style="color:#6b8a87;font-size:13px;">Manage your settings at <a href="https://dashboard.harborprivacy.com" style="color:#00e5c0;">dashboard.harborprivacy.com</a></p>
-</div>'''
-    send_email(email, f"Harbor Privacy - Family Safe {action.title()}", html)
-
-def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url="", plan_type=""):
     doh = f"https://{DOH_BASE}/{client_id}"
 
     if plan_type == "harbor-remote-light":
