@@ -447,6 +447,92 @@ def update_customer_family_safe(email, enabled):
     except Exception as e:
         log.error(f"update_customer_family_safe error: {e}")
 
+def enable_harbor_kids(client_id):
+    try:
+        import requests as req
+        AGH = os.environ.get("ADGUARD_URL","http://127.0.0.1:8080")
+        USER = os.environ.get("ADGUARD_USER","admin")
+        PASS = os.environ.get("ADGUARD_PASS","")
+        kids_id = f"{client_id}-kid1"
+        ss = {"enabled":True,"bing":True,"duckduckgo":True,"ecosia":True,"google":True,"pixabay":True,"yandex":True,"youtube":True}
+        data = {"name":kids_id,"ids":[kids_id],"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":True,"safebrowsing_enabled":True,"safesearch_enabled":True,"use_global_blocked_services":False,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False,"safe_search":ss,"blocked_services":[],"blocked_services_schedule":{"time_zone":"Local"}}
+        r = req.post(f"{AGH}/control/clients/add", json=data, auth=(USER,PASS), timeout=10)
+        log.info(f"Harbor Kids client created: {kids_id} status={r.status_code}")
+        return r.status_code in [200, 201]
+    except Exception as e:
+        log.error(f"enable_harbor_kids error: {e}")
+        return False
+
+def add_harbor_kids_profile(client_id, kid_num):
+    try:
+        import requests as req
+        AGH = os.environ.get("ADGUARD_URL","http://127.0.0.1:8080")
+        USER = os.environ.get("ADGUARD_USER","admin")
+        PASS = os.environ.get("ADGUARD_PASS","")
+        kids_id = f"{client_id}-kid{kid_num}"
+        ss = {"enabled":True,"bing":True,"duckduckgo":True,"ecosia":True,"google":True,"pixabay":True,"yandex":True,"youtube":True}
+        data = {"name":kids_id,"ids":[kids_id],"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":True,"safebrowsing_enabled":True,"safesearch_enabled":True,"use_global_blocked_services":False,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False,"safe_search":ss,"blocked_services":[],"blocked_services_schedule":{"time_zone":"Local"}}
+        r = req.post(f"{AGH}/control/clients/add", json=data, auth=(USER,PASS), timeout=10)
+        log.info(f"Harbor Kids profile added: {kids_id} status={r.status_code}")
+        return r.status_code in [200, 201]
+    except Exception as e:
+        log.error(f"add_harbor_kids_profile error: {e}")
+        return False
+
+def update_customer_harbor_kids(email):
+    try:
+        lines = open(CUSTOMERS_LOG).readlines()
+        new_lines = []
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            r = json.loads(line)
+            if r.get("email","").lower() == email.lower():
+                r["harbor_kids"] = True
+                kid_count = r.get("harbor_kids_count", 0) + 1
+                r["harbor_kids_count"] = kid_count
+            new_lines.append(json.dumps(r))
+        open(CUSTOMERS_LOG,"w").write("\n".join(new_lines) + "\n")
+    except Exception as e:
+        log.error(f"update_customer_harbor_kids error: {e}")
+
+def disable_harbor_kids(client_id):
+    try:
+        import requests as req
+        AGH = os.environ.get("ADGUARD_URL","http://127.0.0.1:8080")
+        USER = os.environ.get("ADGUARD_USER","admin")
+        PASS = os.environ.get("ADGUARD_PASS","")
+        r = req.get(f"{AGH}/control/clients", auth=(USER,PASS), timeout=10)
+        clients = r.json().get("clients",[])
+        kids_clients = [c for c in clients if c.get("name","").startswith(f"{client_id}-kid")]
+        for kc in kids_clients:
+            req.post(f"{AGH}/control/clients/delete", json={"name":kc["name"]}, auth=(USER,PASS), timeout=10)
+            log.info(f"Harbor Kids client deleted: {kc['name']}")
+        return True
+    except Exception as e:
+        log.error(f"disable_harbor_kids error: {e}")
+        return False
+
+def update_customer_harbor_kids_off(email):
+    try:
+        lines = open(CUSTOMERS_LOG).readlines()
+        new_lines = []
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            r = json.loads(line)
+            if r.get("email","").lower() == email.lower():
+                r["harbor_kids"] = False
+                r["harbor_kids_count"] = 0
+            new_lines.append(json.dumps(r))
+        open(CUSTOMERS_LOG,"w").write("\n".join(new_lines) + "\n")
+    except Exception as e:
+        log.error(f"update_customer_harbor_kids_off error: {e}")
+
+
+
 def send_family_safe_email(email, name, enabled):
     action = "activated" if enabled else "deactivated"
     html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
@@ -733,11 +819,13 @@ class WebhookHandler(BaseHTTPRequestHandler):
                                 update_customer_family_safe(customer_email, True)
                                 send_family_safe_email(customer_email, customer_name, True)
                                 log.info(f"Family Safe enabled for {customer_email}")
-                        if product_id == "prod_UE3j4vZAk3WDrb":
+                        if product_id == "prod_UE3j4vZAk3WDrb" or line.get("metadata", {}).get("plan", "") == "home-remote-kids":
                             cust = find_customer_by_email(customer_email)
                             if cust:
+                                enable_harbor_kids(cust["client_id"])
+                                update_customer_harbor_kids(customer_email)
                                 send_harbor_kids_email(customer_email, customer_name, cust["client_id"])
-                                log.info(f"Harbor Kids email sent for {customer_email}")
+                                log.info(f"Harbor Kids enabled and email sent for {customer_email}")
                 except Exception as e:
                     log.error(f"invoice handler error: {e}")
 
@@ -774,12 +862,21 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
             elif etype == "customer.subscription.deleted":
                 stripe_id = event["data"]["object"].get("customer", "")
+                sub_items = event["data"]["object"].get("items", {}).get("data", [])
+                product_id = sub_items[0].get("price", {}).get("product", "") if sub_items else ""
+                meta = event["data"]["object"].get("metadata", {})
+                plan_meta = meta.get("plan", "")
                 customer = find_customer(stripe_id)
                 if customer:
                     cid = customer.get("client_id", "")
-                    send_cancellation_email(customer.get("email", ""), customer.get("name", ""))
-                    deactivate_after_grace(cid, delay=3600)
-                    log.info(f"Cancellation received for {cid} - grace period 1hr")
+                    if product_id == "prod_UE3j4vZAk3WDrb" or plan_meta == "home-remote-kids":
+                        disable_harbor_kids(cid)
+                        update_customer_harbor_kids_off(customer.get("email", ""))
+                        log.info(f"Harbor Kids cancelled for {cid}")
+                    else:
+                        send_cancellation_email(customer.get("email", ""), customer.get("name", ""))
+                        deactivate_after_grace(cid, delay=3600)
+                        log.info(f"Cancellation received for {cid} - grace period 1hr")
 
             self.send_response(200); self.end_headers(); self.wfile.write(b"ok")
         except Exception as e:
