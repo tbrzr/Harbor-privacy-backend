@@ -1193,6 +1193,29 @@ def dashboard():
     </div>
   </div>
 
+  <div class="card">
+    <div class="card-label">Harbor Kids &#8212; Your Child Profiles</div>
+    {% if harbor_kids and kids_profiles %}
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Each child profile has its own DNS address. Use the setup guide to install it on your child's device.</p>
+    {% for kp in kids_profiles %}
+    <div style="border:1px solid var(--border);padding:16px;margin-bottom:12px;background:var(--bg);">
+      <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);margin-bottom:10px;">{{ kp.name }}</div>
+      <div style="background:var(--surface);border-left:3px solid var(--accent);padding:10px 14px;font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);word-break:break-all;margin-bottom:10px;">https://doh.harborprivacy.com/dns-query/{{ kp.name }}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a href="https://harborprivacy.com/docs/harbor-kids#kids-setup" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">iOS/Mac Setup</a>
+        <a href="https://harborprivacy.com/docs/harbor-kids#kids-setup" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">Android Setup</a>
+        <a href="https://harborprivacy.com/docs/harbor-kids#kids-setup" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">Windows Setup</a>
+      </div>
+    </div>
+    {% endfor %}
+    {% elif harbor_kids %}
+    <p style="font-size:13px;color:var(--muted);">Your Harbor Kids profile is being set up. Check back shortly or contact support@harborprivacy.com.</p>
+    {% else %}
+    <p style="font-size:13px;color:var(--muted);">Add Harbor Kids from the Add-Ons section above to get started.</p>
+    {% endif %}
+    <div style="font-size:11px;color:var(--muted);margin-top:12px;">Harbor Kids accounts are managed by a parent or guardian. We do not collect personal information from children. <a href="https://harborprivacy.com/nologs" style="color:var(--accent);text-decoration:none;">Privacy Policy</a></div>
+  </div>
+
   <!-- CUSTOM RULES -->
   <div class="card">
     <div class="card-label">Custom Rules {% if not is_active %}<span class="badge badge-locked">LOCKED</span>{% endif %}</div>
