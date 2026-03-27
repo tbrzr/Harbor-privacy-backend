@@ -1788,8 +1788,8 @@ def admin_customer(client_id):
         <span class="slider locked"></span>
       </label>
     </div>
-    {% if kids_profiles %}
     <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
+      {% if kids_profiles %}
       <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:10px;">Active Kid Profiles</div>
       {% for kp in kids_profiles %}
       <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
@@ -1797,11 +1797,11 @@ def admin_customer(client_id):
         <button onclick="removeKidProfile('{{ kp.name }}')" style="background:none;border:1px solid #ff4e4e;color:#ff4e4e;padding:4px 10px;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;">Remove</button>
       </div>
       {% endfor %}
-    </div>
-    {% endif %}
-    <div style="margin-top:16px;display:flex;gap:8px;align-items:center;">
-      <button onclick="addKidProfile()" style="background:var(--accent);color:#0a0e0f;border:none;padding:8px 16px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:0.08em;">+ Add Kid Profile</button>
-      <span style="font-size:12px;color:var(--muted);">Creates kid{{ (kids_profiles|length) + 1 }} profile in AdGuard</span>
+      {% endif %}
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
+        <button onclick="addKidProfile()" style="background:var(--accent);color:#0a0e0f;border:none;padding:8px 16px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:0.08em;">+ Add Kid Profile</button>
+        <span style="font-size:12px;color:var(--muted);">Creates kid{{ (kids_profiles|length) + 1 }} profile in AdGuard</span>
+      </div>
     </div>
   </div>
 
