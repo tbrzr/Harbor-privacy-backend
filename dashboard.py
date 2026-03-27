@@ -1787,6 +1787,21 @@ def admin_customer(client_id):
         <span class="slider locked"></span>
       </label>
     </div>
+    {% if kids_profiles %}
+    <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:10px;">Active Kid Profiles</div>
+      {% for kp in kids_profiles %}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);">{{ kp.name }}</span>
+        <button onclick="removeKidProfile('{{ kp.name }}')" style="background:none;border:1px solid #ff4e4e;color:#ff4e4e;padding:4px 10px;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;">Remove</button>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div style="margin-top:16px;display:flex;gap:8px;align-items:center;">
+      <button onclick="addKidProfile()" style="background:var(--accent);color:#0a0e0f;border:none;padding:8px 16px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:0.08em;">+ Add Kid Profile</button>
+      <span style="font-size:12px;color:var(--muted);">Creates kid{{ (kids_profiles|length) + 1 }} profile in AdGuard</span>
+    </div>
   </div>
 
   <div class="card">
@@ -1875,6 +1890,19 @@ async function revokeCode(){
   await fetch('/api/admin/revoke-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CID})});
   window.location.href='/admin/customer/'+CID;
 }
+async function addKidProfile(){
+  const kids = document.querySelectorAll('[id^="kid-"]').length;
+  const kid_num = (document.querySelectorAll('.kid-profile-row').length || 0) + 1;
+  const r=await fetch('/api/admin/addon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CID,type:'harbor_kids_add',kid_num:kid_num})});
+  const d=await r.json();
+  if(d.ok){alert('Kid profile '+d.kids_id+' created.');location.reload();}else{alert('Failed to create profile.');}
+}
+async function removeKidProfile(kids_id){
+  if(!confirm('Remove '+kids_id+'? This will delete their DNS profile.'))return;
+  const r=await fetch('/api/admin/addon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CID,type:'harbor_kids_remove',kids_id:kids_id})});
+  const d=await r.json();
+  if(d.ok){location.reload();}else{alert('Failed to remove profile.');}
+}
 async function toggleFamily(enabled){
   const r=await fetch('/api/admin/addon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CID,type:'family',enabled})});
   const d=await r.json();
@@ -1916,7 +1944,7 @@ async function removeRule(rule){
     customer_email = customer.get("email", "")
     code_valid = customer_email.endswith("@harborprivacy.com") or verify_support_code(client_id, request.args.get("code", ""))
     return render_template_string(html, customer=customer, client_id=client_id,
-        rules=rules, family_safe=family_safe, harbor_kids=harbor_kids, cstats=cstats,
+        rules=rules, family_safe=family_safe, harbor_kids=harbor_kids, kids_profiles=get_kids_profiles(client_id), cstats=cstats,
         service_groups=service_groups, blocked_services=blocked_services,
         code_valid=code_valid, active="admin")
 
@@ -2317,6 +2345,25 @@ def api_addon():
         enabled = data.get("enabled", False)
         updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True, "use_global_settings": False, "safe_search": {"enabled": enabled, "bing": enabled, "duckduckgo": enabled, "ecosia": enabled, "google": enabled, "pixabay": enabled, "yandex": enabled, "youtube": enabled}}
         return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
+
+    if data.get("type") == "harbor_kids_add":
+        kid_num = data.get("kid_num", 1)
+        kids_id = f"{client_id}-kid{kid_num}"
+        ss = {"enabled":True,"bing":True,"duckduckgo":True,"ecosia":True,"google":True,"pixabay":True,"yandex":True,"youtube":True}
+        kid_data = {"name":kids_id,"ids":[kids_id],"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":True,"safebrowsing_enabled":True,"safesearch_enabled":True,"use_global_blocked_services":False,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False,"safe_search":ss,"blocked_services":[],"blocked_services_schedule":{"time_zone":"Local"}}
+        ok = agh_post("/control/clients/add", kid_data)
+        if ok:
+            update_customer_harbor_kids_flag(client_id, True)
+        return jsonify({"ok": ok, "kids_id": kids_id})
+
+    if data.get("type") == "harbor_kids_remove":
+        kids_id = data.get("kids_id", "")
+        ok = agh_post("/control/clients/delete", {"name": kids_id})
+        remaining = get_kids_profiles(client_id)
+        if not remaining:
+            update_customer_harbor_kids_flag(client_id, False)
+        return jsonify({"ok": ok})
+
     return jsonify({"ok": False})
 
 @app.route("/api/admin/delete-customer", methods=["POST"])
@@ -2440,6 +2487,35 @@ def admin_reprovision():
         log.error(f"Reprovision error: {e}")
         return jsonify({"ok": False, "error": str(e)})
 
+
+def get_kids_profiles(client_id):
+    try:
+        import requests as req
+        AGH = os.environ.get("ADGUARD_URL","http://127.0.0.1:8080")
+        USER = os.environ.get("ADGUARD_USER","admin")
+        PASS = os.environ.get("ADGUARD_PASS","")
+        r = req.get(f"{AGH}/control/clients", auth=(USER,PASS), timeout=10)
+        clients = r.json().get("clients",[])
+        return [c for c in clients if c.get("name","").startswith(f"{client_id}-kid")]
+    except:
+        return []
+
+def update_customer_harbor_kids_flag(client_id, enabled):
+    try:
+        lines = open(CUSTOMERS_LOG).readlines()
+        new_lines = []
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            r = json.loads(line)
+            if r.get("client_id","") == client_id:
+                r["harbor_kids"] = enabled
+            new_lines.append(json.dumps(r))
+        open(CUSTOMERS_LOG,"w").write("\n".join(new_lines) + "\n")
+    except Exception as e:
+        log.error(f"update_customer_harbor_kids_flag error: {e}")
+
 @app.route("/api/admin/addon", methods=["POST"])
 @admin_required
 def api_admin_addon():
@@ -2452,6 +2528,25 @@ def api_admin_addon():
         enabled = data.get("enabled", False)
         updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True, "use_global_settings": False, "safe_search": {"enabled": enabled, "bing": enabled, "duckduckgo": enabled, "ecosia": enabled, "google": enabled, "pixabay": enabled, "yandex": enabled, "youtube": enabled}}
         return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
+
+    if data.get("type") == "harbor_kids_add":
+        kid_num = data.get("kid_num", 1)
+        kids_id = f"{client_id}-kid{kid_num}"
+        ss = {"enabled":True,"bing":True,"duckduckgo":True,"ecosia":True,"google":True,"pixabay":True,"yandex":True,"youtube":True}
+        kid_data = {"name":kids_id,"ids":[kids_id],"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":True,"safebrowsing_enabled":True,"safesearch_enabled":True,"use_global_blocked_services":False,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False,"safe_search":ss,"blocked_services":[],"blocked_services_schedule":{"time_zone":"Local"}}
+        ok = agh_post("/control/clients/add", kid_data)
+        if ok:
+            update_customer_harbor_kids_flag(client_id, True)
+        return jsonify({"ok": ok, "kids_id": kids_id})
+
+    if data.get("type") == "harbor_kids_remove":
+        kids_id = data.get("kids_id", "")
+        ok = agh_post("/control/clients/delete", {"name": kids_id})
+        remaining = get_kids_profiles(client_id)
+        if not remaining:
+            update_customer_harbor_kids_flag(client_id, False)
+        return jsonify({"ok": ok})
+
     return jsonify({"ok": False})
 
 @app.route("/api/service", methods=["POST"])
