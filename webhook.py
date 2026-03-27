@@ -458,7 +458,11 @@ def enable_harbor_kids(client_id):
         data = {"name":kids_id,"ids":[kids_id],"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":True,"safebrowsing_enabled":True,"safesearch_enabled":True,"use_global_blocked_services":False,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False,"safe_search":ss,"blocked_services":[],"blocked_services_schedule":{"time_zone":"Local"}}
         r = req.post(f"{AGH}/control/clients/add", json=data, auth=(USER,PASS), timeout=10)
         log.info(f"Harbor Kids client created: {kids_id} status={r.status_code}")
-        return r.status_code in [200, 201]
+        if r.status_code in [200, 201]:
+            save_ios_profile(kids_id, f"Harbor Kids ({kids_id})")
+            add_to_allowed_clients(kids_id)
+            return True
+        return False
     except Exception as e:
         log.error(f"enable_harbor_kids error: {e}")
         return False
@@ -474,7 +478,11 @@ def add_harbor_kids_profile(client_id, kid_num):
         data = {"name":kids_id,"ids":[kids_id],"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":True,"safebrowsing_enabled":True,"safesearch_enabled":True,"use_global_blocked_services":False,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False,"safe_search":ss,"blocked_services":[],"blocked_services_schedule":{"time_zone":"Local"}}
         r = req.post(f"{AGH}/control/clients/add", json=data, auth=(USER,PASS), timeout=10)
         log.info(f"Harbor Kids profile added: {kids_id} status={r.status_code}")
-        return r.status_code in [200, 201]
+        if r.status_code in [200, 201]:
+            save_ios_profile(kids_id, f"Harbor Kids ({kids_id})")
+            add_to_allowed_clients(kids_id)
+            return True
+        return False
     except Exception as e:
         log.error(f"add_harbor_kids_profile error: {e}")
         return False
