@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Getting Started | Harbor Privacy</title>
+<meta name="description" content="Learn how DNS filtering protects your home network, how to access your Harbor Privacy dashboard, and how to set up private DNS on iPhone, Android, Mac, and Windows.">
+<meta name="keywords" content="DNS filtering home network, private DNS setup, how DNS privacy works, harbor privacy setup, DNS on iPhone, DNS on Android, what is DNS filtering">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js"></script>
+<style>
+:root{--bg:#0a0e0f;--surface:#111618;--border:#1e2a2d;--accent:#00e5c0;--text:#e8f0ef;--muted:#6b8a87;}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.6;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:0.4;pointer-events:none;z-index:0;}
+nav{padding:24px 0;border-bottom:1px solid var(--border);position:relative;z-index:10;}
+.nav-inner{max-width:900px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;}
+.logo{font-family:'DM Mono',monospace;font-size:14px;color:var(--accent);letter-spacing:0.1em;text-decoration:none;}
+.logo span{color:var(--muted);}
+.cta-nav{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);text-decoration:none;border:1px solid var(--accent);padding:8px 18px;letter-spacing:0.08em;transition:all 0.2s;}
+.cta-nav:hover{background:var(--accent);color:var(--bg);}
+.layout{max-width:900px;margin:0 auto;padding:60px 24px 100px;position:relative;z-index:1;display:grid;grid-template-columns:220px 1fr;gap:60px;}
+.sidebar{position:sticky;top:40px;height:fit-content;}
+.sidebar-section{margin-bottom:32px;}
+.sidebar-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:12px;}
+.sidebar a{display:block;font-size:13px;color:var(--muted);text-decoration:none;padding:6px 0;border-left:2px solid var(--border);padding-left:12px;transition:all 0.2s;}
+.sidebar a:hover,.sidebar a.active{color:var(--accent);border-left-color:var(--accent);}
+.content h1{font-family:'DM Serif Display',serif;font-size:clamp(32px,5vw,48px);font-weight:400;margin-bottom:16px;line-height:1.1;}
+.content h1 em{font-style:italic;color:var(--accent);}
+.lead{font-size:16px;color:var(--muted);margin-bottom:60px;max-width:560px;}
+.doc-section{margin-bottom:72px;scroll-margin-top:40px;}
+.section-tag{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:12px;}
+h2{font-family:'DM Serif Display',serif;font-size:clamp(24px,3vw,32px);font-weight:400;margin-bottom:24px;line-height:1.2;}
+h3{font-size:16px;font-weight:500;margin-bottom:12px;color:var(--text);margin-top:28px;}
+p{font-size:15px;color:var(--muted);margin-bottom:16px;line-height:1.7;}
+ul,ol{padding-left:20px;margin-bottom:16px;}
+li{font-size:15px;color:var(--muted);margin-bottom:8px;line-height:1.6;}
+li strong{color:var(--text);font-weight:500;}
+.card{border:1px solid var(--border);padding:24px 28px;background:var(--surface);margin-bottom:16px;}
+.card-title{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);letter-spacing:0.05em;margin-bottom:10px;}
+.card p{margin-bottom:0;}
+.steps-list{display:flex;flex-direction:column;gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:24px;}
+.step-item{background:var(--bg);padding:20px 24px;display:grid;grid-template-columns:32px 1fr;gap:16px;}
+.step-item:hover{background:var(--surface);}
+.step-num{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);padding-top:2px;}
+.step-content strong{display:block;font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px;}
+.step-content span{font-size:13px;color:var(--muted);}
+.faq-item{border-bottom:1px solid var(--border);padding:20px 0;}
+.faq-item:first-child{border-top:1px solid var(--border);}
+.faq-q{font-size:15px;font-weight:500;color:var(--text);margin-bottom:10px;cursor:pointer;display:flex;justify-content:space-between;align-items:start;gap:16px;}
+.faq-q::after{content:'+';font-family:'DM Mono',monospace;color:var(--accent);font-size:18px;flex-shrink:0;}
+.faq-q.open::after{content:'−';}
+.faq-a{font-size:14px;color:var(--muted);line-height:1.7;display:none;}
+.faq-a.open{display:block;}
+.alert{border:1px solid var(--accent);background:#00e5c008;padding:16px 20px;margin-bottom:24px;}
+.alert-title{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:0.1em;margin-bottom:6px;}
+.alert p{margin-bottom:0;font-size:14px;}
+.device-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
+.device-card{border:1px solid var(--border);padding:20px;background:var(--surface);}
+.device-icon{font-size:24px;margin-bottom:10px;}
+.device-name{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);margin-bottom:8px;}
+.device-steps{font-size:13px;color:var(--muted);line-height:1.7;}
+.kids-badge{display:inline-block;font-family:'DM Mono',monospace;font-size:10px;color:var(--bg);background:var(--accent);padding:3px 8px;letter-spacing:0.1em;margin-left:10px;vertical-align:middle;position:relative;top:-2px;}
+.doc-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:40px;}
+.doc-card{border:1px solid var(--border);padding:28px;background:var(--surface);text-decoration:none;display:block;transition:background 0.2s;}
+.doc-card:hover{background:#151c1e;}
+.doc-card-tag{font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:10px;}
+.doc-card-title{font-family:'DM Serif Display',serif;font-size:22px;font-weight:400;color:var(--text);margin-bottom:8px;}
+.doc-card-desc{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:16px;}
+.doc-card-arrow{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);}
+.search-wrap{margin-bottom:48px;position:relative;}
+.search-wrap input{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:14px 16px 14px 40px;outline:none;transition:border 0.2s;letter-spacing:0.04em;}
+.search-wrap input::placeholder{color:var(--muted);}
+.search-wrap input:focus{border-color:var(--accent);}
+.search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--muted);pointer-events:none;}
+.search-results{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border);z-index:100;display:none;max-height:320px;overflow-y:auto;}
+.search-results.open{display:block;}
+.search-result-item{padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.15s;text-decoration:none;display:block;}
+.search-result-item:last-child{border-bottom:none;}
+.search-result-item:hover{background:var(--bg);}
+.search-result-title{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:0.06em;margin-bottom:3px;}
+.search-result-page{font-size:11px;color:var(--muted);margin-bottom:3px;font-family:'DM Mono',monospace;}
+.search-result-preview{font-size:12px;color:var(--muted);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.search-no-results{padding:16px;font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;}
+.contact-cta{border:1px solid var(--border);padding:32px;text-align:center;background:var(--surface);}
+.contact-cta h3{font-family:'DM Serif Display',serif;font-size:24px;font-weight:400;margin-bottom:12px;color:var(--text);}
+.contact-cta p{margin-bottom:24px;}
+footer{border-top:1px solid var(--border);padding:32px 0;margin-top:60px;position:relative;z-index:1;}
+.footer-inner{max-width:900px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;}
+.footer-copy{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.08em;}
+@media(max-width:700px){.layout{grid-template-columns:1fr;}.sidebar{display:none;}.device-grid{grid-template-columns:1fr;}.doc-cards{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="logo">harbor<span>/</span>privacy</a>
+    <a href="/docs" class="cta-nav">← Docs Home</a>
+  </div>
+</nav>
+<div class="layout">
+  <aside class="sidebar">
+<div class="sidebar-section">
+  <div class="sidebar-label">Getting Started</div>
+  <a href="#overview">How It Works</a>
+  <a href="#dashboard">Your Dashboard</a>
+  <a href="#devices">Device Setup</a>
+</div>
+<div class="sidebar-section">
+  <div class="sidebar-label">Other Docs</div>
+  <a href="/docs/managing">Blocking & Filters</a>
+  <a href="/docs/harbor-kids">Harbor Kids</a>
+  <a href="/docs/troubleshooting">Troubleshooting</a>
+  <a href="/docs/account">Account</a>
+</div>
+</aside>
+  <main class="content">
+<h1>Getting<br><em>Started.</em></h1>
+<p class="seo-sub" style="display:none">How DNS filtering works, how to set up private DNS on iPhone, Android, Mac, Windows, and how to access your Harbor Privacy dashboard.</p>
+<p class="lead">How your Harbor Privacy setup works, how to access your dashboard, and how to get your devices connected.</p>
+
+<div class="doc-section" id="overview">
+  <div class="section-tag">Getting Started</div>
+  <h2>How Your Network Works</h2>
+  <p>Your Harbor Privacy device is a small Raspberry Pi computer that sits quietly on your network and handles all DNS queries for every device in your home. DNS is essentially the phone book of the internet — every time you visit a website, your device first asks a DNS server for directions.</p>
+  <p>Normally those requests go to your ISP (Comcast, Verizon, etc.) which can log and sell your browsing data. Your Harbor Privacy device intercepts those requests, blocks the bad ones, and sends the rest through an encrypted private channel so your ISP never sees them.</p>
+  <div class="card">
+    <div class="card-title">WHAT HAPPENS WHEN YOU VISIT A WEBSITE</div>
+    <p>Your device asks your Harbor Privacy Pi for directions → Pi checks if the domain is on a blocklist → If clean, it looks up the address privately → Your device connects to the website. The whole process takes under 20 milliseconds.</p>
+  </div>
+  <h3>What It Protects</h3>
+  <ul>
+    <li><strong>Every device automatically</strong> — phones, laptops, smart TVs, game consoles, tablets. Anything on your WiFi or ethernet is protected without installing any software.</li>
+    <li><strong>Ads and trackers</strong> — blocked before they load, which means faster pages and less data usage.</li>
+    <li><strong>Malware and phishing domains</strong> — known malicious sites blocked at the DNS level.</li>
+    <li><strong>ISP snooping</strong> — all DNS queries are encrypted so Comcast can't see what sites you're visiting.</li>
+  </ul>
+</div>
+
+<div class="doc-section" id="dashboard">
+  <div class="section-tag">Getting Started</div>
+  <h2>Your Dashboard</h2>
+  <p>Your Harbor Privacy account has a web dashboard where you can see what's being blocked, manage settings, and whitelist sites that aren't loading correctly.</p>
+  <div class="alert">
+    <div class="alert-title">ACCESS YOUR DASHBOARD</div>
+    <p>Go to <a href="https://dashboard.harborprivacy.com" style="color:var(--accent);">dashboard.harborprivacy.com</a> and log in with the credentials from your setup email.</p>
+  </div>
+  <h3>Dashboard Overview</h3>
+  <div class="steps-list">
+    <div class="step-item"><div class="step-num">01</div><div class="step-content"><strong>DNS Queries</strong><span>Total requests processed. A typical home sees 5,000–20,000 queries per day across all devices.</span></div></div>
+    <div class="step-item"><div class="step-num">02</div><div class="step-content"><strong>Blocked by Filters</strong><span>Percentage of queries blocked. Typically 10–20%. Higher means more ads and trackers on the sites you visit.</span></div></div>
+    <div class="step-item"><div class="step-num">03</div><div class="step-content"><strong>Query Log</strong><span>Real-time list of every DNS request from every device. Useful for finding out what's being blocked.</span></div></div>
+    <div class="step-item"><div class="step-num">04</div><div class="step-content"><strong>Filters</strong><span>The blocklists your device uses. These update automatically to catch new threats.</span></div></div>
+  </div>
+</div>
+
+<div class="doc-section" id="devices">
+  <div class="section-tag">Getting Started</div>
+  <h2>Device Setup</h2>
+  <p>Most devices are automatically protected once connected to your home network. For phones and tablets that leave home, a DNS profile keeps you protected anywhere.</p>
+  <div class="device-grid">
+    <div class="device-card">
+      <div class="device-icon">📱</div>
+      <div class="device-name">iPhone / iPad</div>
+      <div class="device-steps">A DNS profile was installed during setup. Go to <strong>Settings → General → VPN & Device Management</strong> to confirm it's active. Activates automatically when you leave home.</div>
+    </div>
+    <div class="device-card">
+      <div class="device-icon">🤖</div>
+      <div class="device-name">Android / Pixel</div>
+      <div class="device-steps">Go to <strong>Settings → Network & Internet → Private DNS → Private DNS provider hostname</strong> and enter the address from your setup email. Tap Save.</div>
+    </div>
+    <div class="device-card">
+      <div class="device-icon">💻</div>
+      <div class="device-name">Windows / Mac</div>
+      <div class="device-steps">Automatically protected when connected to your home network. For protection on other networks, contact us for setup instructions.</div>
+    </div>
+    <div class="device-card">
+      <div class="device-icon">📺</div>
+      <div class="device-name">Smart TV / Streaming</div>
+      <div class="device-steps">Automatically protected on your home network. DNS was configured during installation. No action needed.</div>
+    </div>
+    <div class="device-card">
+      <div class="device-icon">📡</div>
+      <div class="device-name">Xfinity Router</div>
+      <div class="device-steps">Go to <strong>10.0.0.1</strong> → log in → <strong>Advanced → DNS Settings</strong>. Set Primary DNS to the address from your setup email. Save and reboot.</div>
+    </div>
+    <div class="device-card">
+      <div class="device-icon">🌐</div>
+      <div class="device-name">Other Routers</div>
+      <div class="device-steps">Most routers have DNS settings under Advanced or WAN settings. Set Primary DNS to the address from your setup email. Contact us if you need help finding it.</div>
+    </div>
+  </div>
+</div>
+</main>
+</div>
+<footer>
+  <div class="footer-inner">
+    <span class="footer-copy">© 2025 Harbor Privacy · Pembroke, MA</span>
+    <a href="/nologs" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.08em;">Privacy Policy</a>
+  </div>
+</footer>
+
+<script>
+document.querySelectorAll('.faq-q').forEach(q => {
+  q.addEventListener('click', () => {
+    q.classList.toggle('open');
+    q.nextElementSibling.classList.toggle('open');
+  });
+});
+const secs = document.querySelectorAll('.doc-section');
+const links = document.querySelectorAll('.sidebar a');
+window.addEventListener('scroll', () => {
+  let cur = '';
+  secs.forEach(s => { if (window.scrollY >= s.offsetTop - 80) cur = s.id; });
+  links.forEach(a => { a.classList.remove('active'); if (a.getAttribute('href') === '#' + cur) a.classList.add('active'); });
+});
+</script>
+
+
+</body>
+</html>
