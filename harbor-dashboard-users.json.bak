@@ -1,0 +1,23 @@
+{
+  "admin@harborprivacy.com": {
+    "email": "admin@harborprivacy.com",
+    "password": "$2b$12$nbWWS7GDPddByDkRYOLPie8I5BB/bWiD0Flo/mF4iKRteztj7escm",
+    "created": "2026-03-21T13:02:09.503105"
+  },
+  "test@harborprivacy.com": {
+    "email": "test@harborprivacy.com",
+    "password": "$2b$12$faJK4n8CGVzsV0siLF8nHOhcs4qFaezThxZa8AmDYARUirKf1ZDtm",
+    "created": "2026-03-21T14:08:30.005851"
+  },
+  "tim@harborprivacy.com": {
+    "email": "tim@harborprivacy.com",
+    "password": "$2b$12$MELAwWy6Y0vKtVJgX6/8..M7ohA9johrmkV5bXwc7d/qwj3myLFXC",
+    "created": "2026-03-21T19:32:57.704398"
+  },
+  "timothy.brazer@gmail.com": {
+    "email": "timothy.brazer@gmail.com",
+    "password": "$2b$12$/P7dSMGxv4BeMYwNEFFIkOPZP3ty/tg0rGIjsI/loeY5uidL78IiS",
+    "created": "2026-03-23T00:19:13.907686",
+    "weekly_email": true
+  }
+}
