@@ -1781,6 +1781,7 @@ def admin_customer(client_id):
           {% endif %}
         </div>
         <div class="toggle-desc">Child device DNS filtering, adult content blocking, parental control</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Harbor Kids accounts are managed by a parent or guardian. We do not collect personal information from children. <a href="https://harborprivacy.com/nologs#children" style="color:var(--accent);text-decoration:none;">Privacy Policy →</a></div>
       </div>
       <label class="toggle">
         <input type="checkbox" {% if harbor_kids %}checked{% endif %} disabled>
