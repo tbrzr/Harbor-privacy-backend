@@ -1166,6 +1166,31 @@ def dashboard():
       </div>
       {% endif %}
     </div>
+      <div style="position:relative;">
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">
+            Harbor Kids
+            <span class="badge {% if harbor_kids %}badge-on{% else %}badge-off{% endif %}">{% if harbor_kids %}ON{% else %}OFF{% endif %}</span>
+          </div>
+          <div class="toggle-desc">DNS filtering for your child's devices — blocks adult content, malware, and ads</div>
+        </div>
+        <label class="toggle" style="width:44px;height:24px;flex-shrink:0;">
+          <input type="checkbox" {% if harbor_kids %}checked{% endif %} disabled>
+          <span class="slider" style="border-radius:24px;"></span>
+        </label>
+      </div>
+      {% if is_active and not harbor_kids %}
+      <div style="position:absolute;inset:0;background:rgba(10,14,15,0.82);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-radius:2px;">
+        <div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:4px;">Add-On Available</div>
+          <div style="font-size:14px;color:var(--text);">Harbor Kids &mdash; <span style="color:var(--accent);font-family:'DM Mono',monospace;">$2.49/mo</span></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:2px;">Child device filtering, adult content blocking, parental DNS control</div>
+        </div>
+        <a href="https://buy.stripe.com/fZu4gyfUX0z55rneph6kg0f" target="_blank" style="background:var(--accent);color:#1a2a2d;padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;font-weight:500;white-space:nowrap;flex-shrink:0;margin-left:16px;">Add On &rarr;</a>
+      </div>
+      {% endif %}
+    </div>
   </div>
 
   <!-- CUSTOM RULES -->
