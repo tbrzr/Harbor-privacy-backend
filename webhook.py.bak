@@ -457,29 +457,6 @@ def send_family_safe_email(email, name, enabled):
 </div>'''
     send_email(email, f"Harbor Privacy - Family Safe {action.title()}", html)
 
-def send_harbor_kids_email(email, name, client_id):
-    kids_id = f"{client_id}-kid1"
-    html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
-<h2 style="font-family:Georgia,serif;font-weight:400;">Your Harbor Kids Setup is Ready</h2>
-<p>Hi {name},</p>
-<p>Harbor Kids is now active on your account. Here's everything you need to get your child's device protected — it takes about 5 minutes per device.</p>
-<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">YOUR HARBOR KIDS PROFILE ID</h3>
-<p style="background:#111618;border-left:3px solid #00e5c0;padding:16px;font-family:monospace;font-size:14px;color:#00e5c0;">{kids_id}</p>
-<p style="color:#6b8a87;font-size:13px;">You'll see this in your dashboard under active clients.</p>
-<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">WHAT HARBOR KIDS BLOCKS</h3>
-<p style="color:#6b8a87;font-size:13px;">Adult content, gambling, violence, malware, phishing, and invasive ad networks — all filtered before they reach your child's screen.</p>
-<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">SET UP YOUR CHILD'S DEVICE</h3>
-<p style="color:#6b8a87;font-size:13px;">The full setup guide covers iPhone, iPad, Mac, Windows, and Android — including how to lock the protection so your child can't remove it without your password.</p>
-<p><a href="https://harborprivacy.com/docs/harbor-kids" style="display:inline-block;background:#00e5c0;color:#0a0e0f;padding:12px 24px;text-decoration:none;font-family:monospace;font-size:13px;">View Setup Guide &#8594;</a></p>
-<p style="color:#6b8a87;font-size:13px;margin-top:24px;">If anything your child needs gets blocked, reply here and I'll whitelist it for their profile — usually fixed within a few hours.</p>
-<div style="border-top:1px solid #1e2a2d;padding-top:20px;margin-top:20px;">
-<a href="https://dashboard.harborprivacy.com" style="display:inline-block;border:1px solid #00e5c0;color:#00e5c0;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Your Dashboard &#8594;</a>
-</div>
-<p style="padding-top:24px;color:#6b8a87;">Questions? Reply or text <strong style="color:#e8f0ef;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a></p>
-</div>'''
-    send_email(email, "Your Harbor Kids Setup is Ready", html)
-
-
 def find_customer_by_email(email):
     try:
         for line in open(CUSTOMERS_LOG):
@@ -733,11 +710,6 @@ class WebhookHandler(BaseHTTPRequestHandler):
                                 update_customer_family_safe(customer_email, True)
                                 send_family_safe_email(customer_email, customer_name, True)
                                 log.info(f"Family Safe enabled for {customer_email}")
-                        if product_id == "prod_UE3j4vZAk3WDrb":
-                            cust = find_customer_by_email(customer_email)
-                            if cust:
-                                send_harbor_kids_email(customer_email, customer_name, cust["client_id"])
-                                log.info(f"Harbor Kids email sent for {customer_email}")
                 except Exception as e:
                     log.error(f"invoice handler error: {e}")
 
