@@ -874,6 +874,7 @@ def dashboard():
 
     rules = get_client_rules(client_id) if client_id else []
     family_safe = client.get("parental_enabled", False) if client else False
+    harbor_kids = customer.get("harbor_kids", False) if customer else False
     filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
@@ -1317,7 +1318,7 @@ async function removeRule(rule){
     blocked_services = get_client_blocked_services(client_id) if is_active and client_id else []
     return render_template_string(html, name=name, client_id=client_id,
         is_active=is_active, total=total, blocked=blocked, pct=pct,
-        rules=rules, family_safe=family_safe, has_family=has_family,
+        rules=rules, family_safe=family_safe, has_family=has_family, harbor_kids=harbor_kids,
         active_profile=customer.get("active_profile", "custom") if customer else "custom",
         user_email=email, is_trial=is_trial, plan_badge=plan_badge, has_family_badge=has_family_badge,
         filtering_paused=filtering_paused,
@@ -1746,6 +1747,27 @@ def admin_customer(client_id):
   </div>
 
   <div class="card">
+    <div class="card-label">Harbor Kids</div>
+    <div class="toggle-row">
+      <div>
+        <div class="toggle-label">
+          Harbor Kids
+          {% if harbor_kids %}
+          <span class="badge badge-on">ON</span>
+          {% else %}
+          <span class="badge badge-locked">NOT PURCHASED</span>
+          {% endif %}
+        </div>
+        <div class="toggle-desc">Child device DNS filtering, adult content blocking, parental control</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" {% if harbor_kids %}checked{% endif %} disabled>
+        <span class="slider locked"></span>
+      </label>
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-label">Blocked Services</div>
     {% for group_name, services in service_groups.items() %}
     <div style="margin-bottom:20px;">
@@ -1872,7 +1894,7 @@ async function removeRule(rule){
     customer_email = customer.get("email", "")
     code_valid = customer_email.endswith("@harborprivacy.com") or verify_support_code(client_id, request.args.get("code", ""))
     return render_template_string(html, customer=customer, client_id=client_id,
-        rules=rules, family_safe=family_safe, cstats=cstats,
+        rules=rules, family_safe=family_safe, harbor_kids=harbor_kids, cstats=cstats,
         service_groups=service_groups, blocked_services=blocked_services,
         code_valid=code_valid, active="admin")
 
