@@ -31,7 +31,8 @@
   body::after { content: ''; position: fixed; top: -200px; left: 50%; transform: translateX(-50%); width: 800px; height: 600px; background: radial-gradient(ellipse, #00e5c015 0%, transparent 70%); pointer-events: none; z-index: 0; }
 
 /* SIDEBAR */
-.sidebar { width: var(--sidebar-width); height: 100vh; background: var(--surface); border-right: 1px solid var(--border); position: fixed; top: 0; left: 0; z-index: 100; display: flex; flex-direction: column; overflow-y: auto; transition: transform 0.3s ease; }
+.sidebar { width: var(--sidebar-width); height: 100vh; background: var(--surface); border-right: 1px solid var(--border); position: fixed; top: 0; left: 0; z-index: 100; display: flex; flex-direction: column; overflow-y: auto; transition: transform 0.3s ease; scrollbar-width: none; -ms-overflow-style: none; }
+.sidebar::-webkit-scrollbar { display: none; }
 .sidebar-logo { padding: 28px 24px 20px; border-bottom: 1px solid var(--border); }
 .sidebar-logo a { font-family: ‘DM Mono’, monospace; font-size: 15px; color: var(--accent); letter-spacing: 0.1em; text-decoration: none; display: block; }
 .sidebar-logo a span { color: var(--muted); }
