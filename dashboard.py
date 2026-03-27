@@ -1343,7 +1343,7 @@ async function removeRule(rule){
     blocked_services = get_client_blocked_services(client_id) if is_active and client_id else []
     return render_template_string(html, name=name, client_id=client_id,
         is_active=is_active, total=total, blocked=blocked, pct=pct,
-        rules=rules, family_safe=family_safe, has_family=has_family, harbor_kids=harbor_kids,
+        rules=rules, family_safe=family_safe, has_family=has_family, harbor_kids=harbor_kids, kids_profiles=get_kids_profiles(client_id),
         active_profile=customer.get("active_profile", "custom") if customer else "custom",
         user_email=email, is_trial=is_trial, plan_badge=plan_badge, has_family_badge=has_family_badge,
         filtering_paused=filtering_paused,
