@@ -1,0 +1,44 @@
+[
+  {
+    "label": "Is Your ISP Watching You? Free Check",
+    "icon": "\u2b24",
+    "url": "https://harborprivacy.com/dns-checker",
+    "featured": true
+  },
+  {
+    "label": "See Plans \u2014 from $1.99/mo",
+    "icon": "$",
+    "url": "https://harborprivacy.com/pricing",
+    "featured": false
+  },
+  {
+    "label": "Book an On-Site Install",
+    "icon": "\u2302",
+    "url": "https://harborprivacy.com/#contact",
+    "featured": false
+  },
+  {
+    "label": "My Dashboard",
+    "icon": "\u25a3",
+    "url": "https://dashboard.harborprivacy.com",
+    "featured": false
+  },
+  {
+    "label": "How It Works",
+    "icon": "\u203a",
+    "url": "https://harborprivacy.com/how-it-works",
+    "featured": false
+  },
+  {
+    "label": "No-Logs Policy",
+    "icon": "\u2713",
+    "url": "https://harborprivacy.com/nologs",
+    "featured": false
+  },
+  {
+    "label": "Get In Touch",
+    "icon": "\u2709",
+    "url": "https://harborprivacy.com/#contact",
+    "featured": false
+  }
+]
