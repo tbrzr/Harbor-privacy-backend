@@ -1777,35 +1777,46 @@ def admin_customer(client_id):
           {% if harbor_kids %}
           <span class="badge badge-on">ON</span>
           {% else %}
-          <span class="badge badge-locked">NOT PURCHASED</span>
+          <span class="badge badge-off">OFF</span>
           {% endif %}
         </div>
         <div class="toggle-desc">Child device DNS filtering, adult content blocking, parental control</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Harbor Kids accounts are managed by a parent or guardian. We do not collect personal information from children. <a href="https://harborprivacy.com/nologs#children" style="color:var(--accent);text-decoration:none;">Privacy Policy →</a></div>
       </div>
       <label class="toggle">
         <input type="checkbox" {% if harbor_kids %}checked{% endif %} disabled>
         <span class="slider locked"></span>
       </label>
     </div>
-    <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
-      {% if kids_profiles %}
-      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:10px;">Active Kid Profiles</div>
-      {% for kp in kids_profiles %}
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
-        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);">{{ kp.name }}</span>
-        <button onclick="removeKidProfile('{{ kp.name }}')" style="background:none;border:1px solid #ff4e4e;color:#ff4e4e;padding:4px 10px;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;">Remove</button>
-      </div>
-      {% endfor %}
-      {% endif %}
-      <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
-        <button onclick="addKidProfile()" style="background:var(--accent);color:#0a0e0f;border:none;padding:8px 16px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:0.08em;">+ Add Kid Profile</button>
-        <span style="font-size:12px;color:var(--muted);">Creates kid{{ (kids_profiles|length) + 1 }} profile in AdGuard</span>
-      </div>
-    </div>
   </div>
 
   <div class="card">
+    <div class="card-label">Harbor Kids — Child Profiles</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Each child gets their own AdGuard client with Family Protection. Add profiles below — each gets a unique DoH address and setup links.</p>
+    {% if kids_profiles %}
+    {% for kp in kids_profiles %}
+    <div style="border:1px solid var(--border);padding:16px;margin-bottom:12px;background:var(--bg);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);">{{ kp.name }}</span>
+        <button onclick="removeKidProfile('{{ kp.name }}')" style="background:none;border:1px solid #ff4e4e;color:#ff4e4e;padding:4px 10px;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;">Remove</button>
+      </div>
+      <div style="background:var(--surface);border-left:3px solid var(--accent);padding:10px 14px;font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);word-break:break-all;margin-bottom:10px;">https://doh.harborprivacy.com/dns-query/{{ kp.name }}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a href="https://harborprivacy.com/docs/harbor-kids#kids-setup" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">iOS/Mac Setup →</a>
+        <a href="https://harborprivacy.com/docs/harbor-kids#kids-setup" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">Android Setup →</a>
+        <a href="https://harborprivacy.com/docs/harbor-kids#kids-setup" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">Windows Setup →</a>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">No kid profiles yet. Add one below.</p>
+    {% endif %}
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+      <button onclick="addKidProfile()" style="background:var(--accent);color:#0a0e0f;border:none;padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:0.08em;">+ Add Kid Profile</button>
+      <span style="font-size:12px;color:var(--muted);">Will create {{ client_id }}-kid{{ (kids_profiles|length) + 1 }}</span>
+    </div>
+    <div style="font-size:11px;color:var(--muted);">Harbor Kids accounts are managed by a parent or guardian. We do not collect personal information from children. <a href="https://harborprivacy.com/nologs" style="color:var(--accent);text-decoration:none;">Privacy Policy →</a></div>
+  </div>
+
     <div class="card-label">Blocked Services</div>
     {% for group_name, services in service_groups.items() %}
     <div style="margin-bottom:20px;">
