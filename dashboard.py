@@ -1745,10 +1745,6 @@ def admin_customer(client_id):
         <span class="slider {% if not has_family %}locked{% endif %}"></span>
       </label>
     </div>
-  </div>
-
-  <div class="card">
-    <div class="card-label">Harbor Kids</div>
     <div class="toggle-row">
       <div>
         <div class="toggle-label">
