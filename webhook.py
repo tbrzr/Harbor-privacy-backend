@@ -460,6 +460,7 @@ def enable_harbor_kids(client_id):
         log.info(f"Harbor Kids client created: {kids_id} status={r.status_code}")
         if r.status_code in [200, 201]:
             save_ios_profile(kids_id, f"Harbor Kids ({kids_id})")
+            generate_android_page(kids_id)
             add_to_allowed_clients(kids_id)
             return True
         return False
@@ -480,6 +481,7 @@ def add_harbor_kids_profile(client_id, kid_num):
         log.info(f"Harbor Kids profile added: {kids_id} status={r.status_code}")
         if r.status_code in [200, 201]:
             save_ios_profile(kids_id, f"Harbor Kids ({kids_id})")
+            generate_android_page(kids_id)
             add_to_allowed_clients(kids_id)
             return True
         return False
