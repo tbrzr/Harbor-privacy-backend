@@ -562,8 +562,22 @@ def disable_harbor_kids(client_id):
         clients = r.json().get("clients",[])
         kids_clients = [c for c in clients if c.get("name","").startswith(f"{client_id}kid")]
         for kc in kids_clients:
-            req.post(f"{AGH}/control/clients/delete", json={"name":kc["name"]}, auth=(USER,PASS), timeout=10)
-            log.info(f"Harbor Kids client deleted: {kc['name']}")
+            kid_name = kc["name"]
+            req.post(f"{AGH}/control/clients/delete", json={"name":kid_name}, auth=(USER,PASS), timeout=10)
+            remove_from_allowed_clients(kid_name)
+            log.info(f"Harbor Kids client deleted: {kid_name}")
+            # Clean up profile files
+            for fpath in [
+                os.path.join(PROFILES_DIR, f"{kid_name}.mobileconfig"),
+                f"/var/www/network/qrcodes/{kid_name}.png",
+                f"/var/www/network/setup/android/{kid_name}.html"
+            ]:
+                try:
+                    if os.path.exists(fpath):
+                        os.remove(fpath)
+                        log.info(f"Deleted {fpath}")
+                except Exception as fe:
+                    log.error(f"File delete error: {fe}")
         return True
     except Exception as e:
         log.error(f"disable_harbor_kids error: {e}")
