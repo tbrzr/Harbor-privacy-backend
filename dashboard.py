@@ -2284,6 +2284,54 @@ def reset():
 
 # ── API ───────────────────────────────────────────────────
 
+
+import random as _random
+WINDOWS_APP_CODES = {}
+
+@app.route("/api/windows/send-code", methods=["POST"])
+def windows_send_code():
+    data = request.json
+    email = data.get("email", "").lower().strip()
+    if not email:
+        return jsonify({"ok": False, "error": "Email required"})
+    customer = find_customer(email)
+    if not customer:
+        return jsonify({"ok": False, "error": "No account found for that email"})
+    import time as _time
+    code = str(_random.randint(100000, 999999))
+    WINDOWS_APP_CODES[email] = {"code": code, "expires": _time.time() + 600}
+    html = f'<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;"><h2 style="font-family:Georgia,serif;font-weight:400;">Your Harbor Privacy Login Code</h2><p>Use this code to sign in to the Harbor Privacy Windows app:</p><p style="background:#111618;border-left:3px solid #00e5c0;padding:20px;font-family:monospace;font-size:36px;color:#00e5c0;letter-spacing:0.4em;text-align:center;">{code}</p><p style="color:#6b8a87;font-size:13px;">Expires in 10 minutes.</p><p style="color:#6b8a87;font-size:13px;">- Tim | harborprivacy.com</p></div>'
+    send_email(email, "Your Harbor Privacy Login Code", html)
+    app.logger.info(f"Windows app code sent to {email}")
+    return jsonify({"ok": True})
+
+@app.route("/api/windows/verify", methods=["POST"])
+def windows_verify():
+    import time as _time
+    data = request.json
+    email = data.get("email", "").lower().strip()
+    code = data.get("code", "").strip()
+    entry = WINDOWS_APP_CODES.get(email)
+    if not entry or entry["code"] != code or _time.time() > entry["expires"]:
+        return jsonify({"ok": False, "error": "Invalid or expired code"})
+    del WINDOWS_APP_CODES[email]
+    customer = find_customer(email)
+    if not customer:
+        return jsonify({"ok": False, "error": "Account not found"})
+    client_id = customer.get("client_id", "")
+    doh = f"https://doh.harborprivacy.com/dns-query/{client_id}"
+    kids = get_kids_profiles(client_id)
+    kids_data = [{"name": k["name"], "doh": f"https://doh.harborprivacy.com/dns-query/{k['name']}"} for k in kids]
+    return jsonify({
+        "ok": True,
+        "name": customer.get("name", ""),
+        "client_id": client_id,
+        "doh": doh,
+        "harbor_kids": customer.get("harbor_kids", False),
+        "kids_profiles": kids_data,
+        "plan": customer.get("plan_type", customer.get("plan", ""))
+    })
+
 @app.route("/api/weekly-email", methods=["POST"])
 @login_required
 def api_weekly_email():
