@@ -1213,6 +1213,14 @@ def dashboard():
     {% else %}
     <p style="font-size:13px;color:var(--muted);">Add Harbor Kids from the Add-Ons section above to get started.</p>
     {% endif %}
+    {% if harbor_kids and kids_profiles|length < 5 %}
+    <div style="margin-top:16px;">
+      <button onclick="addKidProfileCustomer()" style="background:var(--accent);color:#0a0e0f;border:none;padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:0.08em;">+ Add Child Profile</button>
+      <span style="font-size:12px;color:var(--muted);margin-left:8px;">{{ 5 - kids_profiles|length }} of 5 remaining</span>
+    </div>
+    {% elif harbor_kids and kids_profiles|length >= 5 %}
+    <div style="margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">Maximum of 5 child profiles reached.</div>
+    {% endif %}
     <div style="font-size:11px;color:var(--muted);margin-top:12px;">Harbor Kids accounts are managed by a parent or guardian. We do not collect personal information from children. <a href="https://harborprivacy.com/nologs" style="color:var(--accent);text-decoration:none;">Privacy Policy</a></div>
   </div>
 
