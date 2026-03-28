@@ -2564,7 +2564,7 @@ def get_kids_profiles(client_id):
         PASS = os.environ.get("ADGUARD_PASS","")
         r = req.get(f"{AGH}/control/clients", auth=(USER,PASS), timeout=10)
         clients = r.json().get("clients",[])
-        return [c for c in clients if c.get("name","").startswith(f"{client_id}-kid")]
+        return [c for c in clients if c.get("name","").startswith(f"{client_id}kid")]
     except:
         return []
 
