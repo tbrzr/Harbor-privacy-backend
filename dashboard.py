@@ -2401,6 +2401,19 @@ def api_addon():
         kids_id = f"{client_id}kid{kid_num}"
         ss = {"enabled":True,"bing":True,"duckduckgo":True,"ecosia":True,"google":True,"pixabay":True,"yandex":True,"youtube":True}
         kid_data = {"name":kids_id,"ids":[kids_id],"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":True,"safebrowsing_enabled":True,"safesearch_enabled":True,"use_global_blocked_services":False,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False,"safe_search":ss,"blocked_services":[],"blocked_services_schedule":{"time_zone":"Local"}}
+        # Find next available kid slot
+        existing = get_kids_profiles(client_id)
+        existing_names = [k["name"] for k in existing]
+        if kids_id in existing_names:
+            for n in range(1, 6):
+                candidate = f"{client_id}kid{n}"
+                if candidate not in existing_names:
+                    kids_id = candidate
+                    kid_data["name"] = kids_id
+                    kid_data["ids"] = [kids_id]
+                    break
+            else:
+                return jsonify({"ok": False, "error": "Maximum 5 profiles reached"})
         ok = agh_post("/control/clients/add", kid_data)
         if ok:
             update_customer_harbor_kids_flag(client_id, True)
