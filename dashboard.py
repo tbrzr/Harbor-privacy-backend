@@ -2391,7 +2391,7 @@ def api_addon():
 
     if data.get("type") == "harbor_kids_add":
         kid_num = data.get("kid_num", 1)
-        kids_id = f"{client_id}-kid{kid_num}"
+        kids_id = f"{client_id}kid{kid_num}"
         ss = {"enabled":True,"bing":True,"duckduckgo":True,"ecosia":True,"google":True,"pixabay":True,"yandex":True,"youtube":True}
         kid_data = {"name":kids_id,"ids":[kids_id],"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":True,"safebrowsing_enabled":True,"safesearch_enabled":True,"use_global_blocked_services":False,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False,"safe_search":ss,"blocked_services":[],"blocked_services_schedule":{"time_zone":"Local"}}
         ok = agh_post("/control/clients/add", kid_data)
@@ -2399,7 +2399,7 @@ def api_addon():
             update_customer_harbor_kids_flag(client_id, True)
             try:
                 import subprocess
-                subprocess.Popen(["python3", "-c", f"import sys; sys.path.insert(0,'/home/ubuntu/harbor-backend'); from webhook import save_ios_profile, generate_android_page, add_to_allowed_clients; save_ios_profile('{kids_id}', 'Harbor Kids'); generate_android_page('{kids_id}'); add_to_allowed_clients('{kids_id}')"])
+                subprocess.Popen(["python3", "-c", f"import sys; sys.path.insert(0,'/home/ubuntu/harbor-backend'); from webhook import save_ios_kids_profile, generate_android_page, add_to_allowed_clients; save_ios_kids_profile('{kids_id}', 'Harbor Kids'); generate_android_page('{kids_id}'); add_to_allowed_clients('{kids_id}')"])
             except Exception as ex:
                 log.error(f"kids profile gen error: {ex}")
         return jsonify({"ok": ok, "kids_id": kids_id})
@@ -2579,7 +2579,7 @@ def api_admin_addon():
 
     if data.get("type") == "harbor_kids_add":
         kid_num = data.get("kid_num", 1)
-        kids_id = f"{client_id}-kid{kid_num}"
+        kids_id = f"{client_id}kid{kid_num}"
         ss = {"enabled":True,"bing":True,"duckduckgo":True,"ecosia":True,"google":True,"pixabay":True,"yandex":True,"youtube":True}
         kid_data = {"name":kids_id,"ids":[kids_id],"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":True,"safebrowsing_enabled":True,"safesearch_enabled":True,"use_global_blocked_services":False,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False,"safe_search":ss,"blocked_services":[],"blocked_services_schedule":{"time_zone":"Local"}}
         ok = agh_post("/control/clients/add", kid_data)
@@ -2587,7 +2587,7 @@ def api_admin_addon():
             update_customer_harbor_kids_flag(client_id, True)
             try:
                 import subprocess
-                subprocess.Popen(["python3", "-c", f"import sys; sys.path.insert(0,'/home/ubuntu/harbor-backend'); from webhook import save_ios_profile, generate_android_page, add_to_allowed_clients; save_ios_profile('{kids_id}', 'Harbor Kids'); generate_android_page('{kids_id}'); add_to_allowed_clients('{kids_id}')"])
+                subprocess.Popen(["python3", "-c", f"import sys; sys.path.insert(0,'/home/ubuntu/harbor-backend'); from webhook import save_ios_kids_profile, generate_android_page, add_to_allowed_clients; save_ios_kids_profile('{kids_id}', 'Harbor Kids'); generate_android_page('{kids_id}'); add_to_allowed_clients('{kids_id}')"])
             except Exception as ex:
                 log.error(f"kids profile gen error: {ex}")
         return jsonify({"ok": ok, "kids_id": kids_id})
