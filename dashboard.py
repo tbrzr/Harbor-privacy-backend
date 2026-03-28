@@ -1354,6 +1354,13 @@ async function genCode(){
     document.getElementById('support-code-note').style.display='block';
   }
 }
+async function addKidProfileCustomer(){
+  const kid_num = parseInt('{{ kids_profiles|length }}') + 1;
+  if(kid_num > 5){alert('Maximum of 5 child profiles reached.');return;}
+  const r = await fetch('/api/addon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'harbor_kids_add',kid_num:kid_num})});
+  const d = await r.json();
+  if(d.ok){location.reload();}else{alert('Failed to create profile. Contact support@harborprivacy.com');}
+}
 async function addRule(){
   const domain=document.getElementById('rule-domain').value.trim();
   const type=document.getElementById('rule-type').value;
