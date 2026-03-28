@@ -71,6 +71,51 @@ def generate_ios_profile(client_id, name):
 <key>PayloadVersion</key><integer>1</integer>
 </dict></plist>'''
 
+
+def generate_ios_kids_profile(client_id):
+    pu = str(uuid.uuid4()).upper()
+    pp = str(uuid.uuid4()).upper()
+    return """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>PayloadContent</key><array><dict>
+<key>DNSSettings</key><dict>
+<key>DNSProtocol</key><string>HTTPS</string>
+<key>ServerAddresses</key><array></array>
+<key>ServerURL</key><string>https://""" + DOH_BASE + """/""" + client_id + """</string>
+<key>SupplementalMatchDomains</key><array></array>
+<key>AllowFailover</key><true/>
+</dict>
+<key>PayloadDescription</key><string>Harbor Kids DNS. Falls back to OpenDNS Family Shield if unavailable.</string>
+<key>PayloadDisplayName</key><string>Harbor Kids DNS</string>
+<key>PayloadIdentifier</key><string>com.harborprivacy.kids.""" + client_id + """.""" + pp + """</string>
+<key>PayloadOrganization</key><string>Harbor Privacy</string>
+<key>PayloadType</key><string>com.apple.dnsSettings.managed</string>
+<key>PayloadUUID</key><string>""" + pp + """</string>
+<key>PayloadVersion</key><integer>1</integer>
+<key>ProhibitDisablement</key><false/>
+</dict></array>
+<key>PayloadDescription</key><string>Harbor Kids DNS filtering. Blocks adult content and malware. Falls back to OpenDNS Family Shield if Harbor Privacy is unavailable.</string>
+<key>PayloadDisplayName</key><string>Harbor Kids DNS</string>
+<key>PayloadIdentifier</key><string>com.harborprivacy.kids.""" + client_id + """</string>
+<key>PayloadOrganization</key><string>Harbor Privacy</string>
+<key>PayloadRemovalDisallowed</key><false/>
+<key>PayloadType</key><string>Configuration</string>
+<key>PayloadUUID</key><string>""" + pu + """</string>
+<key>PayloadVersion</key><integer>1</integer>
+</dict></plist>"""
+
+def save_ios_kids_profile(client_id, name="Harbor Kids"):
+    try:
+        os.makedirs(PROFILES_DIR, exist_ok=True)
+        fpath = os.path.join(PROFILES_DIR, client_id + ".mobileconfig")
+        open(fpath, 'w').write(generate_ios_kids_profile(client_id))
+        log.info("Harbor Kids iOS profile saved: " + fpath)
+        return PROFILES_URL + "/" + client_id + ".mobileconfig"
+    except Exception as e:
+        log.error("Kids profile error: " + str(e))
+        return ""
+
 def save_ios_profile(client_id, name):
     try:
         os.makedirs(PROFILES_DIR, exist_ok=True)
@@ -459,7 +504,7 @@ def enable_harbor_kids(client_id):
         r = req.post(f"{AGH}/control/clients/add", json=data, auth=(USER,PASS), timeout=10)
         log.info(f"Harbor Kids client created: {kids_id} status={r.status_code}")
         if r.status_code in [200, 201]:
-            save_ios_profile(kids_id, f"Harbor Kids ({kids_id})")
+            save_ios_kids_profile(kids_id)
             generate_android_page(kids_id)
             add_to_allowed_clients(kids_id)
             return True
@@ -480,7 +525,7 @@ def add_harbor_kids_profile(client_id, kid_num):
         r = req.post(f"{AGH}/control/clients/add", json=data, auth=(USER,PASS), timeout=10)
         log.info(f"Harbor Kids profile added: {kids_id} status={r.status_code}")
         if r.status_code in [200, 201]:
-            save_ios_profile(kids_id, f"Harbor Kids ({kids_id})")
+            save_ios_kids_profile(kids_id)
             generate_android_page(kids_id)
             add_to_allowed_clients(kids_id)
             return True
