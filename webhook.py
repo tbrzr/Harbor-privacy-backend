@@ -498,7 +498,7 @@ def enable_harbor_kids(client_id):
         AGH = os.environ.get("ADGUARD_URL","http://127.0.0.1:8080")
         USER = os.environ.get("ADGUARD_USER","admin")
         PASS = os.environ.get("ADGUARD_PASS","")
-        kids_id = f"{client_id}-kid1"
+        kids_id = f"{client_id}kid1"
         ss = {"enabled":True,"bing":True,"duckduckgo":True,"ecosia":True,"google":True,"pixabay":True,"yandex":True,"youtube":True}
         data = {"name":kids_id,"ids":[kids_id],"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":True,"safebrowsing_enabled":True,"safesearch_enabled":True,"use_global_blocked_services":False,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False,"safe_search":ss,"blocked_services":[],"blocked_services_schedule":{"time_zone":"Local"}}
         r = req.post(f"{AGH}/control/clients/add", json=data, auth=(USER,PASS), timeout=10)
@@ -519,7 +519,7 @@ def add_harbor_kids_profile(client_id, kid_num):
         AGH = os.environ.get("ADGUARD_URL","http://127.0.0.1:8080")
         USER = os.environ.get("ADGUARD_USER","admin")
         PASS = os.environ.get("ADGUARD_PASS","")
-        kids_id = f"{client_id}-kid{kid_num}"
+        kids_id = f"{client_id}kid{kid_num}"
         ss = {"enabled":True,"bing":True,"duckduckgo":True,"ecosia":True,"google":True,"pixabay":True,"yandex":True,"youtube":True}
         data = {"name":kids_id,"ids":[kids_id],"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":True,"safebrowsing_enabled":True,"safesearch_enabled":True,"use_global_blocked_services":False,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False,"safe_search":ss,"blocked_services":[],"blocked_services_schedule":{"time_zone":"Local"}}
         r = req.post(f"{AGH}/control/clients/add", json=data, auth=(USER,PASS), timeout=10)
@@ -560,7 +560,7 @@ def disable_harbor_kids(client_id):
         PASS = os.environ.get("ADGUARD_PASS","")
         r = req.get(f"{AGH}/control/clients", auth=(USER,PASS), timeout=10)
         clients = r.json().get("clients",[])
-        kids_clients = [c for c in clients if c.get("name","").startswith(f"{client_id}-kid")]
+        kids_clients = [c for c in clients if c.get("name","").startswith(f"{client_id}kid")]
         for kc in kids_clients:
             req.post(f"{AGH}/control/clients/delete", json={"name":kc["name"]}, auth=(USER,PASS), timeout=10)
             log.info(f"Harbor Kids client deleted: {kc['name']}")
@@ -599,7 +599,7 @@ def send_family_safe_email(email, name, enabled):
     send_email(email, f"Harbor Privacy - Family Safe {action.title()}", html)
 
 def send_harbor_kids_email(email, name, client_id):
-    kids_id = f"{client_id}-kid1"
+    kids_id = f"{client_id}kid1"
     html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
 <h2 style="font-family:Georgia,serif;font-weight:400;">Your Harbor Kids Setup is Ready</h2>
 <p>Hi {name},</p>
