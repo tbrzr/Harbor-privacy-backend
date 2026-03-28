@@ -2397,6 +2397,11 @@ def api_addon():
         ok = agh_post("/control/clients/add", kid_data)
         if ok:
             update_customer_harbor_kids_flag(client_id, True)
+            try:
+                import subprocess
+                subprocess.Popen(["python3", "-c", f"import sys; sys.path.insert(0,'/home/ubuntu/harbor-backend'); from webhook import save_ios_profile, generate_android_page, add_to_allowed_clients; save_ios_profile('{kids_id}', 'Harbor Kids'); generate_android_page('{kids_id}'); add_to_allowed_clients('{kids_id}')"])
+            except Exception as ex:
+                log.error(f"kids profile gen error: {ex}")
         return jsonify({"ok": ok, "kids_id": kids_id})
 
     if data.get("type") == "harbor_kids_remove":
@@ -2580,6 +2585,11 @@ def api_admin_addon():
         ok = agh_post("/control/clients/add", kid_data)
         if ok:
             update_customer_harbor_kids_flag(client_id, True)
+            try:
+                import subprocess
+                subprocess.Popen(["python3", "-c", f"import sys; sys.path.insert(0,'/home/ubuntu/harbor-backend'); from webhook import save_ios_profile, generate_android_page, add_to_allowed_clients; save_ios_profile('{kids_id}', 'Harbor Kids'); generate_android_page('{kids_id}'); add_to_allowed_clients('{kids_id}')"])
+            except Exception as ex:
+                log.error(f"kids profile gen error: {ex}")
         return jsonify({"ok": ok, "kids_id": kids_id})
 
     if data.get("type") == "harbor_kids_remove":
