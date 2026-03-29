@@ -1614,10 +1614,14 @@ async function addLink(){
   status.textContent = 'Saving...';
   try {
     const r = await fetch('/api/admin/links', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'add', label, icon, url, featured})});
-    const d = await r.json();
-    if(d.ok) location.reload();
-    else { status.style.color='#ff4e4e'; status.textContent = 'Error: ' + (d.error||'Unknown'); }
-  } catch(e) { status.style.color='#ff4e4e'; status.textContent = 'Error: ' + e.message; }
+    const text = await r.text();
+    status.textContent = 'Response: ' + text.substring(0,100);
+    try {
+      const d = JSON.parse(text);
+      if(d.ok) location.reload();
+      else { status.style.color='#ff4e4e'; status.textContent = 'Error: ' + (d.error||'Unknown'); }
+    } catch(e2) { status.style.color='#ff4e4e'; status.textContent = 'Parse error: ' + text.substring(0,100); }
+  } catch(e) { status.style.color='#ff4e4e'; status.textContent = 'Fetch error: ' + e.message; }
 }
 async function deleteLink(i){
   if(!confirm('Remove this link?')) return;
