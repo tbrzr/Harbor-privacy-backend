@@ -19,5 +19,9 @@
     "password": "$2b$12$/P7dSMGxv4BeMYwNEFFIkOPZP3ty/tg0rGIjsI/loeY5uidL78IiS",
     "created": "2026-03-23T00:19:13.907686",
     "weekly_email": true
+  },
+  "amykevin1234@gmail.com": {
+    "password": "$2b$12$4NlJc7l/xtkyWGa8M44SM.YCJkJZGJ0UAGSjoeFwnwWNO/pBFBKH.",
+    "2fa_secret": null
   }
 }
