@@ -1034,7 +1034,7 @@ def dashboard():
     </div>
     <div class="stat">
       <div class="stat-num {% if not is_active %}muted{% endif %}">{{ (pct|string + '%') if is_active else '—' }}</div>
-      <div class="stat-label">Block Rate</div>
+      <div class="stat-label">Network Block Rate</div>
     </div>
   </div>
 
@@ -1701,7 +1701,7 @@ def admin_customer(client_id):
   <div class="stat-grid" style="margin-bottom:20px;">
     <div class="stat"><div class="stat-num">{{ cstats.total }}</div><div class="stat-label">Queries Today</div></div>
     <div class="stat"><div class="stat-num">{{ cstats.blocked }}</div><div class="stat-label">Blocked Today</div></div>
-    <div class="stat"><div class="stat-num">{{ cstats.pct }}%</div><div class="stat-label">Block Rate</div></div>
+    <div class="stat"><div class="stat-num">{{ cstats.pct }}%</div><div class="stat-label">Network Block Rate</div></div>
   </div>
 
   <div class="card">
