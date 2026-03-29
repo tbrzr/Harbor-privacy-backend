@@ -1566,9 +1566,9 @@ def admin_links():
     <div style="display:flex;flex-direction:column;gap:12px;">
       <input type="text" id="new-label" placeholder="Label (e.g. See Plans)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px;font-family:'DM Mono',monospace;font-size:12px;">
       <input type="text" id="new-icon" placeholder="Icon (emoji or symbol)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px;font-family:'DM Mono',monospace;font-size:12px;">
-      <input type="url" id="new-url" placeholder="https://..." style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px;font-family:'DM Mono',monospace;font-size:12px;">
+      <input type="text" id="new-url" placeholder="https://..." style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px;font-family:'DM Mono',monospace;font-size:12px;">
       <label style="display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">
-        <input type="checkbox" id="new-featured"> Featured (teal highlight)
+        <input type="checkbox" id="new-featured" style="width:16px;height:16px;accent-color:#00e5c0;flex-shrink:0;margin:0;"> Featured (teal highlight)
       </label>
       <button onclick="addLink()" class="btn">Add Link</button>
       <div id="add-status" style="font-family:'DM Mono',monospace;font-size:11px;"></div>
