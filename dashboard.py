@@ -1570,7 +1570,7 @@ def admin_links():
       <label style="display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">
         <input type="checkbox" id="new-featured" style="width:16px;height:16px;accent-color:#00e5c0;flex-shrink:0;margin:0;"> Featured (teal highlight)
       </label>
-      <button onclick="addLink()" class="btn">Add Link</button>
+      <button id="add-link-btn" class="btn">Add Link</button>
       <div id="add-status" style="font-family:'DM Mono',monospace;font-size:11px;"></div>
     </div>
   </div>
@@ -1600,6 +1600,9 @@ def admin_links():
 </div>
 
 <script>
+document.addEventListener('DOMContentLoaded', function(){
+  document.getElementById('add-link-btn').addEventListener('click', addLink);
+});
 async function addLink(){
   const label = document.getElementById('new-label').value.trim();
   const icon = document.getElementById('new-icon').value.trim();
