@@ -1609,10 +1609,15 @@ async function addLink(){
   const url = document.getElementById('new-url').value.trim();
   const featured = document.getElementById('new-featured').checked;
   if(!label || !url){ document.getElementById('add-status').textContent='Label and URL required'; return; }
-  const r = await fetch('/api/admin/links', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'add', label, icon, url, featured})});
-  const d = await r.json();
-  if(d.ok) location.reload();
-  else document.getElementById('add-status').textContent = 'Error: ' + d.error;
+  const status = document.getElementById('add-status');
+  status.style.color = 'var(--accent)';
+  status.textContent = 'Saving...';
+  try {
+    const r = await fetch('/api/admin/links', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'add', label, icon, url, featured})});
+    const d = await r.json();
+    if(d.ok) location.reload();
+    else { status.style.color='#ff4e4e'; status.textContent = 'Error: ' + (d.error||'Unknown'); }
+  } catch(e) { status.style.color='#ff4e4e'; status.textContent = 'Error: ' + e.message; }
 }
 async function deleteLink(i){
   if(!confirm('Remove this link?')) return;
