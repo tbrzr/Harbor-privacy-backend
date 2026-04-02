@@ -1411,7 +1411,6 @@ def admin():
   <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
     <a href="/admin/links" style="display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; Link Manager</a>
     <a href="/admin/analytics" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; DNS Analytics</a>
-    <a href="/admin/logs" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; Live Logs</a>
   </div>
 
   <div class="card">
@@ -1967,11 +1966,14 @@ async function resendWelcome(cid){
   setTimeout(()=>{btn.textContent='Resend Welcome';btn.disabled=false;},3000);
 }
 async function reprovision(cid){
+  const newEmail=prompt('Enter correct email (blank to keep current):');
+  if(newEmail===null)return;
+  if(!confirm('This deletes the old DoH address and creates a new one. Customer must update devices. Continue?'))return;
   const btn=event.target;btn.textContent='Working...';btn.disabled=true;
-  const r=await fetch('/api/admin/reprovision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid,new_email:''})});
+  const r=await fetch('/api/admin/reprovision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid,new_email:newEmail})});
   const d=await r.json();
-  if(d.ok){btn.textContent='Done!';setTimeout(()=>{btn.textContent='Re-provision';btn.disabled=false;},3000);}
-  else{btn.textContent='Error: '+d.error;setTimeout(()=>{btn.textContent='Re-provision';btn.disabled=false;},3000);}
+  if(d.ok){alert('Done! New ID: '+d.new_client_id+' Email: '+d.email);window.location.reload();}
+  else{alert('Error: '+d.error);btn.textContent='Re-provision';btn.disabled=false;}
 }
 async function revokeCode(){
   await fetch('/api/admin/revoke-code',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CID})});
@@ -2624,11 +2626,8 @@ def admin_reprovision():
         email = new_email if new_email else old_email
         wipe_customer(client_id)
         log.info(f"Reprovision: wiped {client_id}")
-        new_client_id = client_id
-        existing = agh_get("/control/clients")
-        existing_names = [c.get("name") for c in (existing.get("clients") or [])]
-        if new_client_id not in existing_names:
-            create_adguard_client(new_client_id, name)
+        new_client_id = generate_client_id(name, email)
+        create_adguard_client(new_client_id, name)
         add_to_allowed_clients(new_client_id)
         profile_url = save_ios_profile(new_client_id, name)
         lines = []
@@ -2779,43 +2778,6 @@ def api_admin_rule():
     if request.method == "POST":
         return jsonify({"ok": add_custom_rule(client_id, data.get("domain","").strip().lower(), data.get("block", True))})
     return jsonify({"ok": remove_custom_rule(client_id, data.get("rule", ""))})
-
-
-@app.route("/admin/logs")
-@admin_required
-def admin_logs():
-    import subprocess
-    result = subprocess.run(
-        ["journalctl", "-u", "harbor-dashboard", "-n", "500", "--no-pager", "--output=short"],
-        capture_output=True, text=True
-    )
-    lines = result.stdout.strip().split("\n")
-    lines.reverse()
-    colored = []
-    for line in lines:
-        if "ERROR" in line:
-            colored.append(f'<span style="color:#ff4e4e">{line}</span>')
-        elif "WARNING" in line:
-            colored.append(f'<span style="color:#f5a623">{line}</span>')
-        elif any(x in line for x in ["reprovision","welcome","stripe","email"]):
-            colored.append(f'<span style="color:#00e5c0">{line}</span>')
-        else:
-            colored.append(f'<span style="color:#a8c5c1">{line}</span>')
-    log_html = "\n".join(colored)
-    with open("/home/ubuntu/harbor-backend/logs_template.html") as f:
-        template = f.read()
-    return template.replace("LOG_CONTENT_PLACEHOLDER", log_html)
-
-@app.route("/admin/logs/stream")
-@admin_required
-def admin_logs_stream():
-    import subprocess
-    result = subprocess.run(
-        ["journalctl", "-u", "harbor-dashboard", "-n", "500", "--no-pager", "--output=short"],
-        capture_output=True, text=True
-    )
-    from flask import Response
-    return Response(result.stdout, mimetype="text/plain")
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=int(os.environ.get("DASHBOARD_PORT", 7000)), debug=False)
