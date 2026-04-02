@@ -35,6 +35,7 @@ def mark_processed(session_id):
         log.error(f"Session log error: {e}")
 
 def generate_client_id(name, email):
+    name = name or ""
     base = re.sub(r'[^a-z0-9]', '', name.strip().lower().split()[0] if name.strip() else email.split('@')[0].lower())
     return f"{base}{''.join(random.choices(string.digits, k=4))}"
 
@@ -163,7 +164,7 @@ def remove_from_allowed_clients(client_id):
 def create_adguard_client(client_id, name):
     try:
         r = requests.post(f"{ADGUARD_URL}/control/clients/add",
-            json={"name": f"{name.strip()} ({client_id})", "ids": [client_id], "tags": [],
+            json={"name": f"{(name or 'Customer').strip()} ({client_id})", "ids": [client_id], "tags": [],
                   "filtering_enabled": True, "parental_enabled": False, "safebrowsing_enabled": True,
                   "use_global_settings": True, "use_global_blocked_services": True},
             auth=(ADGUARD_USER, ADGUARD_PASS), timeout=10)
@@ -415,12 +416,12 @@ def find_customer(stripe_customer_id):
         pass
     return {}
 
-def log_customer(client_id, name, email, plan, stripe_customer_id="", plan_type=None, is_trial=False):
+def log_customer(client_id, name, email, plan, stripe_customer_id="", plan_type=None, is_trial=False, status="active"):
     entry = {"date": datetime.utcnow().isoformat(), "client_id": client_id,
              "name": name, "email": email, "plan": plan,
             "plan_type": plan_type or plan,
             "is_trial": is_trial,
-             "stripe_customer_id": stripe_customer_id, "status": "active"}
+             "stripe_customer_id": stripe_customer_id, "status": status}
     open(CUSTOMERS_LOG, "a").write(json.dumps(entry) + "\n")
 
 def send_email(to, subject, html):
@@ -702,6 +703,7 @@ def update_customer_family_safe(email, enabled):
     except Exception as e:
         log.error(f"update_customer_family_safe error: {e}")
 
+def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url="", plan_type=None):
     doh = f"https://{DOH_BASE}/{client_id}"
 
     if plan_type == "harbor-remote-light":
@@ -833,7 +835,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     log.info(f"Skipping duplicate session: {session_id}")
                 else:
                     email = s.get("customer_details", {}).get("email", "")
-                    name = s.get("customer_details", {}).get("name", "unknown").strip()
+                    name = (s.get("customer_details", {}).get("name") or "Customer").strip()
                     stripe_id = s.get("customer", "")
                     mode = s.get("mode", "")
                     meta = s.get("metadata", {})
@@ -857,12 +859,28 @@ class WebhookHandler(BaseHTTPRequestHandler):
                                 invoice_url = inv_data.get("hosted_invoice_url", "")
                             except Exception as ie:
                                 log.error(f"invoice fetch error: {ie}")
-                        send_welcome_email(email, name, client_id, plan, profile_url, invoice_url, plan_type=plan_type)
                         plan_type = meta.get("plan_type", plan)
                         is_trial = s.get("payment_status", "") == "no_payment_required"
-                        log_customer(client_id, name, email, plan, stripe_id, plan_type=plan_type, is_trial=is_trial)
-                        mark_processed(session_id)
-                        log.info(f"Onboarded: {name} ({client_id})")
+                        try:
+                            send_welcome_email(email, name, client_id, plan, profile_url, invoice_url, plan_type=plan_type)
+                            log_customer(client_id, name, email, plan, stripe_id, plan_type=plan_type, is_trial=is_trial)
+                            mark_processed(session_id)
+                            log.info(f"Onboarded: {name} ({client_id})")
+                        except Exception as pe:
+                            log.error(f"Provisioning failed for {email}: {pe}")
+                            log_customer(client_id, name, email, plan, stripe_id, plan_type=plan_type, is_trial=is_trial, status="failed")
+                            mark_processed(session_id)
+                            fail_html = f"""<div style="font-family:sans-serif;background:#0a0e0f;color:#e8f0ef;padding:32px;">
+<h2 style="color:#ff4e4e;">Provisioning Failed</h2>
+<p><strong>Email:</strong> {email}</p>
+<p><strong>Name:</strong> {name}</p>
+<p><strong>Client ID:</strong> {client_id}</p>
+<p><strong>Plan:</strong> {plan_type}</p>
+<p><strong>Stripe ID:</strong> {stripe_id}</p>
+<p><strong>Error:</strong> {pe}</p>
+<p>Go to admin dashboard to reprovision.</p>
+</div>"""
+                            send_email("failed.provision@harborprivacy.com", f"FAILED PROVISION: {email}", fail_html)
 
             elif etype == "invoice.payment_succeeded":
                 try:

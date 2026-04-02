@@ -692,12 +692,40 @@ def login():
                             session.pop("pw_verified", None)
                             is_admin = email == ADMIN_EMAIL
                             token = make_token(email, is_admin=is_admin)
+                            # Update last_seen
+                            try:
+                                import json as _json, datetime as _dt
+                                lines = open(CUSTOMERS_LOG).readlines()
+                                new_lines = []
+                                for l in lines:
+                                    l = l.strip()
+                                    if not l: continue
+                                    r = _json.loads(l)
+                                    if r.get("email","").lower() == email.lower():
+                                        r["last_seen"] = _dt.datetime.utcnow().isoformat()
+                                    new_lines.append(_json.dumps(r))
+                                open(CUSTOMERS_LOG,"w").write("\n".join(new_lines) + "\n")
+                            except: pass
                             resp = make_response(redirect("/admin" if is_admin else "/dashboard"))
                             resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=86400)
                             return resp
                     else:
                         is_admin = email == ADMIN_EMAIL
                         token = make_token(email, is_admin=is_admin)
+                        # Update last_seen
+                        try:
+                            import json as _json, datetime as _dt
+                            lines = open(CUSTOMERS_LOG).readlines()
+                            new_lines = []
+                            for l in lines:
+                                l = l.strip()
+                                if not l: continue
+                                r = _json.loads(l)
+                                if r.get("email","").lower() == email.lower():
+                                    r["last_seen"] = _dt.datetime.utcnow().isoformat()
+                                new_lines.append(_json.dumps(r))
+                            open(CUSTOMERS_LOG,"w").write("\n".join(new_lines) + "\n")
+                        except: pass
                         resp = make_response(redirect("/admin" if is_admin else "/dashboard"))
                         resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=86400)
                         return resp
@@ -1061,6 +1089,12 @@ def dashboard():
         <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">JOINED</span>
         <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">{{ customer.date[:10] }}</span>
       </div>
+      {% if customer.last_seen %}
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">LAST ACTIVE</span>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);">{{ customer.last_seen[:16].replace("T"," ") }} UTC</span>
+      </div>
+      {% endif %}
       {% endif %}
       {% if is_founder %}
       <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -1427,10 +1461,11 @@ def admin():
       </div>
       {% for c in customers %}
       {% set cl = get_client(c.client_id) %}
-      <div class="customer-row">
+      <div class="customer-row" {% if c.status == 'failed' %}style="border-left:3px solid #ff4e4e;background:rgba(255,78,78,0.05);"{% endif %}>
         <div>
-          <div style="font-size:14px;color:var(--text);">{{ c.name }}</div>
+          <div style="font-size:14px;color:var(--text);">{{ c.name }}{% if c.status == 'failed' %} <span style="font-family:'DM Mono',monospace;font-size:10px;color:#ff4e4e;letter-spacing:0.1em;">⚠ PROVISION FAILED</span>{% endif %}</div>
           <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">{{ c.email }}</div>
+          {% if c.last_seen %}<div style="font-family:'DM Mono',monospace;font-size:10px;color:#4a6a67;">Last seen: {{ c.last_seen[:16].replace('T',' ') }} UTC</div>{% endif %}
         </div>
         <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);">{{ c.client_id }}</div>
         <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">{{ c.plan }}</div>
