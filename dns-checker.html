@@ -5,6 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DNS Checker | Harbor Privacy</title>
 <meta name="description" content="Check if your ISP can see your browsing data. See what changes with Harbor Privacy's encrypted DNS.">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="DNS Checker -- Is Your ISP Watching? | Harbor Privacy">
+<meta property="og:description" content="Check if your ISP can see your browsing data. Run this free DNS privacy check to see what changes with Harbor Privacy encrypted DNS.">
+<meta property="og:image" content="https://harborprivacy.com/favicon-180.png">
+<meta property="og:url" content="https://harborprivacy.com/dns-checker">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://harborprivacy.com/dns-checker">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/favicon-180.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"DNS Privacy Checker","description":"Check if your ISP can see your browsing data and what changes with Harbor Privacy encrypted DNS.","url":"https://harborprivacy.com/dns-checker","isPartOf":{"@type":"WebSite","name":"Harbor Privacy","url":"https://harborprivacy.com"}}<\/script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
@@ -53,9 +63,78 @@
   .btn-primary { background: var(--accent); color: var(--bg); padding: 14px 32px; font-family: 'DM Mono', monospace; font-size: 13px; letter-spacing: 0.08em; text-decoration: none; font-weight: 500; display: inline-block; transition: all 0.2s; }
   .btn-primary:hover { background: #00ffda; }
   @media (max-width: 768px) { .container { padding: 40px 24px 80px; } .dns-checker { padding: 32px 24px; } .checker-results { grid-template-columns: 1fr; } .education-grid { grid-template-columns: 1fr; gap: 32px; } .upsell-section { padding: 32px 24px; } }
+
+  :root { --sidebar-width: 240px; }
+  .sidebar{width:var(--sidebar-width);height:100vh;background:var(--surface);border-right:1px solid var(--border);position:fixed;top:0;left:0;z-index:100;display:flex;flex-direction:column;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;}
+  .sidebar::-webkit-scrollbar{display:none;}
+  .sidebar-logo{padding:28px 24px 20px;border-bottom:1px solid var(--border);}
+  .sidebar-logo a{font-family:'DM Mono',monospace;font-size:15px;color:var(--accent);letter-spacing:0.1em;text-decoration:none;display:block;}
+  .sidebar-logo a span{color:var(--muted);}
+  .sidebar-logo .tagline{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.06em;margin-top:5px;}
+  .sidebar-cta{margin:16px;padding:12px 16px;background:var(--accent);color:var(--bg);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;display:block;font-weight:500;transition:background 0.2s;}
+  .sidebar-cta:hover{background:#00ffda;}
+  .sidebar-footer{padding:16px 24px;margin-top:auto;border-top:1px solid var(--border);}
+  .sidebar-footer a{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-decoration:none;display:block;margin-bottom:4px;}
+  .sidebar nav{padding:0 16px 16px;flex:1;}
+  .nav-group-label{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;padding:20px 8px 8px;display:block;}
+  .nav-link{display:flex;align-items:center;gap:10px;padding:7px 8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.04em;border-radius:2px;transition:color 0.15s,background 0.15s;}
+  .nav-link:hover{color:var(--text);background:rgba(255,255,255,0.03);}
+  .nav-link.active{color:var(--accent);background:rgba(0,229,192,0.06);}
+  .nav-icon{font-size:12px;width:16px;text-align:center;flex-shrink:0;}
+  .nav-badge{font-size:8px;background:var(--accent);color:var(--bg);padding:1px 5px;letter-spacing:0.05em;margin-left:auto;}
+  .sidebar-actions{padding:16px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:8px;}
+  .mobile-nav{display:none;position:fixed;top:0;left:0;right:0;height:56px;background:var(--surface);border-bottom:1px solid var(--border);z-index:200;align-items:center;padding:0 20px;justify-content:space-between;}
+  .hamburger{background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px;}
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99;}
+  .overlay.open{display:block;}
+  .main-content{margin-left:var(--sidebar-width);}
+
 </style>
 </head>
 <body>
+<script>function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open");document.getElementById("overlay").classList.toggle("open");}<\/script>
+<div class="mobile-nav">
+  <button class="hamburger" onclick="toggleSidebar()">&#9776;<\/button>
+  <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);">harbor<span style="color:var(--muted);">/<\/span>privacy<\/span>
+  <a href="/free-trial" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--bg);background:var(--accent);padding:6px 12px;text-decoration:none;">Try Free<\/a>
+<\/div>
+<div class="overlay" id="overlay" onclick="toggleSidebar()"><\/div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-actions">
+    <a href="https://dashboard.harborprivacy.com" target="_blank" style="display:block;padding:12px 16px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;">&#8862; My Dashboard<\/a>
+    <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank" style="display:block;padding:12px 16px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;">&#8651; Manage Subscription<\/a>
+  <\/div>
+  <div class="sidebar-logo"><a href="/">harbor<span>/<\/span>privacy<\/a><div class="tagline">private dns for your home<\/div><\/div>
+  <nav>
+    <span class="nav-group-label">Main<\/span>
+    <a href="/" class="nav-link"><span class="nav-icon">&#8962;<\/span> Home<\/a>
+    <a href="/how-it-works" class="nav-link"><span class="nav-icon">&#9672;<\/span> How It Works<\/a>
+    <span class="nav-group-label">Learn<\/span>
+    <a href="/learn" class="nav-link"><span class="nav-icon">&#9672;<\/span> Overview<\/a>
+    <a href="/learn#email-filtering" class="nav-link"><span class="nav-icon">&#9993;<\/span> Email Filtering<\/a>
+    <a href="/learn#dns-privacy" class="nav-link"><span class="nav-icon">&#11041;<\/span> DNS Privacy<\/a>
+    <a href="/learn#isp-tracking" class="nav-link"><span class="nav-icon">&#9677;<\/span> ISP Tracking<\/a>
+    <a href="/learn#phishing" class="nav-link"><span class="nav-icon">&#9888;<\/span> Phishing &amp; Malware<\/a>
+    <a href="/learn#unbound" class="nav-link"><span class="nav-icon">&#11041;<\/span> Unbound &amp; DNS<\/a>
+    <a href="/learn#smart-home" class="nav-link"><span class="nav-icon">&#8962;<\/span> Smart Home<\/a>
+    <span class="nav-group-label">Tools<\/span>
+    <a href="/pricing" class="nav-link"><span class="nav-icon">$<\/span> Pricing<\/a>
+    <a href="/pricing#audit" class="nav-link"><span class="nav-icon">&#10022;<\/span> Network Audit<\/a>
+    <a href="/dns-checker" class="nav-link active"><span class="nav-icon">&#8865;<\/span> Check Your DNS<\/a>
+    <a href="/adblock-test" class="nav-link"><span class="nav-icon">&#9646;<\/span> Block Test <span class="nav-badge">NEW<\/span><\/a>
+    <a href="/free-trial" class="nav-link"><span class="nav-icon">&#10003;<\/span> Free Trial<\/a>
+    <a href="/pricing#remote" class="nav-link"><span class="nav-icon">&#8651;<\/span> Harbor Remote <span class="nav-badge">NEW<\/span><\/a>
+    <span class="nav-group-label">Company<\/span>
+    <a href="/docs" class="nav-link"><span class="nav-icon">&#8801;<\/span> Documentation<\/a>
+    <a href="/nologs" class="nav-link"><span class="nav-icon">&#10003;<\/span> No-Logs Policy<\/a>
+    <a href="/privacy" class="nav-link"><span class="nav-icon">&#8857;<\/span> Privacy Policy<\/a>
+    <a href="/terms" class="nav-link"><span class="nav-icon">&#167;<\/span> Terms of Service<\/a>
+    <a href="/#contact" class="nav-link"><span class="nav-icon">&#9993;<\/span> Contact<\/a>
+  <\/nav>
+  <a href="/free-trial" class="sidebar-cta">Get Started &rarr;<\/a>
+  <div class="sidebar-footer"><a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank">Manage Subscription<\/a><\/div>
+<\/aside>
+<div class="main-content">
 <div class="container">
   <div class="header">
     <div class="section-tag">DNS Privacy Check</div>
@@ -174,5 +253,6 @@ function lookupISP(dnsIP) {
   return ISP_DATABASE[ip] || null;
 }
 </script>
+</div>
 </body>
 </html>

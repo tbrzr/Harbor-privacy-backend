@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DNS Block Test | Harbor Privacy</title>
+<meta name="description" content="Check if your Harbor Privacy DNS is actually blocking ads, trackers, malware, and adult content. Runs entirely in your browser. No data stored.">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="DNS Block Test -- Harbor Privacy">
+<meta property="og:description" content="See exactly what your DNS is blocking. Test ads, malware, and optionally NSFW domains with one click.">
+<meta property="og:image" content="https://harborprivacy.com/favicon-180.png">
+<meta property="og:url" content="https://harborprivacy.com/adblock-test">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://harborprivacy.com/adblock-test">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/favicon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"DNS Block Test","description":"Check if your Harbor Privacy DNS is blocking ads, trackers, malware, and adult content.","url":"https://harborprivacy.com/adblock-test","isPartOf":{"@type":"WebSite","name":"Harbor Privacy","url":"https://harborprivacy.com"}}</script>
+<style>
+:root{--bg:#0a0e0f;--surface:#111618;--border:#1e2a2d;--accent:#00e5c0;--text:#e8f0ef;--muted:#6b8a87;--danger:#ff4e4e;--sidebar-width:240px;}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:"DM Sans",sans-serif;font-weight:300;line-height:1.7;font-size:16px;min-height:100vh;}
+body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:0.3;pointer-events:none;z-index:0;}
+.sidebar{width:var(--sidebar-width);height:100vh;background:var(--surface);border-right:1px solid var(--border);position:fixed;top:0;left:0;z-index:100;display:flex;flex-direction:column;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;}
+.sidebar::-webkit-scrollbar{display:none;}
+.sidebar-logo{padding:28px 24px 20px;border-bottom:1px solid var(--border);}
+.sidebar-logo a{font-family:"DM Mono",monospace;font-size:15px;color:var(--accent);letter-spacing:0.1em;text-decoration:none;display:block;}
+.sidebar-logo a span{color:var(--muted);}
+.sidebar-logo .tagline{font-family:"DM Mono",monospace;font-size:10px;color:var(--muted);letter-spacing:0.06em;margin-top:5px;}
+.sidebar-cta{margin:16px;padding:12px 16px;background:var(--accent);color:var(--bg);font-family:"DM Mono",monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;display:block;font-weight:500;transition:background 0.2s;}
+.sidebar-cta:hover{background:#00ffda;}
+.sidebar-footer{padding:16px 24px;margin-top:auto;border-top:1px solid var(--border);}
+.sidebar-footer a{font-family:"DM Mono",monospace;font-size:10px;color:var(--muted);text-decoration:none;display:block;margin-bottom:4px;}
+.sidebar nav{padding:0 16px 16px;flex:1;}
+.nav-group-label{font-family:"DM Mono",monospace;font-size:9px;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;padding:20px 8px 8px;display:block;}
+.nav-link{display:flex;align-items:center;gap:10px;padding:7px 8px;font-family:"DM Mono",monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.04em;border-radius:2px;transition:color 0.15s,background 0.15s;}
+.nav-link:hover{color:var(--text);background:rgba(255,255,255,0.03);}
+.nav-link.active{color:var(--accent);background:rgba(0,229,192,0.06);}
+.nav-icon{font-size:12px;width:16px;text-align:center;flex-shrink:0;}
+.nav-badge{font-size:8px;background:var(--accent);color:var(--bg);padding:1px 5px;letter-spacing:0.05em;margin-left:auto;}
+.sidebar-actions{padding:16px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:8px;}
+.mobile-nav{display:none;position:fixed;top:0;left:0;right:0;height:56px;background:var(--surface);border-bottom:1px solid var(--border);z-index:200;align-items:center;padding:0 20px;justify-content:space-between;}
+.hamburger{background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px;}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99;}
+.overlay.open{display:block;}
+.main-content{margin-left:var(--sidebar-width);}
+.container{max-width:860px;margin:0 auto;padding:60px 48px 100px;position:relative;z-index:1;}
+.section-tag{font-family:"DM Mono",monospace;font-size:11px;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:12px;}
+.section-tag::before{content:"";display:block;width:32px;height:1px;background:var(--muted);}
+h1{font-family:"DM Serif Display",serif;font-size:clamp(32px,5vw,48px);line-height:1.1;font-weight:400;margin-bottom:16px;letter-spacing:-0.02em;}
+.subtitle{font-size:17px;color:var(--muted);max-width:520px;line-height:1.7;margin-bottom:48px;}
+.card{background:var(--surface);border:1px solid var(--border);padding:28px 32px;margin-bottom:16px;}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;}
+.card-title{font-family:"DM Mono",monospace;font-size:12px;letter-spacing:0.1em;color:var(--text);text-transform:uppercase;}
+.card-subtitle{font-size:11px;color:var(--muted);font-family:"DM Mono",monospace;}
+.badge{font-family:"DM Mono",monospace;font-size:10px;padding:3px 10px;letter-spacing:0.08em;border:1px solid var(--border);color:var(--muted);}
+.badge-pass{border-color:#00e5c0;color:#00e5c0;background:rgba(0,229,192,0.08);}
+.badge-fail{border-color:var(--danger);color:var(--danger);background:rgba(255,78,78,0.08);}
+.badge-partial{border-color:#d29922;color:#d29922;background:rgba(210,153,34,0.08);}
+.domain-list{display:flex;flex-direction:column;}
+.domain-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1a2124;font-size:12px;}
+.domain-row:last-child{border-bottom:none;}
+.domain-name{font-family:"DM Mono",monospace;color:var(--muted);}
+.dot-wrap{display:flex;align-items:center;gap:8px;font-family:"DM Mono",monospace;font-size:10px;}
+.dot{width:8px;height:8px;border-radius:50%;background:#2a3538;flex-shrink:0;}
+.dot.blocked{background:#00e5c0;}
+.dot.not-blocked{background:var(--danger);}
+.dot.testing{background:#d29922;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.toggle-row{display:flex;align-items:center;gap:12px;}
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;}
+.slider{position:absolute;inset:0;background:#1e2a2d;border:1px solid var(--border);cursor:pointer;transition:0.2s;}
+.slider:before{content:"";position:absolute;width:14px;height:14px;left:3px;bottom:3px;background:var(--muted);transition:0.2s;}
+input:checked+.slider{background:rgba(0,229,192,0.15);border-color:var(--accent);}
+input:checked+.slider:before{transform:translateX(18px);background:var(--accent);}
+.toggle-label{font-family:"DM Mono",monospace;font-size:11px;color:var(--muted);letter-spacing:0.05em;}
+.toggle-warning{font-family:"DM Mono",monospace;font-size:10px;color:#d29922;margin-top:10px;padding:8px 12px;border:1px solid rgba(210,153,34,0.3);background:rgba(210,153,34,0.05);display:none;}
+.run-btn{background:var(--accent);color:var(--bg);border:none;padding:14px 40px;font-family:"DM Mono",monospace;font-size:13px;font-weight:500;letter-spacing:0.08em;cursor:pointer;width:100%;margin-top:8px;transition:background 0.2s;}
+.run-btn:hover{background:#00ffda;}
+.run-btn:disabled{background:var(--border);color:var(--muted);cursor:not-allowed;}
+.summary{display:none;background:var(--surface);border:1px solid var(--border);padding:40px;text-align:center;margin-bottom:16px;}
+.summary.show{display:block;}
+.score{font-family:"DM Serif Display",serif;font-size:64px;font-weight:400;line-height:1;}
+.score.great{color:#00e5c0;}
+.score.ok{color:#d29922;}
+.score.poor{color:var(--danger);}
+.score-label{font-family:"DM Mono",monospace;font-size:12px;color:var(--muted);margin-top:12px;letter-spacing:0.05em;}
+.note{font-family:"DM Mono",monospace;font-size:10px;color:var(--muted);line-height:1.7;padding-top:16px;border-top:1px solid var(--border);margin-top:8px;letter-spacing:0.03em;}
+.back-link{display:inline-block;margin-top:40px;font-family:"DM Mono",monospace;font-size:11px;color:var(--accent);text-decoration:none;letter-spacing:0.05em;}
+</style>
+</head>
+<body>
+<script>function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open");document.getElementById("overlay").classList.toggle("open");}</script>
+<div class="mobile-nav">
+  <button class="hamburger" onclick="toggleSidebar()">&#9776;</button>
+  <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);">harbor<span style="color:var(--muted);">\/</span>privacy</span>
+  <a href="\/free-trial" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--bg);background:var(--accent);padding:6px 12px;text-decoration:none;">Try Free<\/a>
+<\/div>
+<div class="overlay" id="overlay" onclick="toggleSidebar()"><\/div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-actions">
+    <a href="https:\/\/dashboard.harborprivacy.com" target="_blank" style="display:block;padding:12px 16px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;">&#8862; My Dashboard<\/a>
+    <a href="https:\/\/billing.stripe.com\/p\/login\/3cI28qfUX5Tp5rn80T6kg00" target="_blank" style="display:block;padding:12px 16px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;">&#8651; Manage Subscription<\/a>
+  <\/div>
+  <div class="sidebar-logo">
+    <a href="\/">harbor<span>\/<\/span>privacy<\/a>
+    <div class="tagline">private dns for your home<\/div>
+  <\/div>
+  <nav>
+    <span class="nav-group-label">Main<\/span>
+    <a href="\/" class="nav-link"><span class="nav-icon">&#8962;<\/span> Home<\/a>
+    <a href="\/how-it-works" class="nav-link"><span class="nav-icon">&#9672;<\/span> How It Works<\/a>
+    <span class="nav-group-label">Learn<\/span>
+    <a href="\/learn" class="nav-link"><span class="nav-icon">&#9672;<\/span> Overview<\/a>
+    <a href="\/learn#email-filtering" class="nav-link"><span class="nav-icon">&#9993;<\/span> Email Filtering<\/a>
+    <a href="\/learn#dns-privacy" class="nav-link"><span class="nav-icon">&#11041;<\/span> DNS Privacy<\/a>
+    <a href="\/learn#isp-tracking" class="nav-link"><span class="nav-icon">&#9677;<\/span> ISP Tracking<\/a>
+    <a href="\/learn#phishing" class="nav-link"><span class="nav-icon">&#9888;<\/span> Phishing &amp; Malware<\/a>
+    <a href="\/learn#unbound" class="nav-link"><span class="nav-icon">&#11041;<\/span> Unbound &amp; DNS<\/a>
+    <a href="\/learn#smart-home" class="nav-link"><span class="nav-icon">&#8962;<\/span> Smart Home<\/a>
+    <span class="nav-group-label">Tools<\/span>
+    <a href="\/pricing" class="nav-link"><span class="nav-icon">$<\/span> Pricing<\/a>
+    <a href="\/pricing#audit" class="nav-link"><span class="nav-icon">&#10022;<\/span> Network Audit<\/a>
+    <a href="\/dns-checker" class="nav-link"><span class="nav-icon">&#8865;<\/span> Check Your DNS<\/a>
+    <a href="\/adblock-test" class="nav-link active"><span class="nav-icon">&#9646;<\/span> Block Test <span class="nav-badge">NEW<\/span><\/a>
+    <a href="\/free-trial" class="nav-link"><span class="nav-icon">&#10003;<\/span> Free Trial<\/a>
+    <a href="\/pricing#remote" class="nav-link"><span class="nav-icon">&#8651;<\/span> Harbor Remote <span class="nav-badge">NEW<\/span><\/a>
+    <span class="nav-group-label">Company<\/span>
+    <a href="\/docs" class="nav-link"><span class="nav-icon">&#8801;<\/span> Documentation<\/a>
+    <a href="\/nologs" class="nav-link"><span class="nav-icon">&#10003;<\/span> No-Logs Policy<\/a>
+    <a href="\/privacy" class="nav-link"><span class="nav-icon">&#8857;<\/span> Privacy Policy<\/a>
+    <a href="\/terms" class="nav-link"><span class="nav-icon">&#167;<\/span> Terms of Service<\/a>
+    <a href="\/#contact" class="nav-link"><span class="nav-icon">&#9993;<\/span> Contact<\/a>
+  <\/nav>
+  <a href="\/free-trial" class="sidebar-cta">Get Started &rarr;<\/a>
+  <div class="sidebar-footer">
+    <a href="https:\/\/billing.stripe.com\/p\/login\/3cI28qfUX5Tp5rn80T6kg00" target="_blank">Manage Subscription<\/a>
+  <\/div>
+<\/aside>
+<div class="main-content">
+<div class="container">
+  <div class="section-tag">DNS Block Test<\/div>
+  <h1>Is Harbor actually blocking?<\/h1>
+  <p class="subtitle">Your browser tries to reach known ad, malware, and adult domains. If DNS blocks them, they fail. See exactly what is and is not getting through.<\/p>
+  <div class="card">
+    <div class="card-header"><span class="card-title">Options<\/span><\/div>
+    <div class="toggle-row">
+      <label class="toggle"><input type="checkbox" id="nsfwToggle"><span class="slider"><\/span><\/label>
+      <span class="toggle-label">Include Harbor Kids \/ Family Safe NSFW check<\/span>
+    <\/div>
+    <div class="toggle-warning" id="nsfwWarning">Adult domains will be tested. Enable this only if you have the Family Protection add-on or want to verify Harbor Kids is working.<\/div>
+  <\/div>
+  <div class="card" id="card-normal">
+    <div class="card-header"><span class="card-title">Ads &amp; Trackers <span class="card-subtitle">&nbsp; Hagezi Normal<\/span><\/span><span class="badge" id="badge-normal">Pending<\/span><\/div>
+    <div class="domain-list" id="list-normal"><\/div>
+  <\/div>
+  <div class="card" id="card-badware">
+    <div class="card-header"><span class="card-title">Malware &amp; Badware <span class="card-subtitle">&nbsp; Hagezi TIF<\/span><\/span><span class="badge" id="badge-badware">Pending<\/span><\/div>
+    <div class="domain-list" id="list-badware"><\/div>
+  <\/div>
+  <div class="card" id="card-nsfw" style="display:none;">
+    <div class="card-header"><span class="card-title">NSFW \/ Adult Content <span class="card-subtitle">&nbsp; Hagezi NSFW<\/span><\/span><span class="badge" id="badge-nsfw">Pending<\/span><\/div>
+    <div class="domain-list" id="list-nsfw"><\/div>
+  <\/div>
+  <button class="run-btn" id="runBtn" onclick="runTests()">Run Block Test<\/button>
+  <div class="summary" id="summary">
+    <div class="score" id="scoreText"><\/div>
+    <div class="score-label" id="scoreLabel"><\/div>
+  <\/div>
+  <p class="note">How it works: your browser tries to reach each domain via a 1x1 image request. If DNS blocks it, the request fails -- that is a pass. These domains come from the Hagezi Normal, Threat Intelligence Feed, and NSFW blocklists, the same ones active in AdGuard Home on your Harbor account. Results are never sent anywhere.<\/p>
+  <a class="back-link" href="\/dns-checker">&larr; Back to DNS Checker<\/a>
+<\/div>
+<\/div>
+<script>
+const TESTS={normal:["doubleclick.net","googlesyndication.com","adservice.google.com","scorecardresearch.com","outbrain.com","taboola.com","ads.yahoo.com","advertising.com","track.adform.net","pubmatic.com"],badware:["driverstotal.com","malware.wicar.org","tracking.marinsm.com","trafficjunky.net","cdn.trafficjunky.net","1-track.biz","cdn.driverstotal.com","openload.co","convert.com","ad.fly"],nsfw:["pornhub.com","xvideos.com","xhamster.com","redtube.com","youporn.com","tube8.com","spankbang.com","brazzers.com"]};
+document.getElementById("nsfwToggle").addEventListener("change",function(){document.getElementById("card-nsfw").style.display=this.checked?"block":"none";document.getElementById("nsfwWarning").style.display=this.checked?"block":"none";});
+function buildRows(cat){const el=document.getElementById("list-"+cat);el.innerHTML="";TESTS[cat].forEach(domain=>{const row=document.createElement("div");row.className="domain-row";row.innerHTML='<span class="domain-name">'+domain+'<\/span><span class="dot-wrap"><span class="dot testing" id="dot-'+cat+"-"+domain.replace(/\./g,"-")+'"><\/span><span id="lbl-'+cat+"-"+domain.replace(/\./g,"-")+'" style="color:var(--muted)">...<\/span><\/span>';el.appendChild(row);});}
+function testDomain(domain){return new Promise(resolve=>{const timer=setTimeout(()=>resolve("blocked"),3000);const img=new Image();img.onload=()=>{clearTimeout(timer);resolve("not-blocked");};img.onerror=()=>{clearTimeout(timer);resolve("blocked");};img.src="https:\/\/"+domain+"\/favicon.ico?t="+Date.now();});}
+function setBadge(id,passed,total){const el=document.getElementById("badge-"+id);if(passed===total){el.className="badge badge-pass";el.textContent="All Blocked";}else if(passed===0){el.className="badge badge-fail";el.textContent="None Blocked";}else{el.className="badge badge-partial";el.textContent=passed+"\/"+total+" Blocked";}}
+async function runCategory(cat){buildRows(cat);let blocked=0;for(const domain of TESTS[cat]){const key=cat+"-"+domain.replace(/\./g,"-");const result=await testDomain(domain);const dot=document.getElementById("dot-"+key);const lbl=document.getElementById("lbl-"+key);dot.className="dot "+result;if(result==="blocked"){lbl.textContent="blocked";lbl.style.color="#00e5c0";blocked++;}else{lbl.textContent="not blocked";lbl.style.color="var(--danger)";}}setBadge(cat,blocked,TESTS[cat].length);return{blocked,total:TESTS[cat].length};}
+async function runTests(){const btn=document.getElementById("runBtn");btn.disabled=true;btn.textContent="Testing...";document.getElementById("summary").classList.remove("show");const cats=["normal","badware"];if(document.getElementById("nsfwToggle").checked)cats.push("nsfw");let totalBlocked=0,totalDomains=0;for(const cat of cats){const res=await runCategory(cat);totalBlocked+=res.blocked;totalDomains+=res.total;}const pct=Math.round((totalBlocked\/totalDomains)*100);const scoreEl=document.getElementById("scoreText");const labelEl=document.getElementById("scoreLabel");scoreEl.textContent=pct+"%";scoreEl.className="score "+(pct>=80?"great":pct>=50?"ok":"poor");if(pct===100)labelEl.textContent="Perfect. Harbor is doing its job.";else if(pct>=80)labelEl.textContent="Solid coverage. A few domains slipped through -- check your AdGuard lists.";else if(pct>=50)labelEl.textContent="Partial blocking. Make sure your DNS is pointed at Harbor.";else labelEl.textContent="Not blocked. You may not be connected to Harbor DNS yet.";document.getElementById("summary").classList.add("show");btn.disabled=false;btn.textContent="Run Again";}
+<\/script>
+<\/body>
+<\/html>
