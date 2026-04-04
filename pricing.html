@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Harbor Privacy — Pricing</title>
-<meta name="description" content="Harbor Privacy pricing. Harbor Remote from $5.99/month. One-time $399 on-site installation. Serving the South Shore, MA and anywhere in the world.">
+<title>Harbor Privacy Pricing — DNS Ad Blocker Starting at $5.99/mo</title>
+<meta name="description" content="Harbor Privacy blocks ads, trackers, and malware on every home device. Plans start at $5.99/month. 30-day free trial. Works anywhere in the world.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://harborprivacy.com/pricing">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -34,12 +34,11 @@
   .sidebar-cta { margin: 16px; padding: 12px 16px; background: var(--accent); color: var(--bg); font-family: "DM Mono", monospace; font-size: 11px; letter-spacing: 0.08em; text-decoration: none; text-align: center; display: block; font-weight: 500; }
   .sidebar-footer { padding: 16px 24px; margin-top: auto; border-top: 1px solid var(--border); }
   .sidebar-footer a { font-family: "DM Mono", monospace; font-size: 10px; color: var(--muted); text-decoration: none; display: block; margin-bottom: 4px; }
-  .hamburger { display: none; position: fixed; top: 16px; left: 16px; z-index: 9999; background: var(--surface); border: 1px solid var(--border); padding: 10px 12px; cursor: pointer; flex-direction: column; gap: 5px; }
-  .hamburger span { display: block; width: 20px; height: 1.5px; background: var(--accent); }
+  .mobile-nav { display: none; position: fixed; top: 0; left: 0; right: 0; height: 56px; background: var(--surface); border-bottom: 1px solid var(--border); z-index: 200; align-items: center; padding: 0 20px; justify-content: space-between; }
+  .hamburger { background: none; border: none; color: var(--text); font-size: 20px; cursor: pointer; padding: 4px; }
   .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 99; }
 
   /* MAIN */
-  #mobile-top { display: none; }
   .main-content { margin-left: var(--sidebar-width); min-width: 0; position: relative; z-index: 1; }
   .container { max-width: 900px; margin: 0 auto; padding: 60px 40px 100px; }
 
@@ -108,10 +107,9 @@
     .sidebar { display: none !important; }
     .sidebar.open { display: flex !important; flex-direction: column; overflow-y: auto; max-height: 100vh; }
   .sidebar.open::after { content: ''; position: fixed; bottom: 0; left: 0; width: var(--sidebar-width); height: 80px; background: linear-gradient(transparent, var(--surface) 60%); pointer-events: none; z-index: 101; }
-    .hamburger { display: flex !important; }
+    .mobile-nav { display: flex !important; }
     .sidebar-logo { display: none !important; }
     .sidebar { padding-top: 56px; }
-    #mobile-top { display: block !important; }
     .main-content { margin-left: 0; padding-top: 56px; }
     footer { margin-left: 0; }
     .remote-grid { grid-template-columns: 1fr 1fr; }
@@ -129,15 +127,13 @@
 
 <script>function toggleSidebarDUP(){document.getElementById("sidebar").classList.toggle("open");document.getElementById("overlay").classList.toggle("open");}</script>
 
-<button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Menu">
-  <span></span><span></span><span></span>
-</button>
+<div class="mobile-nav"><button class="hamburger" onclick="toggleSidebar()">&#9776;</button><span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);">harbor<span style="color:var(--muted);"> / </span>privacy</span><a href="/free-trial" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--bg);background:var(--accent);color:#0a0e0f;font-weight:600;padding:6px 12px;text-decoration:none;">Try Free</a></div>
 <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
     <a href="/">harbor<span>/</span>privacy</a>
-    <div class="tagline">Pembroke, MA · South Shore</div>
+    <div class="tagline">private dns for your home</div>
   </div>
   <a href="https://dashboard.harborprivacy.com" target="_blank" style="display:block;margin:16px;padding:12px 16px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;transition:all 0.2s;" onmouseover="this.style.background='#00e5c015'" onmouseout="this.style.background='transparent'">&#9635; My Dashboard</a>
   <nav>
@@ -175,7 +171,7 @@
 </aside>
 
 <div class="main-content">
-<div id="mobile-top" style="display:none;background:var(--surface);border-bottom:1px solid #1e2a2d;padding:28px 16px 16px 72px;font-family:monospace;font-size:20px;color:#00e5c0;letter-spacing:0.1em;">harbor<span style="color:#6b8a87;">/</span>privacy</div>
+
 <div class="container">
 
   <!-- PROMO BANNER -->

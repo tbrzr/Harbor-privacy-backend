@@ -4,9 +4,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Harbor Privacy — Private Home DNS Setup | Pembroke, MA</title>
-<meta name="description" content="Harbor Privacy installs a dedicated privacy device on your home network in Pembroke, MA. Block ads, trackers, and malware on every device. One-time $399 setup. Serving the South Shore.">
-<meta name="keywords" content="home network privacy, DNS blocking, ad blocker home network, South Shore MA, Pembroke MA, network security, ISP privacy">
+<title>Harbor Privacy — Block Ads, Trackers & Malware on Every Home Device</title>
+<meta name="description" content="Harbor Privacy encrypts your DNS and blocks ads, trackers, and malware on every device in your home automatically. No hardware needed. Works anywhere. Setup in 60 seconds.">
+<meta name="keywords" content="home network privacy, DNS blocking, ad blocker home network, encrypted DNS, network security, ISP privacy, block ads home">
 <link rel="canonical" href="https://harborprivacy.com">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <meta property="og:type" content="website">
@@ -17,7 +17,7 @@
 <meta name="twitter:image" content="https://harborprivacy.com/og-image.png">
 <meta property="og:url" content="https://harborprivacy.com">
 <meta property="og:title" content="Harbor Privacy — Private Home DNS Setup">
-<meta property="og:description" content="Block ads, trackers, and malware on every device in your home. One-time $399 setup. Serving Pembroke, MA and the South Shore.">
+<meta property="og:description" content="Block ads, trackers, and malware on every device in your home automatically. Works anywhere. Setup in 60 seconds.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
@@ -49,10 +49,9 @@
 .sidebar-cta:hover { background: #00ffda; }
 .sidebar-footer { padding: 16px 24px; margin-top: auto; border-top: 1px solid var(--border); }
 .sidebar-footer a { font-family: ‘DM Mono’, monospace; font-size: 10px; color: var(--muted); text-decoration: none; display: block; margin-bottom: 4px; }
-.hamburger { display: none; position: fixed; top: 16px; left: 16px; z-index: 9999; background: var(--surface); border: 1px solid var(--border); padding: 10px 12px; cursor: pointer; flex-direction: column; gap: 5px; }
-.hamburger span { display: block; width: 20px; height: 1.5px; background: var(--accent); }
+.mobile-nav { display: none; position: fixed; top: 0; left: 0; right: 0; height: 56px; background: var(--surface); border-bottom: 1px solid var(--border); z-index: 200; align-items: center; padding: 0 20px; justify-content: space-between; }
+.hamburger { background: none; border: none; color: var(--text); font-size: 20px; cursor: pointer; padding: 4px; }
 .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 99; }
-#mobile-top { display: none; }
 
 /* MAIN */
 .main-content { margin-left: var(--sidebar-width); min-width: 0; position: relative; z-index: 1; }
@@ -115,9 +114,8 @@ body { display: block; }
 .sidebar.open { display: flex !important; flex-direction: column; overflow-y: auto; max-height: 100vh; }
   .sidebar.open::after { content: ''; position: fixed; bottom: 0; left: 0; width: var(--sidebar-width); height: 80px; background: linear-gradient(transparent, var(--surface) 60%); pointer-events: none; z-index: 101; }
 .sidebar-logo { display: none !important; }
-.hamburger { display: flex !important; }
-.main-content { margin-left: 0; }
-#mobile-top { display: block !important; }
+.mobile-nav { display: flex !important; }
+.main-content { margin-left: 0; padding-top: 56px; }
 footer { margin-left: 0; }
 .stats-bar { grid-template-columns: 1fr; gap: 24px; }
 .stat { border-right: none; border-bottom: 1px solid var(--border); padding: 0 0 24px; }
@@ -134,9 +132,7 @@ footer { margin-left: 0; }
 </head>
 <body>
 
-<button class="hamburger" id="hamburger" onclick="toggleSidebar()" aria-label="Menu">
-  <span></span><span></span><span></span>
-</button>
+<div class="mobile-nav"><button class="hamburger" onclick="toggleSidebar()">&#9776;</button><span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);">harbor<span style="color:var(--muted);"> / </span>privacy</span><a href="/free-trial" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--bg);background:var(--accent);color:#0a0e0f;font-weight:600;padding:6px 12px;text-decoration:none;">Try Free</a></div>
 <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
 <aside class="sidebar" id="sidebar">
@@ -146,7 +142,7 @@ footer { margin-left: 0; }
   </div>
   <div class="sidebar-logo">
     <a href="/">harbor<span>/</span>privacy</a>
-    <div class="tagline">Pembroke, MA · South Shore</div>
+    <div class="tagline">private dns for your home</div>
   </div>
   <nav>
     <div class="nav-section">
@@ -189,7 +185,7 @@ footer { margin-left: 0; }
 </aside>
 
 <div class="main-content">
-<div id="mobile-top" style="background:var(--surface);border-bottom:1px solid #1e2a2d;padding:20px 16px 20px 72px;font-family:monospace;font-size:20px;color:#00e5c0;letter-spacing:0.1em;">harbor<span style="color:#6b8a87;">/</span>privacy</div>
+
 
 <!-- FOUNDERS BANNER -->
 
@@ -205,11 +201,12 @@ footer { margin-left: 0; }
   <!-- HERO -->
 
   <section class="hero">
-    <div class="hero-tag">Pembroke, MA &middot; South Shore</div>
+    <div class="hero-tag">private dns for your home</div>
     <h1>Your home network.<br><em>Private by design.</em></h1>
     <p class="hero-sub">I install and configure a dedicated privacy device on your home network &mdash; blocking ads, trackers, and malware at the DNS level before they reach any device in your home.</p>
     <div class="hero-actions">
       <a href="#get-started" class="btn-primary">Get Your Network Set Up</a>
+      <a href="/adblock-test" style="display:inline-block;margin-top:12px;margin-left:16px;font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);text-decoration:none;border:1px solid var(--accent);padding:14px 24px;letter-spacing:0.08em;transition:all 0.2s;">&#9646; Test My Adblock &rarr;</a>
       <a href="/how-it-works" class="btn-secondary">See how it works &darr;</a>
     </div>
   </section>
@@ -242,7 +239,7 @@ footer { margin-left: 0; }
     </a>
     <a href="/pricing#remote" class="teaser">
       <div class="teaser-tag">Harbor Remote &mdash; Works Anywhere</div>
-      <div class="teaser-title">Not on the South Shore? No problem.</div>
+      <div class="teaser-title">Works anywhere in the world.</div>
       <div class="teaser-desc">Private encrypted DNS for your devices starting at $5.99/month. No hardware, no visit, works anywhere. Use code FOUNDERS10 for 50% off.</div>
       <div class="teaser-arrow">See plans &rarr;</div>
     </a>
@@ -274,6 +271,7 @@ footer { margin-left: 0; }
           <div style="color:var(--muted);font-size:13px;line-height:1.6;">Works anywhere. DNS-level protection on every device. No hardware to buy.</div>
           <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);">Free for 30 days<br><span style="color:var(--muted);font-size:11px;">then $5.99/mo &mdash; cancel anytime</span></div>
           <a href="https://buy.stripe.com/28EbJ038bftZ5rn80T6kg0d" class="btn-primary" style="margin-top:auto;display:block;text-align:center;">Start Free Trial &rarr;</a>
+          <a href="/adblock-test" style="display:block;text-align:center;margin-top:10px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.04em;">&#9646; Test your blocking &rarr;</a>
         </div>
 
         <div style="background:var(--surface);border:1px solid var(--border);padding:28px 24px;display:flex;flex-direction:column;gap:12px;">
@@ -311,7 +309,7 @@ footer { margin-left: 0; }
         <textarea name="message" placeholder="Tell me about your setup &mdash; router brand, number of devices, any specific concerns"></textarea>
         <button type="submit" class="btn-primary" style="width:100%;">Send Message &rarr;</button>
       </form>
-      <span class="contact-location">&#128205; Pembroke, MA &middot; Serving the South Shore</span>
+      <span class="contact-location">&#128205; Based in MA &middot; Serving customers nationwide</span>
     </div>
   </section>
 

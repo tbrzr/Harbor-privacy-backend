@@ -1473,7 +1473,7 @@ def admin():
         <div style="display:flex;gap:6px;align-items:center;">
           <a href="/admin/customer/{{ c.client_id }}" class="btn btn-sm" style="padding:4px 10px;font-size:10px;">View →</a>
           {% if c.client_id != "harbor7066" %}
-          <button onclick="deleteCustomer('{{ c.client_id }}','{{ c.name }}')" class="btn btn-sm" style="background:rgba(255,107,107,0.12);color:#ff6b6b;border-color:rgba(255,107,107,0.3);">✕</button>
+          <a href="/admin/delete/{{ c.client_id }}" class="btn btn-sm" style="background:rgba(255,107,107,0.12);color:#ff6b6b;border-color:rgba(255,107,107,0.3);" onclick="return confirm('Delete {{ c.name }}?')">✕</a>
           {% endif %}
         </div>
       </div>
@@ -1978,21 +1978,21 @@ function submitCode(){
   if(!code)return;
   window.location.href='/admin/customer/'+CID+'?code='+code;
 }
-async function deleteCustomer(cid, name){
-  if(!confirm('DELETE ' + name + '?\nThis will:\n- Cancel their Stripe subscription\n- Remove their DoH access\n- Delete their dashboard login\n\nThis cannot be undone.')) return;
-  const btn = event.target;
-  btn.textContent = 'Deleting...';
-  btn.disabled = true;
-  const r = await fetch('/api/admin/delete-customer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid})});
-  const d = await r.json();
-  if(d.ok){
-    alert('Deleted ' + d.name + ' (' + d.email + ')');
-    window.location.reload();
-  } else {
-    alert('Error: ' + d.error);
-    btn.textContent = 'Delete';
-    btn.disabled = false;
-  }
+async function deleteCustomer(cid, name, btn){
+  btn.textContent = 'Sure?';
+  btn.style.background = 'rgba(255,78,78,0.3)';
+  btn.onclick = async function(){
+    btn.textContent = '...';
+    btn.disabled = true;
+    const r = await fetch('/api/admin/delete-customer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid})});
+    const d = await r.json();
+    if(d.ok){
+      btn.closest('.customer-row').remove();
+    } else {
+      btn.textContent = 'Error';
+      btn.disabled = false;
+    }
+  };
 }
 async function resendWelcome(cid){
   const btn=event.target;btn.textContent='Sending...';btn.disabled=true;
@@ -2583,6 +2583,8 @@ def admin_delete_customer():
     try:
         import sys, requests as _req
         sys.path.insert(0, "/home/ubuntu/harbor-backend")
+        import sys as _sys
+        _sys.path.insert(0, "/home/ubuntu/harbor-backend")
         from webhook import wipe_customer, STRIPE_SECRET
         name = customer.get("name", "Customer")
         email = customer.get("email", "")
@@ -2851,6 +2853,45 @@ def admin_logs_stream():
     )
     from flask import Response
     return Response(result.stdout, mimetype="text/plain")
+
+
+@app.route("/admin/delete/<client_id>")
+@admin_required
+def admin_delete_get(client_id):
+    try:
+        import requests as _req
+        import sys as _sys
+        _sys.path.insert(0, "/home/ubuntu/harbor-backend")
+        from webhook import wipe_customer, STRIPE_SECRET
+        import json as _json
+        _customers_log = "/var/log/harbor-customers.json"
+        customers = [_json.loads(l) for l in open(_customers_log) if l.strip()]
+        customer = next((c for c in customers if c.get("client_id") == client_id), None)
+        if not customer:
+            return redirect("/admin")
+        if client_id in ["harbor7066"]:
+            return redirect("/admin")
+        protected_emails = ["admin@harborprivacy.com", "tim@harborprivacy.com"]
+        if customer.get("email") in protected_emails:
+            return redirect("/admin")
+        stripe_id = customer.get("stripe_customer_id","")
+        if stripe_id and STRIPE_SECRET:
+            try:
+                subs = _req.get(f"https://api.stripe.com/v1/subscriptions",
+                    params={"customer": stripe_id, "status": "active"},
+                    auth=(STRIPE_SECRET,"")).json()
+                for sub in subs.get("data",[]):
+                    _req.delete(f"https://api.stripe.com/v1/subscriptions/{sub['id']}",
+                        auth=(STRIPE_SECRET,""))
+            except Exception as e:
+                log.error(f"Stripe cancel error: {e}")
+        wipe_customer(client_id)
+        log.info(f"Deleted customer {client_id}")
+        return redirect("/admin")
+    except Exception as e:
+        import logging as _log
+        _log.getLogger(__name__).error(f"Delete error: {e}")
+        return redirect("/admin")
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=int(os.environ.get("DASHBOARD_PORT", 7000)), debug=False)
