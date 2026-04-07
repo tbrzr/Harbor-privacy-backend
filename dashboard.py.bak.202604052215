@@ -802,17 +802,8 @@ def dns_whoami(token):
 
 @app.route("/dns-check")
 def dns_check():
-    import requests as _req
     ip = request.headers.get("X-Real-IP") or request.headers.get("X-Forwarded-For","").split(",")[0].strip() or request.remote_addr
-    org = None
-    try:
-        r = _req.get(f"https://ipapi.co/{ip}/json/", timeout=5)
-        if r.ok:
-            data = r.json()
-            org = data.get("org") or data.get("as") or None
-    except:
-        pass
-    resp = jsonify({"ip": ip, "org": org, "ok": True})
+    resp = jsonify({"ip": ip, "ok": True})
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp
 

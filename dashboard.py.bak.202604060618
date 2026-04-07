@@ -2919,20 +2919,21 @@ def social_generate():
     platform = data.get("platform", "both")
 
     # Generate post text with Claude via Anthropic API
-    prompt = f"""Write a short social media post for Harbor Privacy about: {topic}
+    prompt = f"""Write short social media posts for Harbor Privacy about: {topic}
 
 Here is how the founder describes it -- write in this exact voice and tone:
 
-"I run a network security service that blocks ads on all devices. It's $5.99 a month, covers as many devices as you want. It blocks ads before they even load on your device. Say you go to a recipe website and you see all those ads in between the paragraphs -- it blocks those. When you use Facebook they follow what you look at, and it blocks those little trackers behind the scenes too."
+"I run a network security service that blocks ads on all devices. Plans start at $1.99 a month, and the full plan is $5.99 a month -- covers as many devices as you want. It blocks ads before they even load on your device. Say you go to a recipe website and you see all those ads in between the paragraphs -- it blocks those. When you use Facebook they follow what you look at, and it blocks those little trackers behind the scenes too."
 
 Rules:
 - Sound like a real person talking to a friend, not a company
-- Facebook: 2-3 sentences, casual and direct, 1-2 emojis max, end with "Free 30-day trial at harborprivacy.com"
-- Instagram: same tone, end with "Link in bio for free trial", then add 6-8 relevant hashtags on a new line
 - No corporate speak, no buzzwords, no em dashes
 - Talk about real everyday situations people recognize (recipe sites, Facebook ads, kids on YouTube, etc)
+- Facebook: 2-3 sentences, casual and direct, 1-2 emojis max, end with "Free 30-day trial at harborprivacy.com"
+- Instagram: same tone, end with "Link in bio for free trial", then add 6-8 relevant hashtags on a new line
+- LinkedIn: professional but still personal, 3-4 sentences, write as a founder sharing a lesson or insight about home network privacy, online safety, or building Harbor Privacy -- not a sales pitch. End with a thought-provoking question to drive engagement. No hashtags.
 
-Return JSON only with keys: facebook, instagram"""
+Return JSON only with keys: facebook, instagram, linkedin"""
 
     try:
         r = _req.post("https://api.anthropic.com/v1/messages",
@@ -2958,7 +2959,7 @@ Return JSON only with keys: facebook, instagram"""
     except Exception as e:
         image_url = None
 
-    return jsonify({"facebook": posts.get("facebook",""), "instagram": posts.get("instagram",""), "image_url": image_url})
+    return jsonify({"facebook": posts.get("facebook",""), "instagram": posts.get("instagram",""), "linkedin": posts.get("linkedin",""), "image_url": image_url})
 
 
 @app.route("/api/social/status")
@@ -3037,14 +3038,33 @@ textarea{height:120px;resize:vertical;}
 </nav>
 <div class="container">
   <h1>Social Scheduler</h1>
-  <p class="sub">Generate daily posts for Facebook and Instagram. Copy caption, download image, post manually.</p>
+  <p class="sub">Generate daily posts for Facebook, Instagram, and LinkedIn. Copy caption, download image, post manually.</p>
 
-  <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:20px 28px;">
-    <div>
-      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;margin-bottom:4px;">DAILY AUTO-POST</div>
-      <div style="font-size:13px;color:var(--muted);" id="autoPostLabel">Loading...</div>
+  <div class="card" style="padding:20px 28px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;margin-bottom:4px;">DAILY AUTO-POST</div>
+        <div style="font-size:13px;color:var(--muted);" id="autoPostLabel">Loading...</div>
+      </div>
+      <button id="toggleBtn" onclick="toggleAutoPost()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:0.08em;">...</button>
     </div>
-    <button id="toggleBtn" onclick="toggleAutoPost()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:0.08em;">...</button>
+    <div style="border-top:1px solid var(--border);padding-top:16px;">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.15em;margin-bottom:12px;">PLATFORMS</div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:13px;">Facebook</span>
+          <button id="fbToggle" onclick="togglePlatform('fb')" style="background:transparent;border:1px solid var(--accent);color:var(--accent);padding:6px 14px;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;">ON</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:13px;">Instagram</span>
+          <button id="igToggle" onclick="togglePlatform('ig')" style="background:transparent;border:1px solid var(--accent);color:var(--accent);padding:6px 14px;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;">ON</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:13px;">LinkedIn</span>
+          <button id="liToggle" onclick="togglePlatform('li')" style="background:transparent;border:1px solid var(--accent);color:var(--accent);padding:6px 14px;font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;">ON</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="card">
@@ -3064,15 +3084,20 @@ textarea{height:120px;resize:vertical;}
   </div>
 
   <div class="card" id="resultsCard" style="display:none;">
-    <div style="margin-bottom:32px;">
+    <div id="fbSection" style="margin-bottom:32px;">
       <div class="platform-label">FACEBOOK</div>
       <div class="post-box" id="fbPost"></div>
       <button class="btn-copy" onclick="copyText('fbPost', this)">Copy Caption</button>
     </div>
-    <div style="margin-bottom:32px;">
+    <div id="igSection" style="margin-bottom:32px;">
       <div class="platform-label">INSTAGRAM</div>
       <div class="post-box" id="igPost"></div>
       <button class="btn-copy" onclick="copyText('igPost', this)">Copy Caption</button>
+    </div>
+    <div id="liSection" style="margin-bottom:32px;">
+      <div class="platform-label">LINKEDIN</div>
+      <div class="post-box" id="liPost"></div>
+      <button class="btn-copy" onclick="copyText('liPost', this)">Copy Post</button>
     </div>
     <div>
       <div class="platform-label">IMAGE</div>
@@ -3105,11 +3130,12 @@ async function generate() {
     const r = await fetch("/api/social/generate", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({topic})
+      body: JSON.stringify({topic, platforms: platformState})
     });
     const data = await r.json();
-    document.getElementById("fbPost").textContent = data.facebook || "Error generating post.";
-    document.getElementById("igPost").textContent = data.instagram || "Error generating post.";
+    if (platformState.fb) document.getElementById("fbPost").textContent = data.facebook || "Error generating post.";
+    if (platformState.ig) document.getElementById("igPost").textContent = data.instagram || "Error generating post.";
+    if (platformState.li) document.getElementById("liPost").textContent = data.linkedin || "Error generating post.";
     document.getElementById("resultsCard").style.display = "block";
 
     if (data.image_url) {
@@ -3135,6 +3161,21 @@ function copyText(id, btn) {
     btn.textContent = "Copied!";
     setTimeout(() => btn.textContent = "Copy Caption", 2000);
   });
+}
+
+const platformState = {fb: true, ig: true, li: true};
+
+function togglePlatform(platform) {
+  platformState[platform] = !platformState[platform];
+  const btn = document.getElementById(platform + "Toggle");
+  const on = platformState[platform];
+  btn.textContent = on ? "ON" : "OFF";
+  btn.style.borderColor = on ? "var(--accent)" : "var(--border)";
+  btn.style.color = on ? "var(--accent)" : "var(--muted)";
+  // Show/hide the post section
+  const sectionMap = {fb: "fbSection", ig: "igSection", li: "liSection"};
+  const section = document.getElementById(sectionMap[platform]);
+  if (section) section.style.display = on ? "block" : "none";
 }
 
 async function loadStatus() {
