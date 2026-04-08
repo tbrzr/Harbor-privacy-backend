@@ -2919,20 +2919,51 @@ def social_generate():
     platform = data.get("platform", "both")
 
     # Generate post text with Claude via Anthropic API
-    prompt = f"""Write a short social media post for Harbor Privacy about: {topic}
+    platforms = data.get("platforms", {"facebook": True, "instagram": True, "linkedin": True})
 
-Here is how the founder describes it -- write in this exact voice and tone:
+    career_topics = ["cover letter", "resume", "career", "job search"]
+    is_career = any(t in topic.lower() for t in career_topics)
 
-"I run a network security service that blocks ads on all devices. It's $5.99 a month, covers as many devices as you want. It blocks ads before they even load on your device. Say you go to a recipe website and you see all those ads in between the paragraphs -- it blocks those. When you use Facebook they follow what you look at, and it blocks those little trackers behind the scenes too."
+    if is_career:
+        context = f"""Harbor Privacy just launched AI career tools at career.harborprivacy.com. Two tools:
+1. AI Cover Letter Generator ($0.99) - paste a job posting and your background, get a tailored cover letter in under 2 minutes. Four tone options: Professional, Confident & Direct, Creative & Memorable, Conversational.
+2. AI Resume Review ($0.99) - paste your resume, get specific actionable feedback on ATS optimization, weak language, gaps, and quick wins. Also generates a rewritten resume PDF.
+Both tools delete your data within 2 hours. No account needed. Private by design."""
+        cta_fb = "career.harborprivacy.com"
+        cta_ig = "Link in bio"
+        cta_li = "career.harborprivacy.com"
+    else:
+        context = """Harbor Privacy is a home network privacy service. $1.99/month Harbor Light plan (ad and tracker blocking). $5.99/month Harbor Remote plan with 30-day free trial (full privacy protection on any network). Blocks ads before they load, stops trackers, blocks malware. Works on every device on your network automatically."""
+        cta_fb = "Free 30-day trial at harborprivacy.com"
+        cta_ig = "Link in bio for free trial"
+        cta_li = "harborprivacy.com"
+
+    platform_rules = []
+    if platforms.get("facebook", True):
+        platform_rules.append(f"- Facebook: 2-3 sentences, casual and direct, 1-2 emojis max, end with \"{cta_fb}\"")
+    if platforms.get("instagram", True):
+        platform_rules.append(f"- Instagram: same tone, end with \"{cta_ig}\", then add 6-8 relevant hashtags on a new line")
+    if platforms.get("linkedin", True):
+        platform_rules.append(f"- LinkedIn: slightly more professional tone, 2-4 sentences, end with \"{cta_li}\"")
+
+    platform_keys = []
+    if platforms.get("facebook", True): platform_keys.append("facebook")
+    if platforms.get("instagram", True): platform_keys.append("instagram")
+    if platforms.get("linkedin", True): platform_keys.append("linkedin")
+    if not platform_keys: platform_keys = ["facebook", "instagram", "linkedin"]
+
+    prompt = f"""Write social media posts for Harbor Privacy about: {topic}
+
+Context:
+{context}
 
 Rules:
 - Sound like a real person talking to a friend, not a company
-- Facebook: 2-3 sentences, casual and direct, 1-2 emojis max, end with "Free 30-day trial at harborprivacy.com"
-- Instagram: same tone, end with "Link in bio for free trial", then add 6-8 relevant hashtags on a new line
+{chr(10).join(platform_rules)}
 - No corporate speak, no buzzwords, no em dashes
-- Talk about real everyday situations people recognize (recipe sites, Facebook ads, kids on YouTube, etc)
+- Talk about real everyday situations people recognize
 
-Return JSON only with keys: facebook, instagram"""
+Return JSON only with keys: {", ".join(platform_keys)}"""
 
     try:
         r = _req.post("https://api.anthropic.com/v1/messages",
@@ -2958,7 +2989,7 @@ Return JSON only with keys: facebook, instagram"""
     except Exception as e:
         image_url = None
 
-    return jsonify({"facebook": posts.get("facebook",""), "instagram": posts.get("instagram",""), "image_url": image_url})
+    return jsonify({"facebook": posts.get("facebook",""), "instagram": posts.get("instagram",""), "linkedin": posts.get("linkedin",""), "image_url": image_url})
 
 
 @app.route("/api/social/status")
@@ -3058,21 +3089,38 @@ textarea{height:120px;resize:vertical;}
       <button class="topic-chip" onclick="setTopic(this)">malware protection</button>
       <button class="topic-chip" onclick="setTopic(this)">free trial offer</button>
       <button class="topic-chip" onclick="setTopic(this)">DNS privacy</button>
+      <button class="topic-chip" onclick="setTopic(this)">AI cover letter tool</button>
+      <button class="topic-chip" onclick="setTopic(this)">AI resume review tool</button>
+      <button class="topic-chip" onclick="setTopic(this)">private career tools</button>
+      <button class="topic-chip" onclick="setTopic(this)">job search privacy</button>
     </div>
     <input type="text" id="topicInput" placeholder="Or type a custom topic..." value="home network privacy">
+    <div style="margin:16px 0 12px;">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.15em;margin-bottom:10px;">PLATFORMS</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:14px;color:var(--text);">Facebook</span><button onclick="togglePlatform(this,'facebook')" data-platform="facebook" data-on="true" style="font-family:'DM Mono',monospace;font-size:11px;padding:4px 14px;border:1px solid var(--accent);color:var(--accent);background:transparent;cursor:pointer;letter-spacing:0.1em;">ON</button></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:14px;color:var(--text);">Instagram</span><button onclick="togglePlatform(this,'instagram')" data-platform="instagram" data-on="true" style="font-family:'DM Mono',monospace;font-size:11px;padding:4px 14px;border:1px solid var(--accent);color:var(--accent);background:transparent;cursor:pointer;letter-spacing:0.1em;">ON</button></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:14px;color:var(--text);">LinkedIn</span><button onclick="togglePlatform(this,'linkedin')" data-platform="linkedin" data-on="true" style="font-family:'DM Mono',monospace;font-size:11px;padding:4px 14px;border:1px solid var(--accent);color:var(--accent);background:transparent;cursor:pointer;letter-spacing:0.1em;">ON</button></div>
+      </div>
+    </div>
     <button class="btn" id="generateBtn" onclick="generate()">Generate Post + Image</button>
   </div>
 
   <div class="card" id="resultsCard" style="display:none;">
-    <div style="margin-bottom:32px;">
+    <div style="margin-bottom:32px;" id="fbSection">
       <div class="platform-label">FACEBOOK</div>
       <div class="post-box" id="fbPost"></div>
       <button class="btn-copy" onclick="copyText('fbPost', this)">Copy Caption</button>
     </div>
-    <div style="margin-bottom:32px;">
+    <div style="margin-bottom:32px;" id="igSection">
       <div class="platform-label">INSTAGRAM</div>
       <div class="post-box" id="igPost"></div>
       <button class="btn-copy" onclick="copyText('igPost', this)">Copy Caption</button>
+    </div>
+    <div style="margin-bottom:32px;" id="liSection">
+      <div class="platform-label">LINKEDIN</div>
+      <div class="post-box" id="liPost"></div>
+      <button class="btn-copy" onclick="copyText('liPost', this)">Copy Caption</button>
     </div>
     <div>
       <div class="platform-label">IMAGE</div>
@@ -3091,9 +3139,21 @@ function setTopic(el) {
   document.getElementById("topicInput").value = el.textContent;
 }
 
+function togglePlatform(btn, platform) {
+  var on = btn.dataset.on === "true";
+  btn.dataset.on = (!on).toString();
+  btn.textContent = on ? "OFF" : "ON";
+  btn.style.borderColor = on ? "var(--muted)" : "var(--accent)";
+  btn.style.color = on ? "var(--muted)" : "var(--accent)";
+}
+
 async function generate() {
   const btn = document.getElementById("generateBtn");
   const topic = document.getElementById("topicInput").value || "home network privacy";
+  const platforms = {};
+  document.querySelectorAll("[data-platform]").forEach(btn => {
+    platforms[btn.dataset.platform] = btn.dataset.on === "true";
+  });
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Generating...';
   document.getElementById("resultsCard").style.display = "none";
@@ -3105,11 +3165,15 @@ async function generate() {
     const r = await fetch("/api/social/generate", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({topic})
+      body: JSON.stringify({topic, platforms})
     });
     const data = await r.json();
-    document.getElementById("fbPost").textContent = data.facebook || "Error generating post.";
-    document.getElementById("igPost").textContent = data.instagram || "Error generating post.";
+    document.getElementById("fbSection").style.display = platforms.facebook !== false ? "block" : "none";
+    document.getElementById("igSection").style.display = platforms.instagram !== false ? "block" : "none";
+    document.getElementById("liSection").style.display = platforms.linkedin !== false ? "block" : "none";
+    if (platforms.facebook !== false) document.getElementById("fbPost").textContent = data.facebook || "";
+    if (platforms.instagram !== false) document.getElementById("igPost").textContent = data.instagram || "";
+    if (platforms.linkedin !== false) document.getElementById("liPost").textContent = data.linkedin || "";
     document.getElementById("resultsCard").style.display = "block";
 
     if (data.image_url) {
