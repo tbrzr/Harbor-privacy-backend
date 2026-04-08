@@ -1727,6 +1727,8 @@ def admin_customer(client_id):
     family_safe = client.get("parental_enabled", False) if client else False
     filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
+    plan_type = customer.get("plan_type", "") if customer else ""
+    is_active = customer is not None and customer.get("status", "") == "active"
     harbor_kids = True if (customer and plan_type != "harbor-remote-light" and is_active) else customer.get("harbor_kids", False) if customer else False
     is_founder = customer.get("is_founder", False) if customer else False
     cstats = get_client_stats(client_id)
