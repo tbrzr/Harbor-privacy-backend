@@ -12,6 +12,12 @@
     "featured": true
   },
   {
+    "label": "Cover Letter Generator",
+    "icon": "\ud83d\udcc3",
+    "url": "https://coverletter.harborprivacy.com",
+    "featured": true
+  },
+  {
     "label": "See Plans \u2014 from $1.99/mo",
     "icon": "$",
     "url": "https://harborprivacy.com/pricing",
