@@ -75,7 +75,7 @@ def create_cover_letter():
     
     return jsonify({
         'job_id': job_id,
-        'checkout_url': f'https://buy.stripe.com/eVq00i1031D9f1Xeph6kg0g?client_reference_id={job_id}&success_url=https://career.harborprivacy.com/processing?job_id={job_id}&prefilled_email={email}'
+        'checkout_url': f'https://buy.stripe.com/bJe7sKfUXchNaLHa916kg0n?client_reference_id={job_id}&success_url=https://career.harborprivacy.com/processing?job_id={job_id}&prefilled_email={email}'
     })
 
 @app.route('/api/resume/create', methods=['POST'])
@@ -118,7 +118,7 @@ def create_resume_review():
     
     return jsonify({
         'job_id': job_id,
-        'checkout_url': f'https://buy.stripe.com/00w5kCdMP4Pl4njbd56kg0i?client_reference_id={job_id}&success_url=https://resume.harborprivacy.com/processing?job_id={job_id}&prefilled_email={email}'
+        'checkout_url': f'https://buy.stripe.com/7sYaEW103dlRf1X6WP6kg0m?client_reference_id={job_id}&success_url=https://resume.harborprivacy.com/processing?job_id={job_id}&prefilled_email={email}'
     })
 
 @app.route('/api/coverletter/generate/<job_id>', methods=['POST'])

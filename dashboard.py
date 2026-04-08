@@ -917,12 +917,12 @@ def dashboard():
 
     rules = get_client_rules(client_id) if client_id else []
     family_safe = client.get("parental_enabled", False) if client else False
-    harbor_kids = customer.get("harbor_kids", False) if customer else False
     filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
     plan_type = customer.get("plan_type", "") if customer else ""
     is_trial = customer.get("is_trial", False) if customer else False
+    harbor_kids = True if (customer and plan_type != "harbor-remote-light" and is_active) else customer.get("harbor_kids", False) if customer else False
     plan_badge = ""
 
     # Harbor Light plan — stripped dashboard
@@ -1196,46 +1196,13 @@ def dashboard():
           <div class="toggle-desc">SafeSearch enforcement, adult content blocking, NSFW filtering</div>
         </div>
         <label class="toggle" style="width:44px;height:24px;flex-shrink:0;">
-          <input type="checkbox" {% if family_safe %}checked{% endif %} {% if not is_active or not has_family %}disabled{% else %}onchange="toggleAddon('family',this.checked)"{% endif %}>
+          <input type="checkbox" {% if family_safe %}checked{% endif %} {% if not is_active %}disabled{% else %}onchange="toggleAddon('family',this.checked)"{% endif %}>
           <span class="slider" style="border-radius:24px;"></span>
         </label>
       </div>
-      {% if is_active and not has_family %}
-      <div style="position:absolute;inset:0;background:rgba(10,14,15,0.82);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-radius:2px;">
-        <div>
-          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:4px;">Add-On Available</div>
-          <div style="font-size:14px;color:var(--text);">Family Safe &mdash; <span style="color:var(--accent);font-family:'DM Mono',monospace;">$0.59/mo</span></div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px;">SafeSearch, adult content blocking, family filtering</div>
-        </div>
-        <a href="https://buy.stripe.com/28EbJ038bftZ5rn80T6kg0d" target="_blank" style="background:var(--accent);color:#1a2a2d;padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;font-weight:500;white-space:nowrap;flex-shrink:0;margin-left:16px;">Add On &rarr;</a>
-      </div>
-      {% endif %}
+
     </div>
-      <div style="position:relative;">
-      <div class="toggle-row">
-        <div>
-          <div class="toggle-label">
-            Harbor Kids
-            <span class="badge {% if harbor_kids %}badge-on{% else %}badge-off{% endif %}">{% if harbor_kids %}ON{% else %}OFF{% endif %}</span>
-          </div>
-          <div class="toggle-desc">DNS filtering for your child's devices — blocks adult content, malware, and ads</div>
-        </div>
-        <label class="toggle" style="width:44px;height:24px;flex-shrink:0;">
-          <input type="checkbox" {% if harbor_kids %}checked{% endif %} disabled>
-          <span class="slider" style="border-radius:24px;"></span>
-        </label>
-      </div>
-      {% if is_active and not harbor_kids %}
-      <div style="position:absolute;inset:0;background:rgba(10,14,15,0.82);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-radius:2px;">
-        <div>
-          <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:4px;">Add-On Available</div>
-          <div style="font-size:14px;color:var(--text);">Harbor Kids &mdash; <span style="color:var(--accent);font-family:'DM Mono',monospace;">$2.49/mo</span></div>
-          <div style="font-size:12px;color:var(--muted);margin-top:2px;">Child device filtering, adult content blocking, parental DNS control</div>
-        </div>
-        <a href="https://buy.stripe.com/fZu4gyfUX0z55rneph6kg0f?prefilled_email={{ user_email }}" target="_blank" style="background:var(--accent);color:#1a2a2d;padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;font-weight:500;white-space:nowrap;flex-shrink:0;margin-left:16px;">Add On &rarr;</a>
-      </div>
-      {% endif %}
-    </div>
+
   </div>
 
   <div class="card">
@@ -1253,17 +1220,15 @@ def dashboard():
       </div>
     </div>
     {% endfor %}
-    {% elif harbor_kids %}
-    <p style="font-size:13px;color:var(--muted);">Your Harbor Kids profile is being set up. Check back shortly or contact support@harborprivacy.com.</p>
     {% else %}
-    <p style="font-size:13px;color:var(--muted);">Add Harbor Kids from the Add-Ons section above to get started.</p>
+    <p style="font-size:13px;color:var(--muted);">Your Harbor Kids profile is being set up. Check back shortly or contact support@harborprivacy.com.</p>
     {% endif %}
-    {% if harbor_kids and kids_profiles|length < 5 %}
+    {% if kids_profiles|length < 5 %}
     <div style="margin-top:16px;">
       <button onclick="addKidProfileCustomer()" style="background:var(--accent);color:#0a0e0f;border:none;padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:0.08em;">+ Add Child Profile</button>
       <span style="font-size:12px;color:var(--muted);margin-left:8px;">{{ 5 - kids_profiles|length }} of 5 remaining</span>
     </div>
-    {% elif harbor_kids and kids_profiles|length >= 5 %}
+    {% elif kids_profiles|length >= 5 %}
     <div style="margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">Maximum of 5 child profiles reached.</div>
     {% endif %}
     <div style="font-size:11px;color:var(--muted);margin-top:12px;">Harbor Kids accounts are managed by a parent or guardian. We do not collect personal information from children. <a href="https://harborprivacy.com/nologs" style="color:var(--accent);text-decoration:none;">Privacy Policy</a></div>
@@ -1762,7 +1727,7 @@ def admin_customer(client_id):
     family_safe = client.get("parental_enabled", False) if client else False
     filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
-    harbor_kids = customer.get("harbor_kids", False) if customer else False
+    harbor_kids = True if (customer and plan_type != "harbor-remote-light" and is_active) else customer.get("harbor_kids", False) if customer else False
     is_founder = customer.get("is_founder", False) if customer else False
     cstats = get_client_stats(client_id)
 
@@ -1880,8 +1845,8 @@ def admin_customer(client_id):
         <div class="toggle-desc">Parental controls, SafeSearch, NSFW filtering</div>
       </div>
       <label class="toggle">
-        <input type="checkbox" {% if family_safe %}checked{% endif %} {% if not has_family %}disabled{% else %}onchange="toggleFamily(this.checked)"{% endif %}>
-        <span class="slider {% if not has_family %}locked{% endif %}"></span>
+        <input type="checkbox" {% if family_safe %}checked{% endif %} {% if not is_active %}disabled{% else %}onchange="toggleFamily(this.checked)"{% endif %}>
+        <span class="slider"></span>
       </label>
     </div>
     <div class="toggle-row">
@@ -1897,7 +1862,7 @@ def admin_customer(client_id):
         <div class="toggle-desc">Child device DNS filtering, adult content blocking, parental control</div>
       </div>
       <label class="toggle">
-        <input type="checkbox" {% if harbor_kids %}checked{% endif %} disabled>
+        <input type="checkbox" {% if harbor_kids %}checked{% endif %} {% if not is_active %}disabled{% else %}onchange="toggleAddon('harbor_kids',this.checked)"{% endif %}>
         <span class="slider locked"></span>
       </label>
     </div>
@@ -2909,88 +2874,220 @@ def admin_delete_get(client_id):
 def social():
     return render_template_string(SOCIAL_HTML, active="social")
 
-@app.route("/api/social/generate", methods=["POST"])
-@admin_required
-def social_generate():
-    import requests as _req
-    openai_key = os.environ.get("OPENAI_API_KEY", "")
-    data = request.json or {}
-    topic = data.get("topic", "home network privacy")
-    platform = data.get("platform", "both")
-
-    # Generate post text with Claude via Anthropic API
-    platforms = data.get("platforms", {"facebook": True, "instagram": True, "linkedin": True})
-
-    career_topics = ["cover letter", "resume", "career", "job search"]
-    is_career = any(t in topic.lower() for t in career_topics)
-
-    if is_career:
-        context = f"""Harbor Privacy just launched AI career tools at career.harborprivacy.com. Two tools:
-1. AI Cover Letter Generator ($0.99) - paste a job posting and your background, get a tailored cover letter in under 2 minutes. Four tone options: Professional, Confident & Direct, Creative & Memorable, Conversational.
-2. AI Resume Review ($0.99) - paste your resume, get specific actionable feedback on ATS optimization, weak language, gaps, and quick wins. Also generates a rewritten resume PDF.
-Both tools delete your data within 2 hours. No account needed. Private by design."""
+def _build_post_prompt(brand, topic, platforms):
+    import json as _json
+    if brand == "career":
+        context = """Career by Harbor Privacy offers two AI tools at career.harborprivacy.com:
+1. AI Cover Letter Generator ($2.99) -- paste a job posting and your background, get a tailored cover letter in 2 minutes.
+2. AI Resume Review ($2.99) -- paste your resume, get ATS optimization feedback, weak language fixes, and a rewritten PDF.
+Both tools delete your data within 2 hours. No account needed."""
+        problem_angles = [
+            "Most resumes never get seen by a human -- ATS software filters them out first because they don't match the job description keywords.",
+            "The average recruiter spends 6 seconds on a resume. If yours looks like everyone else's, it's invisible.",
+            "People paste their whole work history into ChatGPT and wonder why their cover letter sounds generic. Your data also sits on their servers forever.",
+            "Applying to 20 jobs with the same resume and cover letter is why you're not hearing back.",
+            "Your career history is personal. Most AI tools store it. Career by Harbor Privacy deletes it in 2 hours.",
+        ]
+        import random
+        problem = random.choice(problem_angles)
         cta_fb = "career.harborprivacy.com"
         cta_ig = "Link in bio"
         cta_li = "career.harborprivacy.com"
     else:
-        context = """Harbor Privacy is a home network privacy service. $1.99/month Harbor Light plan (ad and tracker blocking). $5.99/month Harbor Remote plan with 30-day free trial (full privacy protection on any network). Blocks ads before they load, stops trackers, blocks malware. Works on every device on your network automatically."""
+        context = """Harbor Privacy is a managed home network privacy service. Harbor Light $1.99/mo (ad and tracker blocking). Harbor Remote $5.99/mo with 30-day free trial (full privacy on any network). Blocks ads before they load, stops trackers, blocks malware. Works on every device automatically. No tech knowledge needed."""
+        problem_angles = [
+            "Your ISP is legally allowed to sell your browsing history. Most people have no idea.",
+            "Every ad you see online is the result of someone tracking exactly what you did, when, and on what device.",
+            "Kids' tablets, smart TVs, gaming consoles -- every device on your network is being tracked. Most routers do nothing about it.",
+            "Ad blockers only work on one browser on one device. Your phone, your TV, your kids' iPad -- still tracked.",
+            "Most people think incognito mode means private. It doesn't block your ISP from seeing everything.",
+        ]
+        import random
+        problem = random.choice(problem_angles)
         cta_fb = "Free 30-day trial at harborprivacy.com"
         cta_ig = "Link in bio for free trial"
         cta_li = "harborprivacy.com"
 
     platform_rules = []
-    if platforms.get("facebook", True):
-        platform_rules.append(f"- Facebook: 2-3 sentences, casual and direct, 1-2 emojis max, end with \"{cta_fb}\"")
-    if platforms.get("instagram", True):
-        platform_rules.append(f"- Instagram: same tone, end with \"{cta_ig}\", then add 6-8 relevant hashtags on a new line")
-    if platforms.get("linkedin", True):
-        platform_rules.append(f"- LinkedIn: slightly more professional tone, 2-4 sentences, end with \"{cta_li}\"")
-
     platform_keys = []
-    if platforms.get("facebook", True): platform_keys.append("facebook")
-    if platforms.get("instagram", True): platform_keys.append("instagram")
-    if platforms.get("linkedin", True): platform_keys.append("linkedin")
-    if not platform_keys: platform_keys = ["facebook", "instagram", "linkedin"]
+    if platforms.get("facebook", True):
+        platform_rules.append(f"- Facebook: Start with this problem hook: \"{problem}\" then 1-2 sentences explaining the solution, end with \"{cta_fb}\". 1 emoji max.")
+        platform_keys.append("facebook")
+    if platforms.get("instagram", True):
+        platform_rules.append(f"- Instagram: Same problem-first structure, end with \"{cta_ig}\", then 6-8 relevant hashtags on a new line.")
+        platform_keys.append("instagram")
+    if platforms.get("linkedin", True):
+        platform_rules.append(f"- LinkedIn: Problem-first, slightly more professional, 2-3 sentences, end with \"{cta_li}\".")
+        platform_keys.append("linkedin")
 
-    prompt = f"""Write social media posts for Harbor Privacy about: {topic}
+    if not platform_keys:
+        platform_keys = ["facebook", "instagram"]
 
-Context:
-{context}
+    prompt = f"""Write social media posts about: {topic}
+
+Context: {context}
 
 Rules:
-- Sound like a real person talking to a friend, not a company
-{chr(10).join(platform_rules)}
+- Lead with a real problem people face, not a product feature
+- Sound like a real person, not a company
 - No corporate speak, no buzzwords, no em dashes
-- Talk about real everyday situations people recognize
+- Short and punchy -- people scroll fast
+{chr(10).join(platform_rules)}
 
 Return JSON only with keys: {", ".join(platform_keys)}"""
+    return prompt, platform_keys
+
+def _generate_image_claude(brand, topic):
+    import requests as _req
+    import base64, json as _json
+    if brand == "career":
+        img_prompt = f"""Create a clean, light-themed social media image for a career tool about: {topic}.
+Style: white or very light gray background, soft teal (#34d399) accents, minimal geometric shapes, professional and optimistic mood, no text, no people, abstract but purposeful."""
+    else:
+        img_prompt = f"""Create a dark-themed social media image for a home network privacy service about: {topic}.
+Style: very dark background (#0a0e0f), teal accent color (#00e5c0), clean geometric grid lines, tech and privacy theme, no text, no people, abstract and minimal."""
 
     try:
         r = _req.post("https://api.anthropic.com/v1/messages",
             headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY",""), "anthropic-version": "2023-06-01", "content-type": "application/json"},
-            json={"model": "claude-haiku-4-5-20251001", "max_tokens": 500, "messages": [{"role": "user", "content": prompt}]},
+            json={
+                "model": "claude-opus-4-5-20251101",
+                "max_tokens": 1024,
+                "messages": [{"role": "user", "content": [
+                    {"type": "text", "text": img_prompt},
+                    {"type": "text", "text": "Generate this as a 1:1 square image suitable for Instagram. Return only the image, no explanation."}
+                ]}]
+            },
+            timeout=60)
+        data = r.json()
+        for block in data.get("content", []):
+            if block.get("type") == "image":
+                b64 = block["source"]["data"]
+                mt = block["source"]["media_type"]
+                return f"data:{mt};base64,{b64}"
+    except Exception:
+        pass
+    return None
+
+def _generate_image_openai(brand, topic):
+    import requests as _req
+    openai_key = os.environ.get("OPENAI_API_KEY", "")
+    if not openai_key:
+        return None
+    if brand == "career":
+        img_prompt = f"Minimalist light illustration for career tools: {topic}. White background, soft teal accents #34d399, clean geometric shapes, professional optimistic mood, no text"
+    else:
+        img_prompt = f"Minimalist dark tech illustration for home network privacy: {topic}. Dark background #0a0e0f, teal accent #00e5c0, geometric shapes, no text"
+    try:
+        r = _req.post("https://api.openai.com/v1/images/generations",
+            headers={"Authorization": f"Bearer {openai_key}", "Content-Type": "application/json"},
+            json={"model": "dall-e-3", "prompt": img_prompt, "n": 1, "size": "1024x1024"},
+            timeout=60)
+        return r.json()["data"][0]["url"]
+    except Exception:
+        return None
+
+@app.route("/api/social/generate", methods=["POST"])
+@admin_required
+def social_generate():
+    import requests as _req, json as _json
+    data = request.json or {}
+    topic = data.get("topic", "home network privacy")
+    brand = data.get("brand", "harbor")
+    platforms = data.get("platforms", {"facebook": True, "instagram": True, "linkedin": True})
+
+    prompt, platform_keys = _build_post_prompt(brand, topic, platforms)
+
+    try:
+        r = _req.post("https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY",""), "anthropic-version": "2023-06-01", "content-type": "application/json"},
+            json={"model": "claude-haiku-4-5-20251001", "max_tokens": 600, "messages": [{"role": "user", "content": prompt}]},
             timeout=30)
-        import json as _json
         content = r.json()["content"][0]["text"]
         content = content.strip().lstrip("```json").rstrip("```").strip()
         posts = _json.loads(content)
     except Exception as e:
-        posts = {"facebook": "Could not generate post.", "instagram": "Could not generate post.", "error": str(e)}
+        posts = {k: "Could not generate post." for k in platform_keys}
 
-    # Generate image with DALL-E
-    image_url = None
-    image_prompt = f"Minimalist dark tech illustration for: {topic}. Dark background, teal accent color #00e5c0, clean geometric shapes, privacy and home network theme, no text"
+    image_url = _generate_image_claude(brand, topic)
+    if not image_url:
+        image_url = _generate_image_openai(brand, topic)
+
+    return jsonify({
+        "facebook": posts.get("facebook", ""),
+        "instagram": posts.get("instagram", ""),
+        "linkedin": posts.get("linkedin", ""),
+        "image_url": image_url
+    })
+
+@app.route("/api/social/autopost", methods=["POST"])
+def social_autopost():
+    import requests as _req, json as _json
+    secret = request.headers.get("X-Autopost-Secret", "")
+    if secret != os.environ.get("AUTOPOST_SECRET", "harbor-autopost-secret"):
+        return jsonify({"error": "unauthorized"}), 401
+    brand = request.json.get("brand", "harbor") if request.json else "harbor"
+    topics_harbor = [
+        "ISP tracking your browsing history",
+        "ad blocking on every home device",
+        "kids online safety and parental controls",
+        "malware and phishing protection",
+        "home network privacy without tech knowledge",
+        "trackers following you across every device",
+        "why incognito mode is not actually private",
+    ]
+    topics_career = [
+        "ATS resume filtering",
+        "tailoring your resume to the job description",
+        "cover letter that actually matches the job posting",
+        "why you are not hearing back after applying",
+        "AI resume review and feedback",
+        "privacy when using AI career tools",
+        "job search data privacy",
+    ]
+    import random
+    topic = random.choice(topics_career if brand == "career" else topics_harbor)
+    platforms = {"facebook": True, "instagram": True, "linkedin": False}
+    prompt, platform_keys = _build_post_prompt(brand, topic, platforms)
     try:
-        r2 = _req.post("https://api.openai.com/v1/images/generations",
-            headers={"Authorization": f"Bearer {openai_key}", "Content-Type": "application/json"},
-            json={"model": "dall-e-3", "prompt": image_prompt, "n": 1, "size": "1024x1024"},
-            timeout=60)
-        image_url = r2.json()["data"][0]["url"]
+        r = _req.post("https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY",""), "anthropic-version": "2023-06-01", "content-type": "application/json"},
+            json={"model": "claude-haiku-4-5-20251001", "max_tokens": 600, "messages": [{"role": "user", "content": prompt}]},
+            timeout=30)
+        content = r.json()["content"][0]["text"]
+        content = content.strip().lstrip("```json").rstrip("```").strip()
+        posts = _json.loads(content)
     except Exception as e:
-        image_url = None
+        return jsonify({"error": str(e)}), 500
+    image_url = _generate_image_claude(brand, topic)
+    if not image_url:
+        image_url = _generate_image_openai(brand, topic)
+    log_path = f"/var/log/harbor-autopost-{brand}.json"
+    try:
+        with open(log_path, "w") as f:
+            _json.dump({"topic": topic, "brand": brand, "posts": posts, "image_url": image_url}, f)
+    except Exception:
+        pass
 
-    return jsonify({"facebook": posts.get("facebook",""), "instagram": posts.get("instagram",""), "linkedin": posts.get("linkedin",""), "image_url": image_url})
+    # Forward to Make.com webhook for FB and IG posting
+    make_url = "https://hook.us2.make.com/decgvbes5ixew3jqibnt5gr30ps7t3as"
+    fb_text = posts.get("facebook", "")
+    ig_text = posts.get("instagram", "")
+    make_errors = []
 
+    if fb_text and image_url:
+        try:
+            _req.post(make_url, json={"text": fb_text, "image_url": image_url, "platform": "facebook"}, timeout=30)
+        except Exception as e:
+            make_errors.append(f"fb: {str(e)}")
+
+    if ig_text and image_url:
+        try:
+            _req.post(make_url, json={"text": ig_text, "image_url": image_url, "platform": "instagram"}, timeout=30)
+        except Exception as e:
+            make_errors.append(f"ig: {str(e)}")
+
+    return jsonify({"ok": True, "topic": topic, "posts": posts, "image_url": image_url, "make_errors": make_errors})
 
 @app.route("/api/social/status")
 @admin_required
@@ -3014,13 +3111,14 @@ SOCIAL_HTML = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Social Scheduler — Harbor Privacy</title>
+<title>Social Scheduler -- Harbor Privacy</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
 <style>
 :root{--bg:#0a0e0f;--surface:#111618;--border:#1e2a2d;--accent:#00e5c0;--text:#e8f0ef;--muted:#6b8a87;}
+.career-mode{--bg:#f7f9f8;--surface:#ffffff;--border:#d4e8e2;--accent:#34d399;--text:#0f2921;--muted:#4b7263;}
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:var(--bg);color:var(--text);font-family:"DM Sans",sans-serif;line-height:1.7;}
+body{background:var(--bg);color:var(--text);font-family:"DM Sans",sans-serif;line-height:1.7;transition:background 0.3s,color 0.3s;}
 body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:0.3;pointer-events:none;z-index:0;}
 nav{padding:16px 32px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;background:var(--surface);}
 .logo{font-family:"DM Mono",monospace;font-size:14px;color:var(--accent);letter-spacing:0.1em;text-decoration:none;}
@@ -3036,14 +3134,13 @@ h1{font-family:"DM Serif Display",serif;font-size:32px;font-weight:400;margin-bo
 label{font-family:"DM Mono",monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;display:block;margin-bottom:8px;}
 input,textarea,select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:"DM Mono",monospace;font-size:13px;padding:10px 14px;margin-bottom:16px;outline:none;}
 input:focus,textarea:focus{border-color:var(--accent);}
-textarea{height:120px;resize:vertical;}
 .btn{background:var(--accent);color:var(--bg);border:none;padding:12px 28px;font-family:"DM Mono",monospace;font-size:12px;letter-spacing:0.1em;cursor:pointer;font-weight:600;}
-.btn:hover{background:#00ffda;}
+.btn:hover{opacity:0.9;}
 .btn:disabled{background:var(--muted);cursor:not-allowed;}
 .btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:"DM Mono",monospace;font-size:11px;cursor:pointer;}
 .btn-outline:hover{border-color:var(--accent);color:var(--accent);}
 .btn-copy{background:transparent;border:1px solid var(--accent);color:var(--accent);padding:8px 16px;font-family:"DM Mono",monospace;font-size:11px;cursor:pointer;margin-top:8px;}
-.btn-copy:hover{background:rgba(0,229,192,0.1);}
+.btn-copy:hover{background:rgba(52,211,153,0.1);}
 .post-box{background:var(--bg);border:1px solid var(--border);padding:16px;font-size:14px;color:var(--text);line-height:1.7;white-space:pre-wrap;min-height:80px;margin-bottom:8px;}
 .img-preview{width:100%;max-width:400px;border:1px solid var(--border);display:block;margin:16px 0;}
 .platform-label{font-family:"DM Mono",monospace;font-size:10px;color:var(--muted);letter-spacing:0.15em;margin-bottom:8px;}
@@ -3052,6 +3149,9 @@ textarea{height:120px;resize:vertical;}
 .topics{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
 .topic-chip{background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 12px;font-family:"DM Mono",monospace;font-size:10px;cursor:pointer;letter-spacing:0.05em;}
 .topic-chip:hover{border-color:var(--accent);color:var(--accent);}
+.brand-switcher{display:flex;gap:0;margin-bottom:32px;border:1px solid var(--border);}
+.brand-btn{flex:1;padding:12px;font-family:"DM Mono",monospace;font-size:11px;letter-spacing:0.1em;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all 0.2s;}
+.brand-btn.active{background:var(--accent);color:var(--bg);font-weight:600;}
 </style>
 </head>
 <body>
@@ -3067,8 +3167,13 @@ textarea{height:120px;resize:vertical;}
   </div>
 </nav>
 <div class="container">
-  <h1>Social Scheduler</h1>
-  <p class="sub">Generate daily posts for Facebook and Instagram. Copy caption, download image, post manually.</p>
+  <h1 id="pageTitle">Social Scheduler</h1>
+  <p class="sub" id="pageSub">Generate daily posts for Facebook and Instagram. Problem-first strategy.</p>
+
+  <div class="brand-switcher">
+    <button class="brand-btn active" id="btnHarbor" onclick="setBrand('harbor')">HARBOR PRIVACY</button>
+    <button class="brand-btn" id="btnCareer" onclick="setBrand('career')">CAREER BY HARBOR</button>
+  </div>
 
   <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:20px 28px;">
     <div>
@@ -3080,21 +3185,8 @@ textarea{height:120px;resize:vertical;}
 
   <div class="card">
     <label>TOPIC</label>
-    <div class="topics">
-      <button class="topic-chip" onclick="setTopic(this)">parental controls</button>
-      <button class="topic-chip" onclick="setTopic(this)">ISP tracking</button>
-      <button class="topic-chip" onclick="setTopic(this)">ad blocking</button>
-      <button class="topic-chip" onclick="setTopic(this)">kids online safety</button>
-      <button class="topic-chip" onclick="setTopic(this)">home network privacy</button>
-      <button class="topic-chip" onclick="setTopic(this)">malware protection</button>
-      <button class="topic-chip" onclick="setTopic(this)">free trial offer</button>
-      <button class="topic-chip" onclick="setTopic(this)">DNS privacy</button>
-      <button class="topic-chip" onclick="setTopic(this)">AI cover letter tool</button>
-      <button class="topic-chip" onclick="setTopic(this)">AI resume review tool</button>
-      <button class="topic-chip" onclick="setTopic(this)">private career tools</button>
-      <button class="topic-chip" onclick="setTopic(this)">job search privacy</button>
-    </div>
-    <input type="text" id="topicInput" placeholder="Or type a custom topic..." value="home network privacy">
+    <div class="topics" id="topicChips"></div>
+    <input type="text" id="topicInput" placeholder="Or type a custom topic...">
     <div style="margin:16px 0 12px;">
       <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.15em;margin-bottom:10px;">PLATFORMS</div>
       <div style="display:flex;flex-direction:column;gap:8px;">
@@ -3135,8 +3227,51 @@ textarea{height:120px;resize:vertical;}
   </div>
 </div>
 <script>
-function setTopic(el) {
-  document.getElementById("topicInput").value = el.textContent;
+var currentBrand = "harbor";
+
+var harborTopics = [
+  "ISP selling your browsing history",
+  "ad blockers only work on one device",
+  "kids tablet tracking",
+  "incognito mode myth",
+  "smart TV data collection",
+  "malware on home networks",
+  "free trial offer"
+];
+
+var careerTopics = [
+  "ATS filtering out your resume",
+  "sending the same resume everywhere",
+  "blank cover letter problem",
+  "AI tools storing your resume data",
+  "not hearing back after applying",
+  "resume keyword matching",
+  "job search privacy"
+];
+
+function setBrand(brand) {
+  currentBrand = brand;
+  var isCareer = brand === "career";
+  document.body.className = isCareer ? "career-mode" : "";
+  document.getElementById("btnHarbor").className = "brand-btn" + (isCareer ? "" : " active");
+  document.getElementById("btnCareer").className = "brand-btn" + (isCareer ? " active" : "");
+  document.getElementById("pageTitle").textContent = isCareer ? "Career by Harbor -- Social" : "Social Scheduler";
+  document.getElementById("pageSub").textContent = isCareer ? "Generate career-focused posts. Light theme. Problem-first strategy." : "Generate daily posts for Facebook and Instagram. Problem-first strategy.";
+  renderChips(isCareer ? careerTopics : harborTopics);
+  document.getElementById("topicInput").value = isCareer ? careerTopics[0] : harborTopics[0];
+  document.getElementById("resultsCard").style.display = "none";
+}
+
+function renderChips(topics) {
+  var el = document.getElementById("topicChips");
+  el.innerHTML = "";
+  topics.forEach(function(t) {
+    var btn = document.createElement("button");
+    btn.className = "topic-chip";
+    btn.textContent = t;
+    btn.onclick = function() { document.getElementById("topicInput").value = t; };
+    el.appendChild(btn);
+  });
 }
 
 function togglePlatform(btn, platform) {
@@ -3148,11 +3283,11 @@ function togglePlatform(btn, platform) {
 }
 
 async function generate() {
-  const btn = document.getElementById("generateBtn");
-  const topic = document.getElementById("topicInput").value || "home network privacy";
-  const platforms = {};
-  document.querySelectorAll("[data-platform]").forEach(btn => {
-    platforms[btn.dataset.platform] = btn.dataset.on === "true";
+  var btn = document.getElementById("generateBtn");
+  var topic = document.getElementById("topicInput").value || harborTopics[0];
+  var platforms = {};
+  document.querySelectorAll("[data-platform]").forEach(function(b) {
+    platforms[b.dataset.platform] = b.dataset.on === "true";
   });
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Generating...';
@@ -3162,12 +3297,12 @@ async function generate() {
   document.getElementById("imgLoading").style.display = "block";
 
   try {
-    const r = await fetch("/api/social/generate", {
+    var r = await fetch("/api/social/generate", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({topic, platforms})
+      body: JSON.stringify({topic: topic, brand: currentBrand, platforms: platforms})
     });
-    const data = await r.json();
+    var data = await r.json();
     document.getElementById("fbSection").style.display = platforms.facebook !== false ? "block" : "none";
     document.getElementById("igSection").style.display = platforms.instagram !== false ? "block" : "none";
     document.getElementById("liSection").style.display = platforms.linkedin !== false ? "block" : "none";
@@ -3175,18 +3310,19 @@ async function generate() {
     if (platforms.instagram !== false) document.getElementById("igPost").textContent = data.instagram || "";
     if (platforms.linkedin !== false) document.getElementById("liPost").textContent = data.linkedin || "";
     document.getElementById("resultsCard").style.display = "block";
+    document.getElementById("imgLoading").style.display = "none";
 
     if (data.image_url) {
-      const img = document.getElementById("imgPreview");
+      var img = document.getElementById("imgPreview");
       img.src = data.image_url;
       img.style.display = "block";
-      const dl = document.getElementById("imgDownload");
+      var dl = document.getElementById("imgDownload");
       dl.href = data.image_url;
       dl.style.display = "inline-block";
     }
-    document.getElementById("imgLoading").style.display = "none";
   } catch(e) {
     alert("Error: " + e.message);
+    document.getElementById("imgLoading").style.display = "none";
   } finally {
     btn.disabled = false;
     btn.textContent = "Generate Post + Image";
@@ -3194,27 +3330,27 @@ async function generate() {
 }
 
 function copyText(id, btn) {
-  const text = document.getElementById(id).textContent;
-  navigator.clipboard.writeText(text).then(() => {
+  var text = document.getElementById(id).textContent;
+  navigator.clipboard.writeText(text).then(function() {
     btn.textContent = "Copied!";
-    setTimeout(() => btn.textContent = "Copy Caption", 2000);
+    setTimeout(function() { btn.textContent = "Copy Caption"; }, 2000);
   });
 }
 
 async function loadStatus() {
-  const r = await fetch("/api/social/status");
-  const data = await r.json();
+  var r = await fetch("/api/social/status");
+  var data = await r.json();
   updateToggleUI(data.enabled);
 }
 
 function updateToggleUI(enabled) {
-  const btn = document.getElementById("toggleBtn");
-  const label = document.getElementById("autoPostLabel");
+  var btn = document.getElementById("toggleBtn");
+  var label = document.getElementById("autoPostLabel");
   if (enabled) {
     btn.textContent = "Turn Off";
     btn.style.borderColor = "var(--accent)";
     btn.style.color = "var(--accent)";
-    label.textContent = "Posts daily at 9am automatically";
+    label.textContent = "Harbor: 9am daily -- Career: 12pm daily";
   } else {
     btn.textContent = "Turn On";
     btn.style.borderColor = "var(--border)";
@@ -3224,11 +3360,12 @@ function updateToggleUI(enabled) {
 }
 
 async function toggleAutoPost() {
-  const r = await fetch("/api/social/toggle", {method: "POST"});
-  const data = await r.json();
+  var r = await fetch("/api/social/toggle", {method: "POST"});
+  var data = await r.json();
   updateToggleUI(data.enabled);
 }
 
+setBrand("harbor");
 loadStatus();
 </script>
 </body>

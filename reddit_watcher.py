@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
 log = logging.getLogger(__name__)
 
-RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "re_6J6cvijf_CNG7FHxru2bRzkGKQ1Fi7RA4")
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "re_gdp6RHSc_uR7DpoGDPqAyarF8Yh9sELDn")
 TO_EMAIL = "tim@harborprivacy.com"
 FROM_EMAIL = "info@mail.harborprivacy.com"
 SEEN_FILE = "/var/log/harbor-reddit-seen.json"
