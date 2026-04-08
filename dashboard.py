@@ -2918,13 +2918,13 @@ def _build_post_prompt(brand, topic, platforms):
     platform_rules = []
     platform_keys = []
     if platforms.get("facebook", True):
-        platform_rules.append(f"- Facebook: Start with this problem hook: \"{problem}\" then 1-2 sentences explaining the solution, end with \"{cta_fb}\". 1 emoji max.")
+        platform_rules.append(f"""- Facebook: Start with this problem hook: "{problem}" then 1-2 sentences explaining the solution. End with a blank line then the URL on its own line: {cta_fb}. No hashtags. 1 emoji max. Conversational tone.""")
         platform_keys.append("facebook")
     if platforms.get("instagram", True):
-        platform_rules.append(f"- Instagram: Same problem-first structure, end with \"{cta_ig}\", then 6-8 relevant hashtags on a new line.")
+        platform_rules.append(f"""- Instagram: Same problem-first hook, 1-2 sentences solution. Then a blank line, then "See link in bio for more." Then a blank line, then exactly 4 hashtags on one line -- one must be #HarborPrivacy, rest relevant to the topic.""")
         platform_keys.append("instagram")
     if platforms.get("linkedin", True):
-        platform_rules.append(f"- LinkedIn: Problem-first, slightly more professional, 2-3 sentences, end with \"{cta_li}\".")
+        platform_rules.append(f"""- LinkedIn: Problem-first, slightly more professional tone, 2-3 sentences. Then a blank line, then the URL on its own line: {cta_li}. Then a blank line, then 4 relevant hashtags.""")
         platform_keys.append("linkedin")
 
     if not platform_keys:
@@ -3157,6 +3157,35 @@ def social_autopost():
 
     return jsonify({"ok": True, "topic": topic, "posts": posts, "image_url": image_url, "make_errors": make_errors})
 
+@app.route("/api/social/post-now", methods=["POST"])
+@admin_required
+def social_post_now():
+    import requests as _req
+    data = request.json or {}
+    fb_text = data.get("facebook", "")
+    ig_text = data.get("instagram", "")
+    li_text = data.get("linkedin", "")
+    image_url = data.get("image_url", "")
+    platforms = data.get("platforms", {})
+    make_url = "https://hook.us2.make.com/decgvbes5ixew3jqibnt5gr30ps7t3as"
+    errors = []
+    if platforms.get("facebook", True) and fb_text:
+        try:
+            _req.post(make_url, json={"text": fb_text, "image_url": image_url, "platform": "facebook"}, timeout=30)
+        except Exception as e:
+            errors.append(f"fb: {str(e)}")
+    if platforms.get("instagram", True) and ig_text:
+        try:
+            _req.post(make_url, json={"text": ig_text, "image_url": image_url, "platform": "instagram"}, timeout=30)
+        except Exception as e:
+            errors.append(f"ig: {str(e)}")
+    if platforms.get("linkedin", False) and li_text:
+        try:
+            _req.post(make_url, json={"text": li_text, "image_url": image_url, "platform": "linkedin"}, timeout=30)
+        except Exception as e:
+            errors.append(f"li: {str(e)}")
+    return jsonify({"ok": len(errors) == 0, "errors": errors})
+
 @app.route("/api/social/generate-image", methods=["POST"])
 @admin_required
 def social_generate_image_only():
@@ -3273,6 +3302,22 @@ input:focus,textarea:focus{border-color:var(--accent);}
   </div>
 
   <div class="card">
+    <label>IMAGE GENERATOR</label>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Generate a standalone branded image. Uses current brand theme.</p>
+    <input type="text" id="imgGenPrompt" placeholder="Describe the image you want...">
+    <div style="display:flex;gap:8px;margin:12px 0;">
+      <button id="imgGenBtnDalle" onclick="setImgGenProvider('openai')" style="font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border:1px solid var(--accent);color:var(--accent);background:transparent;cursor:pointer;letter-spacing:0.1em;">DALL-E</button>
+      <button id="imgGenBtnAnthropic" onclick="setImgGenProvider('anthropic')" style="font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border:1px solid var(--border);color:var(--muted);background:transparent;cursor:pointer;letter-spacing:0.1em;">ANTHROPIC</button>
+    </div>
+    <button class="btn" id="imgGenBtn" onclick="generateImageOnly()">Generate Image</button>
+    <div id="imgGenLoading" style="display:none;font-family:monospace;font-size:12px;color:var(--muted);margin-top:12px;"><span class="spinner"></span> Generating...</div>
+    <div id="imgGenResult" style="display:none;margin-top:16px;">
+      <img id="imgGenPreview" style="width:100%;max-width:480px;display:block;margin-bottom:12px;">
+      <a id="imgGenDownload" class="btn-copy" style="text-decoration:none;" download="harbor-image.png">Download Image</a>
+    </div>
+  </div>
+
+  <div class="card">
     <label>TOPIC</label>
     <div class="topics" id="topicChips"></div>
     <input type="text" id="topicInput" placeholder="Or type a custom topic...">
@@ -3320,6 +3365,8 @@ input:focus,textarea:focus{border-color:var(--accent);}
     </div>
     <div style="margin-top:24px;padding-top:24px;border-top:1px solid var(--border);">
       <button class="btn-outline" onclick="generate()">Regenerate</button>
+      <button class="btn" id="postNowBtn" onclick="postNow()" style="margin-left:12px;">Post Now &rarr;</button>
+      <div id="postNowStatus" style="font-family:'DM Mono',monospace;font-size:12px;margin-top:12px;display:none;"></div>
     </div>
   </div>
 </div>
@@ -3371,6 +3418,83 @@ function renderChips(topics) {
   });
 }
 
+var lastGeneratedData = null;
+
+async function postNow() {
+  if (!lastGeneratedData) { alert("Generate a post first."); return; }
+  var btn = document.getElementById("postNowBtn");
+  var status = document.getElementById("postNowStatus");
+  btn.disabled = true;
+  btn.textContent = "Posting...";
+  status.style.display = "block";
+  status.style.color = "var(--muted)";
+  status.textContent = "Sending to Facebook and Instagram...";
+  try {
+    var r = await fetch("/api/social/post-now", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({
+        facebook: lastGeneratedData.facebook || "",
+        instagram: lastGeneratedData.instagram || "",
+        linkedin: lastGeneratedData.linkedin || "",
+        image_url: lastGeneratedData.image_url || "",
+        platforms: lastGeneratedData.platforms || {}
+      })
+    });
+    var data = await r.json();
+    if (data.ok) {
+      status.style.color = "var(--accent)";
+      status.textContent = "Posted successfully.";
+    } else {
+      status.style.color = "var(--danger)";
+      status.textContent = "Error: " + (data.error || "unknown");
+    }
+  } catch(e) {
+    status.style.color = "var(--danger)";
+    status.textContent = "Error: " + e;
+  }
+  btn.disabled = false;
+  btn.textContent = "Post Now →";
+}
+
+var currentImgGenProvider = "openai";
+function setImgGenProvider(p) {
+  currentImgGenProvider = p;
+  var isDalle = p === "openai";
+  document.getElementById("imgGenBtnDalle").style.borderColor = isDalle ? "var(--accent)" : "var(--border)";
+  document.getElementById("imgGenBtnDalle").style.color = isDalle ? "var(--accent)" : "var(--muted)";
+  document.getElementById("imgGenBtnAnthropic").style.borderColor = isDalle ? "var(--border)" : "var(--accent)";
+  document.getElementById("imgGenBtnAnthropic").style.color = isDalle ? "var(--muted)" : "var(--accent)";
+}
+
+async function generateImageOnly() {
+  var prompt = document.getElementById("imgGenPrompt").value.trim();
+  if (!prompt) { alert("Enter a description first."); return; }
+  var btn = document.getElementById("imgGenBtn");
+  btn.disabled = true;
+  btn.textContent = "Generating...";
+  document.getElementById("imgGenLoading").style.display = "block";
+  document.getElementById("imgGenResult").style.display = "none";
+  try {
+    var r = await fetch("/api/social/generate-image", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({prompt: prompt, brand: currentBrand, provider: currentImgGenProvider})
+    });
+    var data = await r.json();
+    if (data.image_url) {
+      document.getElementById("imgGenPreview").src = data.image_url;
+      document.getElementById("imgGenDownload").href = data.image_url;
+      document.getElementById("imgGenResult").style.display = "block";
+    } else {
+      alert("Image generation failed. Try again.");
+    }
+  } catch(e) { alert("Error: " + e); }
+  btn.disabled = false;
+  btn.textContent = "Generate Image";
+  document.getElementById("imgGenLoading").style.display = "none";
+}
+
 function togglePlatform(btn, platform) {
   var on = btn.dataset.on === "true";
   btn.dataset.on = (!on).toString();
@@ -3419,6 +3543,8 @@ async function generate() {
     if (platforms.facebook !== false) document.getElementById("fbPost").textContent = data.facebook || "";
     if (platforms.instagram !== false) document.getElementById("igPost").textContent = data.instagram || "";
     if (platforms.linkedin !== false) document.getElementById("liPost").textContent = data.linkedin || "";
+    lastGeneratedData = {...data, platforms: platforms};
+    document.getElementById("postNowStatus").style.display = "none";
     document.getElementById("resultsCard").style.display = "block";
     document.getElementById("imgLoading").style.display = "none";
 
