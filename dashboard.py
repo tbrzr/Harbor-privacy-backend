@@ -2877,16 +2877,18 @@ def social():
 def _build_post_prompt(brand, topic, platforms):
     import json as _json
     if brand == "career":
-        context = """Career by Harbor Privacy offers two AI tools at career.harborprivacy.com:
-1. AI Cover Letter Generator ($2.99) -- paste a job posting and your background, get a tailored cover letter in 2 minutes.
-2. AI Resume Review ($2.99) -- paste your resume, get ATS optimization feedback, weak language fixes, and a rewritten PDF.
-Both tools delete your data within 2 hours. No account needed."""
+        context = """Career by Harbor has two AI tools. Cover Letter Generator -- paste a job posting, get a tailored cover letter in 2 minutes for $0.99. Resume Review -- paste your resume, get ATS fixes and a rewritten PDF for $0.99. No account needed. Your data is deleted in 2 hours. That's it."""
         problem_angles = [
-            "Most resumes never get seen by a human -- ATS software filters them out first because they don't match the job description keywords.",
-            "The average recruiter spends 6 seconds on a resume. If yours looks like everyone else's, it's invisible.",
-            "People paste their whole work history into ChatGPT and wonder why their cover letter sounds generic. Your data also sits on their servers forever.",
-            "Applying to 20 jobs with the same resume and cover letter is why you're not hearing back.",
-            "Your career history is personal. Most AI tools store it. Career by Harbor Privacy deletes it in 2 hours.",
+            "You applied to 30 jobs and heard back from 2. The problem probably isn't you -- it's that your resume isn't passing the software filter before a human ever sees it.",
+            "Recruiters spend about 6 seconds on a resume. If yours doesn't match the job posting almost word for word, it's gone.",
+            "Most people write one cover letter and send it everywhere. Hiring managers can tell. It takes 2 minutes to fix this with the right tool.",
+            "You pasted your resume into ChatGPT. Now your salary history, job titles, and career gaps are sitting on a server you have no control over.",
+            "The job description is basically a cheat sheet for your resume. Most people never use it that way.",
+            "Getting no responses after applying isn't always about experience. It's usually about how your resume is formatted for the software reading it first.",
+            "A cover letter that starts with 'I am writing to apply' gets deleted. Full stop. There's a better opening and it takes 30 seconds to fix.",
+            "Your resume is probably underselling you. Not because your experience isn't good -- because you're describing it the way you lived it, not the way a hiring manager reads it.",
+            "Most AI resume tools keep your data. Your work history, your references, your personal details -- stored indefinitely. That's worth thinking about.",
+            "Tailoring a resume for every job posting sounds exhausting. It takes about 3 minutes with the right tool and it actually works.",
         ]
         import random
         problem = random.choice(problem_angles)
@@ -2894,13 +2896,18 @@ Both tools delete your data within 2 hours. No account needed."""
         cta_ig = "Link in bio"
         cta_li = "career.harborprivacy.com"
     else:
-        context = """Harbor Privacy is a managed home network privacy service. Harbor Light $1.99/mo (ad and tracker blocking). Harbor Remote $5.99/mo with 30-day free trial (full privacy on any network). Blocks ads before they load, stops trackers, blocks malware. Works on every device automatically. No tech knowledge needed."""
+        context = """Harbor Privacy blocks ads, trackers, and malware on every device in your home automatically -- phones, tablets, smart TVs, everything. Harbor Light is $1.99/month. Harbor Remote is $5.99/month and includes a free 30-day trial. Nothing to install. No tech knowledge needed. Just private internet."""
         problem_angles = [
-            "Your ISP is legally allowed to sell your browsing history. Most people have no idea.",
-            "Every ad you see online is the result of someone tracking exactly what you did, when, and on what device.",
-            "Kids' tablets, smart TVs, gaming consoles -- every device on your network is being tracked. Most routers do nothing about it.",
-            "Ad blockers only work on one browser on one device. Your phone, your TV, your kids' iPad -- still tracked.",
-            "Most people think incognito mode means private. It doesn't block your ISP from seeing everything.",
+            "You searched for something once. Now it follows you everywhere. That's not a coincidence -- that's your home network being tracked.",
+            "Your internet provider can see every site you visit. And they can legally sell that list. Most people find this out and do nothing because they don't know there's a fix.",
+            "Your kid's tablet is on the same network as your laptop. Every app they open is sending data somewhere. Most parents have no idea.",
+            "Ad blockers only work in one browser on one device. Your phone, your smart TV, your kids' iPad -- all still tracked. All still sending data.",
+            "Incognito mode hides your history from your family. It doesn't hide anything from your internet provider.",
+            "You pay for internet every month. Your provider also makes money selling your browsing data to advertisers. You're the product twice.",
+            "A smart TV in your living room is one of the most aggressive data collectors in your home. It watches what you watch and reports back.",
+            "Your router came from your internet provider. It was not set up to protect you. It was set up to make setup easy.",
+            "Most malware doesn't announce itself. It just sits there, quietly, on a device you forgot was even connected.",
+            "Free wifi at hotels, coffee shops, airports -- your phone connects automatically and someone can see everything you do.",
         ]
         import random
         problem = random.choice(problem_angles)
@@ -2938,54 +2945,105 @@ Return JSON only with keys: {", ".join(platform_keys)}"""
     return prompt, platform_keys
 
 def _generate_image_claude(brand, topic):
-    import requests as _req
-    import base64, json as _json
-    if brand == "career":
-        img_prompt = f"""Create a clean, light-themed social media image for a career tool about: {topic}.
-Style: white or very light gray background, soft teal (#34d399) accents, minimal geometric shapes, professional and optimistic mood, no text, no people, abstract but purposeful."""
-    else:
-        img_prompt = f"""Create a dark-themed social media image for a home network privacy service about: {topic}.
-Style: very dark background (#0a0e0f), teal accent color (#00e5c0), clean geometric grid lines, tech and privacy theme, no text, no people, abstract and minimal."""
+    # Kept for compatibility -- routes to main generator
+    return _generate_social_image(brand, topic, provider="openai")
 
-    try:
-        r = _req.post("https://api.anthropic.com/v1/messages",
-            headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY",""), "anthropic-version": "2023-06-01", "content-type": "application/json"},
-            json={
-                "model": "claude-opus-4-5-20251101",
-                "max_tokens": 1024,
-                "messages": [{"role": "user", "content": [
-                    {"type": "text", "text": img_prompt},
-                    {"type": "text", "text": "Generate this as a 1:1 square image suitable for Instagram. Return only the image, no explanation."}
-                ]}]
-            },
-            timeout=60)
-        data = r.json()
-        for block in data.get("content", []):
-            if block.get("type") == "image":
-                b64 = block["source"]["data"]
-                mt = block["source"]["media_type"]
-                return f"data:{mt};base64,{b64}"
-    except Exception:
-        pass
-    return None
-
-def _generate_image_openai(brand, topic):
+def _generate_social_image(brand, topic, provider="openai"):
     import requests as _req
+    from PIL import Image, ImageDraw, ImageFont
+    import io, os, datetime, textwrap
+
     openai_key = os.environ.get("OPENAI_API_KEY", "")
     if not openai_key:
         return None
+
+    # Brand config
     if brand == "career":
-        img_prompt = f"Minimalist light illustration for career tools: {topic}. White background, soft teal accents #34d399, clean geometric shapes, professional optimistic mood, no text"
+        bg_color = (248, 246, 242)
+        accent = (0, 184, 156)
+        text_col = (10, 25, 20)
+        muted = (100, 130, 125)
+        bar_col = (0, 184, 156)
+        logo_text = "HARBOR / PRIVACY"
+        domain = "career.harborprivacy.com"
+        img_prompt = f"Minimalist light illustration, white background #f8f6f2, soft teal accents #34d399, clean geometric shapes, professional optimistic mood, no text, no people, no words, no letters, abstract art only, topic: {topic}"
     else:
-        img_prompt = f"Minimalist dark tech illustration for home network privacy: {topic}. Dark background #0a0e0f, teal accent #00e5c0, geometric shapes, no text"
+        bg_color = (10, 14, 15)
+        accent = (0, 229, 192)
+        text_col = (232, 240, 239)
+        muted = (107, 138, 135)
+        bar_col = (0, 229, 192)
+        logo_text = "harbor/privacy"
+        domain = "harborprivacy.com"
+        img_prompt = f"Minimalist dark tech illustration, very dark background #0a0e0f, teal accent #00e5c0, geometric grid lines, no text, no people, no words, no letters, abstract only, topic: {topic}"
+
+    # Generate background with DALL-E
     try:
         r = _req.post("https://api.openai.com/v1/images/generations",
             headers={"Authorization": f"Bearer {openai_key}", "Content-Type": "application/json"},
             json={"model": "dall-e-3", "prompt": img_prompt, "n": 1, "size": "1024x1024"},
             timeout=60)
-        return r.json()["data"][0]["url"]
+        dalle_url = r.json()["data"][0]["url"]
+        img_data = _req.get(dalle_url, timeout=30).content
+        bg = Image.open(io.BytesIO(img_data)).convert("RGB").resize((1080, 1080))
     except Exception:
-        return None
+        bg = Image.new("RGB", (1080, 1080), bg_color)
+
+    draw = ImageDraw.Draw(bg)
+
+    # Semi-transparent overlay at bottom for text readability
+    overlay = Image.new("RGBA", (1080, 1080), (0, 0, 0, 0))
+    ov_draw = ImageDraw.Draw(overlay)
+    if brand == "career":
+        ov_draw.rectangle([(0, 750), (1080, 1080)], fill=(248, 246, 242, 210))
+        ov_draw.rectangle([(0, 0), (1080, 90)], fill=(248, 246, 242, 200))
+    else:
+        ov_draw.rectangle([(0, 750), (1080, 1080)], fill=(10, 14, 15, 220))
+        ov_draw.rectangle([(0, 0), (1080, 90)], fill=(10, 14, 15, 200))
+    bg = Image.alpha_composite(bg.convert("RGBA"), overlay).convert("RGB")
+    draw = ImageDraw.Draw(bg)
+
+    # Left accent bar
+    draw.rectangle([(0, 0), (6, 1080)], fill=bar_col)
+
+    try:
+        font_logo = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", 28)
+        font_headline = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 52)
+        font_domain = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 22)
+    except:
+        font_logo = font_headline = font_domain = ImageFont.load_default()
+
+    # Logo top left
+    draw.text((32, 28), logo_text, font=font_logo, fill=accent)
+
+    # Headline -- wrap topic into 2 lines max
+    headline = topic.title() if len(topic) < 40 else topic[:37] + "..."
+    wrapped = textwrap.fill(headline, width=22)
+    draw.text((32, 790), wrapped, font=font_headline, fill=text_col)
+
+    # Domain bottom right
+    dw = draw.textlength(domain, font=font_domain)
+    draw.text((1080 - dw - 32, 1080 - 48), domain, font=font_domain, fill=muted)
+
+    # Save to public dir
+    fname = f"social-{brand}-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}.png"
+    out_path = f"/var/www/network/social-images/{fname}"
+    bg.save(out_path, "PNG", optimize=True)
+
+    # Clean up images older than 7 days
+    try:
+        import glob, time
+        for old_f in glob.glob("/var/www/network/social-images/social-*.png"):
+            if time.time() - os.path.getmtime(old_f) > 604800:
+                os.remove(old_f)
+    except Exception:
+        pass
+
+    return f"https://harborprivacy.com/social-images/{fname}"
+
+def _generate_image_openai(brand, topic):
+    # Routes to main overlay generator
+    return _generate_social_image(brand, topic, provider="openai")
 
 @app.route("/api/social/generate", methods=["POST"])
 @admin_required
@@ -3059,9 +3117,19 @@ def social_autopost():
         posts = _json.loads(content)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    image_url = _generate_image_claude(brand, topic)
-    if not image_url:
+    try:
+        with open("/var/log/harbor-image-provider.txt") as _pf:
+            _saved_provider = _pf.read().strip()
+    except Exception:
+        _saved_provider = "anthropic"
+    if _saved_provider == "openai":
         image_url = _generate_image_openai(brand, topic)
+        if not image_url:
+            image_url = _generate_image_claude(brand, topic)
+    else:
+        image_url = _generate_image_claude(brand, topic)
+        if not image_url:
+            image_url = _generate_image_openai(brand, topic)
     log_path = f"/var/log/harbor-autopost-{brand}.json"
     try:
         with open(log_path, "w") as f:
@@ -3088,6 +3156,27 @@ def social_autopost():
             make_errors.append(f"ig: {str(e)}")
 
     return jsonify({"ok": True, "topic": topic, "posts": posts, "image_url": image_url, "make_errors": make_errors})
+
+@app.route("/api/social/generate-image", methods=["POST"])
+@admin_required
+def social_generate_image_only():
+    data = request.json or {}
+    prompt = data.get("prompt", "").strip()
+    brand = data.get("brand", "harbor")
+    if not prompt:
+        return jsonify({"error": "prompt required"}), 400
+    image_url = _generate_social_image(brand, prompt, provider="openai")
+    return jsonify({"image_url": image_url})
+
+@app.route("/api/social/image-provider", methods=["POST"])
+@admin_required
+def social_image_provider():
+    provider = request.json.get("provider", "anthropic")
+    if provider not in ("anthropic", "openai", "auto"):
+        return jsonify({"error": "invalid"}), 400
+    with open("/var/log/harbor-image-provider.txt", "w") as f:
+        f.write(provider)
+    return jsonify({"ok": True, "provider": provider})
 
 @app.route("/api/social/status")
 @admin_required
@@ -3195,6 +3284,14 @@ input:focus,textarea:focus{border-color:var(--accent);}
         <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:14px;color:var(--text);">LinkedIn</span><button onclick="togglePlatform(this,'linkedin')" data-platform="linkedin" data-on="true" style="font-family:'DM Mono',monospace;font-size:11px;padding:4px 14px;border:1px solid var(--accent);color:var(--accent);background:transparent;cursor:pointer;letter-spacing:0.1em;">ON</button></div>
       </div>
     </div>
+    <div style="margin:16px 0 12px;">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.15em;margin-bottom:10px;">IMAGE PROVIDER</div>
+      <div style="display:flex;gap:8px;">
+        <button id="providerAnthropic" onclick="setProvider('anthropic')" style="font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border:1px solid var(--accent);color:var(--accent);background:transparent;cursor:pointer;letter-spacing:0.1em;">ANTHROPIC</button>
+        <button id="providerOpenai" onclick="setProvider('openai')" style="font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border:1px solid var(--border);color:var(--muted);background:transparent;cursor:pointer;letter-spacing:0.1em;">OPENAI</button>
+        <button id="providerAuto" onclick="setProvider('auto')" style="font-family:'DM Mono',monospace;font-size:11px;padding:6px 16px;border:1px solid var(--border);color:var(--muted);background:transparent;cursor:pointer;letter-spacing:0.1em;">AUTO</button>
+      </div>
+    </div>
     <button class="btn" id="generateBtn" onclick="generate()">Generate Post + Image</button>
   </div>
 
@@ -3282,6 +3379,19 @@ function togglePlatform(btn, platform) {
   btn.style.color = on ? "var(--muted)" : "var(--accent)";
 }
 
+var currentProvider = "anthropic";
+function setProvider(p) {
+  currentProvider = p;
+  ["anthropic","openai","auto"].forEach(function(id) {
+    var btn = document.getElementById("provider" + id.charAt(0).toUpperCase() + id.slice(1));
+    var active = id === p;
+    btn.style.borderColor = active ? "var(--accent)" : "var(--border)";
+    btn.style.color = active ? "var(--accent)" : "var(--muted)";
+  });
+  // Save preference
+  fetch("/api/social/image-provider", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({provider:p})});
+}
+
 async function generate() {
   var btn = document.getElementById("generateBtn");
   var topic = document.getElementById("topicInput").value || harborTopics[0];
@@ -3300,7 +3410,7 @@ async function generate() {
     var r = await fetch("/api/social/generate", {
       method: "POST",
       headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({topic: topic, brand: currentBrand, platforms: platforms})
+      body: JSON.stringify({topic: topic, brand: currentBrand, platforms: platforms, image_provider: currentProvider})
     });
     var data = await r.json();
     document.getElementById("fbSection").style.display = platforms.facebook !== false ? "block" : "none";
