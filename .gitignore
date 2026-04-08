@@ -17,3 +17,7 @@ nginx.conf
 *.env
 secrets.json
 .secrets
+.env
+*.env
+secrets.json
+.secrets
