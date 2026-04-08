@@ -13,3 +13,7 @@ deploy.sh
 adguard-vm2.yaml
 iptables-rules.txt
 nginx.conf
+.env
+*.env
+secrets.json
+.secrets
