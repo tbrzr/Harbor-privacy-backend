@@ -58,7 +58,7 @@
 .container { max-width: 900px; margin: 0 auto; padding: 0 48px 100px; position: relative; z-index: 1; }
 
 /* HERO */
-.hero { padding: 80px 0 60px; }
+.hero { padding: 48px 0 36px; }
 .hero-tag { font-family: ‘DM Mono’, monospace; font-size: 11px; color: var(--accent); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 28px; display: flex; align-items: center; gap: 12px; }
 .hero-tag::before { content: ‘’; display: block; width: 32px; height: 1px; background: var(--accent); }
 h1 { font-family: ‘DM Serif Display’, serif; font-size: clamp(42px, 7vw, 72px); line-height: 1.1; font-weight: 400; margin-bottom: 28px; letter-spacing: -0.02em; }
@@ -71,7 +71,7 @@ h1 em { font-style: italic; color: var(--accent); }
 .btn-secondary:hover { color: var(--text); }
 
 /* STATS */
-.stats-bar { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 28px 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-bottom: 64px; }
+.stats-bar { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 16px 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; margin-bottom: 40px; }
 .stat { padding: 0 40px; border-right: 1px solid var(--border); }
 .stat:first-child { padding-left: 0; }
 .stat:last-child { border-right: none; }
@@ -79,8 +79,8 @@ h1 em { font-style: italic; color: var(--accent); }
 .stat-label { font-family: ‘DM Mono’, monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
 
 /* TEASER CARDS */
-.teaser-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border: 1px solid var(--border); margin-bottom: 64px; }
-.teaser { background: var(--surface); padding: 36px; text-decoration: none; transition: background 0.2s; display: block; }
+.teaser-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); border: 1px solid var(--border); margin-bottom: 40px; }
+.teaser { background: var(--surface); padding: 28px; text-decoration: none; transition: background 0.2s; display: block; }
 .teaser:hover { background: #151c1e; }
 .teaser-tag { font-family: ‘DM Mono’, monospace; font-size: 10px; color: var(--accent); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 12px; }
 .teaser-title { font-family: ‘DM Serif Display’, serif; font-size: 22px; font-weight: 400; color: var(--text); margin-bottom: 10px; line-height: 1.2; }
@@ -132,7 +132,7 @@ footer { margin-left: 0; }
 </head>
 <body>
 
-<div class="mobile-nav"><button class="hamburger" onclick="toggleSidebar()">&#9776;</button><span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);">harbor<span style="color:var(--muted);"> / </span>privacy</span><a href="/free-trial" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--bg);background:var(--accent);color:#0a0e0f;font-weight:600;padding:6px 12px;text-decoration:none;">Try Free</a></div>
+<div class="mobile-nav"><button class="hamburger" onclick="toggleSidebar()" style="background:var(--surface);border:1px solid var(--border);padding:10px 12px;cursor:pointer;display:flex;flex-direction:column;gap:5px;"><span style="display:block;width:20px;height:1.5px;background:var(--accent);"></span><span style="display:block;width:20px;height:1.5px;background:var(--accent);"></span><span style="display:block;width:20px;height:1.5px;background:var(--accent);"></span></button><span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);">harbor<span style="color:var(--muted);"> / </span>privacy</span><a href="/free-trial" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--bg);background:var(--accent);color:#0a0e0f;font-weight:600;padding:6px 12px;text-decoration:none;">Try Free</a></div>
 <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
 <aside class="sidebar" id="sidebar">
@@ -234,25 +234,25 @@ footer { margin-left: 0; }
     <a href="/how-it-works" class="teaser">
       <div class="teaser-tag">How It Works</div>
       <div class="teaser-title">DNS blocking, Unbound, cloud failover.</div>
-      <div class="teaser-desc">Learn exactly what gets installed, how every device gets protected, and why it's different from a VPN or browser extension.</div>
+      <div class="teaser-desc">No apps, no hardware. Every device protected automatically.</div>
       <div class="teaser-arrow">Read more &rarr;</div>
     </a>
     <a href="/pricing#remote" class="teaser">
       <div class="teaser-tag">Harbor Remote &mdash; Works Anywhere</div>
       <div class="teaser-title">Works anywhere in the world.</div>
-      <div class="teaser-desc">Private encrypted DNS for your devices starting at $5.99/month. No hardware, no visit, works anywhere. Use code FOUNDERS10 for 50% off.</div>
+      <div class="teaser-desc">Starts at $1.99/mo. Use code FOUNDERS10 for 50% off.</div>
       <div class="teaser-arrow">See plans &rarr;</div>
     </a>
     <a href="/learn" class="teaser">
       <div class="teaser-tag">Free Guides</div>
       <div class="teaser-title">Learn how your privacy is being compromised.</div>
-      <div class="teaser-desc">Plain-English guides on ISP tracking, DNS privacy, phishing, smart home surveillance, and more.</div>
+      <div class="teaser-desc">Free guides. No purchase needed.</div>
       <div class="teaser-arrow">Start learning &rarr;</div>
     </a>
     <a href="/pricing" class="teaser">
       <div class="teaser-tag">Pricing</div>
       <div class="teaser-title">Simple, honest pricing.</div>
-      <div class="teaser-desc">$399 one-time on-site install or $5.99/month remote. Network audits, support plans, and add-ons available.</div>
+      <div class="teaser-desc">$1.99/mo · $5.99/mo family · $399 one-time install.</div>
       <div class="teaser-arrow">View pricing &rarr;</div>
     </a>
   </div>

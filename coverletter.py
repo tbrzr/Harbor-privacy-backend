@@ -172,7 +172,14 @@ Candidate Background:
 Tone: {tone_instructions}
 Length: {word_targets}
 
-Do not include address blocks or date. Start with "Dear Hiring Manager," and end with "Sincerely," followed by the candidate's full name on the next line. Do not use em dashes."""
+Do not include address blocks or date. Start with "Dear Hiring Manager," and end with "Sincerely," followed by the candidate's full name on the next line. Do not use em dashes.
+
+After the letter, add exactly this on a new line:
+MATCH_ANALYSIS: [1-5]
+
+Rate 1-5 how well this candidate matches the job:
+1=Poor 2=Weak 3=Moderate 4=Strong 5=Excellent
+Be honest. Output only: MATCH_ANALYSIS: 4 (for example)"""
 
     try:
         response = anthropic_client.messages.create(
@@ -181,13 +188,30 @@ Do not include address blocks or date. Start with "Dear Hiring Manager," and end
             messages=[{"role": "user", "content": prompt}]
         )
         
-        letter_text = response.content[0].text
+        response_text = response.content[0].text
+        
+        # Extract match rating
+        match_rating = None
+        if 'MATCH_ANALYSIS:' in response_text:
+            parts = response_text.split('MATCH_ANALYSIS:')
+            letter_text = parts[0].strip()
+            try:
+                rating_str = parts[1].strip().split()[0]
+                match_rating = int(rating_str)
+                if match_rating < 1 or match_rating > 5:
+                    match_rating = None
+            except:
+                pass
+        else:
+            letter_text = response_text
         
         pdf_path = f'/tmp/coverletter_{job_id}.pdf'
         generate_pdf(letter_text, job['your_name'], pdf_path)
         
         job['status'] = 'completed'
         job['letter_text'] = letter_text
+        if match_rating:
+            job['match_rating'] = match_rating
         job['pdf_path'] = pdf_path
         job['completed_at'] = datetime.now().isoformat()
         save_jobs(jobs)
@@ -764,6 +788,10 @@ def send_cover_letter_email(job, subject_override=None, note=None):
     <p style="font-family:sans-serif;"><strong>Download your cover letter (PDF):</strong><br><a href="{download_url}">Click here to download original</a></p>
     {revision_links}
     <p style="margin-top:30px;color:#666;font-size:12px;font-family:sans-serif;">Your viewing session expires after 10 minutes. Re-enter your code to start a new session. Your data is deleted 2 hours after payment.</p>
+    <p style="margin-top:20px;padding-top:20px;border-top:1px solid #eee;color:#999;font-size:11px;font-family:sans-serif;">
+    This is a transactional email for your Harbor Privacy purchase. You will not receive marketing emails.<br>
+    Harbor Privacy | <a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a> | <a href="https://career.harborprivacy.com/privacy" style="color:#666;">Privacy Policy</a>
+    </p>
     """
     
     try:
@@ -774,7 +802,11 @@ def send_cover_letter_email(job, subject_override=None, note=None):
             "from": "Harbor Privacy Cover Letters <coverletter@mail.harborprivacy.com>",
             "to": [job['email']],
             "subject": subject_override or "Your Cover Letter from Harbor Privacy",
-            "html": html_content
+            "html": html_content,
+            "attachments": [{
+                "filename": "cover_letter.pdf",
+                "content": list(pdf_content)
+            }]
         })
     except Exception as e:
         print(f"Email send failed: {e}")

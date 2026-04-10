@@ -45,7 +45,8 @@
 .sidebar-footer .copy { font-family: ‘DM Mono’, monospace; font-size: 10px; color: #1e2a2d; letter-spacing: 0.05em; margin-top: 8px; }
 
 /* HAMBURGER */
-.hamburger { display: none; position: fixed; top: 16px; left: 16px; z-index: 200; background: var(--surface); border: 1px solid var(--border); padding: 10px 12px; cursor: pointer; flex-direction: column; gap: 5px; }
+.mobile-nav { display: none; position: fixed; top: 0; left: 0; right: 0; height: 56px; background: var(--surface); border-bottom: 1px solid var(--border); z-index: 200; align-items: center; padding: 0 20px; justify-content: space-between; }
+  .hamburger { display: none; background: var(--surface); border: 1px solid var(--border); padding: 10px 12px; cursor: pointer; flex-direction: column; gap: 5px; }
 .hamburger span { display: block; width: 20px; height: 1.5px; background: var(--accent); }
 .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 99; }
 
@@ -96,7 +97,8 @@ p strong { color: var(--text); font-weight: 500; }
 body { display: block; }
 .sidebar { transform: translateX(-100%); width: 280px; }
 .sidebar.open { transform: translateX(0); }
-.hamburger { display: flex; }
+.mobile-nav { display: flex !important; }
+  .hamburger { display: flex; }
 .main-content { margin-left: 0; }
 .overlay.open { display: block; }
 .content-inner { padding: 60px 24px 80px; }
@@ -104,10 +106,11 @@ body { display: block; }
 }
 </style>
 
+<script>function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open");document.getElementById("overlay").classList.toggle("open");}</script>
 </head>
 <body>
 
-<div class="mobile-nav"><button class="hamburger" onclick="toggleSidebar()">&#9776;</button><span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);">harbor<span style="color:var(--muted);"> / </span>privacy</span><a href="/free-trial" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--bg);background:var(--accent);color:#0a0e0f;font-weight:600;padding:6px 12px;text-decoration:none;">Try Free</a></div>
+<div class="mobile-nav"><button class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button><span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);">harbor<span style="color:var(--muted);"> / </span>privacy</span><a href="/free-trial" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--bg);background:var(--accent);color:#0a0e0f;font-weight:600;padding:6px 12px;text-decoration:none;">Try Free</a></div>
 <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
 <aside class="sidebar" id="sidebar">
