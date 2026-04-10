@@ -839,6 +839,11 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 if is_processed(session_id):
                     log.info(f"Skipping duplicate session: {session_id}")
                 else:
+                    success_url = s.get("success_url", "")
+                    if "resume.harborprivacy.com" in success_url or "coverletter.harborprivacy.com" in success_url:
+                        log.info(f"Skipping non-DNS checkout: {success_url}")
+                        self.send_response(200); self.end_headers()
+                        return
                     email = s.get("customer_details", {}).get("email", "")
                     name = (s.get("customer_details", {}).get("name") or "Customer").strip()
                     stripe_id = s.get("customer", "")
