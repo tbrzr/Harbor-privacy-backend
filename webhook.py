@@ -839,7 +839,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 if is_processed(session_id):
                     log.info(f"Skipping duplicate session: {session_id}")
                 else:
-                    success_url = s.get("success_url", "")
+                    success_url = s.get("success_url") or ""
                     if "resume.harborprivacy.com" in success_url or "coverletter.harborprivacy.com" in success_url:
                         log.info(f"Skipping non-DNS checkout: {success_url}")
                         self.send_response(200); self.end_headers()

@@ -3384,5 +3384,23 @@ loadStatus();
 </body>
 </html>"""
 
+
+@app.route("/api/checkout/session", methods=["POST"])
+def create_checkout_session():
+    import stripe
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+    try:
+        session = stripe.checkout.Session.create(
+            mode="subscription",
+            ui_mode="embedded_page",
+            line_items=[{"price": "price_1TCTlYCOrGNrBgIf4euUONmf", "quantity": 1}],
+            return_url="https://harborprivacy.com/welcome?session_id={CHECKOUT_SESSION_ID}",
+            subscription_data={"trial_period_days": 30},
+            payment_method_collection="if_required",
+        )
+        return jsonify({"clientSecret": session.client_secret})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=int(os.environ.get("DASHBOARD_PORT", 7000)), debug=False)
