@@ -969,10 +969,22 @@ def dashboard():
   </div>
 
   <div class="card">
-    <div class="card-label">Your DoH Address</div>
+    <div class="card-label">Your DNS Addresses</div>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Android — Private DNS Hostname</div>
+    <div class="doh-box" id="dot-host">{{ client_id }}.doh.harborprivacy.com</div>
+    <button onclick="copyDot()" style="margin-top:8px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;cursor:pointer;" id="copy-dot-btn">Copy Hostname</button>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-top:16px;margin-bottom:4px;">iPhone / Browser — DNS over HTTPS</div>
     <div class="doh-box" id="doh-address">https://doh.harborprivacy.com/dns-query/{{ client_id }}</div>
-    <button onclick="copyDoH()" style="margin-top:8px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;cursor:pointer;" id="copy-btn">Copy Address</button>
+    <button onclick="copyDoH()" style="margin-top:8px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;cursor:pointer;" id="copy-btn">Copy Address</button>
     <script>
+    function copyDot(){
+      var text = document.getElementById('dot-host').innerText;
+      navigator.clipboard.writeText(text).then(function(){
+        var btn = document.getElementById('copy-dot-btn');
+        btn.innerText = 'Copied!';
+        setTimeout(function(){ btn.innerText = 'Copy Hostname'; }, 2000);
+      });
+    }
     function copyDoH(){
       var text = document.getElementById('doh-address').innerText;
       navigator.clipboard.writeText(text).then(function(){
@@ -986,7 +998,7 @@ def dashboard():
       <a href="https://harborprivacy.com/profiles/{{ client_id }}.mobileconfig" style="display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Download iOS Profile</a>
       <a href="https://harborprivacy.com/setup/android/{{ client_id }}.html" target="_blank" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Android Setup + QR</a>
     </div>
-    <p class="note" style="margin-top:12px;">Add this to your iPhone under Settings → General → VPN & Device Management, or Android under Settings → Private DNS.</p>
+    <p class="note" style="margin-top:12px;">Android: Settings → Network &amp; Internet → Private DNS → enter your hostname. iPhone: tap Download iOS Profile.</p>
   </div>
 
   <div class="card">
@@ -1156,13 +1168,22 @@ def dashboard():
   </div>
   {% endif %}
 
-  <!-- DOH ADDRESS -->
+  <!-- DNS ADDRESSES -->
   <div class="card">
-    <div class="card-label">Your Private DNS Address</div>
+    <div class="card-label">Your DNS Addresses</div>
     {% if is_active %}
-    <div class="doh-box" id="doh-address">https://doh.harborprivacy.com/dns-query/{{ client_id }}</div>
-    <button onclick="copyDoH()" style="margin-top:8px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;cursor:pointer;" id="copy-btn">Copy Address</button>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Android — Private DNS Hostname</div>
+    <div class="doh-box" id="dot-host">{{ client_id }}.doh.harborprivacy.com</div>
+    <button onclick="copyDotMain()" style="margin-top:8px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;cursor:pointer;" id="copy-dot-btn">Copy Hostname</button>
     <script>
+    function copyDotMain(){
+      var text = document.getElementById('dot-host').innerText;
+      navigator.clipboard.writeText(text).then(function(){
+        var btn = document.getElementById('copy-dot-btn');
+        btn.innerText = 'Copied!';
+        setTimeout(function(){ btn.innerText = 'Copy Hostname'; }, 2000);
+      });
+    }
     function copyDoH(){
       var text = document.getElementById('doh-address').innerText;
       navigator.clipboard.writeText(text).then(function(){
@@ -1172,11 +1193,14 @@ def dashboard():
       });
     }
     </script>
+    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-top:16px;margin-bottom:4px;">iPhone / Browser — DNS over HTTPS</div>
+    <div class="doh-box" id="doh-address">https://doh.harborprivacy.com/dns-query/{{ client_id }}</div>
+    <button onclick="copyDoH()" style="margin-top:8px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;cursor:pointer;" id="copy-btn">Copy Address</button>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
       <a href="https://harborprivacy.com/profiles/{{ client_id }}.mobileconfig" style="display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Download iOS Profile</a>
       <a href="https://harborprivacy.com/setup/android/{{ client_id }}.html" target="_blank" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Android Setup + QR</a>
     </div>
-    <p class="note" style="margin-top:12px;">Use this address in your DNS over HTTPS settings. <a href="https://harborprivacy.com/docs" style="color:var(--accent);">Setup guide →</a></p>
+    <p class="note" style="margin-top:12px;">Android: Settings → Network &amp; Internet → Private DNS → enter your hostname. iPhone: tap Download iOS Profile. <a href="https://harborprivacy.com/docs" style="color:var(--accent);">Full setup guide →</a></p>
     {% else %}
     <div class="doh-box locked">https://doh.harborprivacy.com/dns-query/••••••••••</div>
     <p class="note">Your personal DNS address will appear here once your subscription is active.</p>
@@ -3435,27 +3459,41 @@ loadStatus();
 def create_checkout_session():
     import requests as _req
     stripe_key = os.environ.get("STRIPE_SECRET_KEY", "")
+    pub_key = os.environ.get("STRIPE_PUBLISHABLE_KEY", "")
     if not stripe_key:
         return jsonify({"error": "Stripe not configured"}), 500
+    body = request.get_json(silent=True) or {}
+    plan = body.get("plan", "remote")
+    if plan == "light":
+        params = {
+            "ui_mode": "embedded",
+            "mode": "subscription",
+            "line_items[0][price]": "price_1TE36NCOrGNrBgIf2T8ApaAG",
+            "line_items[0][quantity]": "1",
+            "subscription_data[metadata][plan_type]": "harbor-remote-light",
+            "return_url": "https://harborprivacy.com/welcome?session_id={CHECKOUT_SESSION_ID}",
+        }
+    else:
+        params = {
+            "ui_mode": "embedded",
+            "mode": "subscription",
+            "line_items[0][price]": "price_1TCTlYCOrGNrBgIf4euUONmf",
+            "line_items[0][quantity]": "1",
+            "subscription_data[trial_period_days]": "30",
+            "subscription_data[metadata][plan_type]": "remote",
+            "payment_method_collection": "if_required",
+            "return_url": "https://harborprivacy.com/welcome?session_id={CHECKOUT_SESSION_ID}",
+        }
     try:
         r = _req.post("https://api.stripe.com/v1/checkout/sessions",
             auth=(stripe_key, ""),
-            data={
-                "ui_mode": "embedded",
-                "mode": "subscription",
-                "line_items[0][price]": "price_1TCTlYCOrGNrBgIf4euUONmf",
-                "line_items[0][quantity]": "1",
-                "subscription_data[trial_period_days]": "30",
-                "subscription_data[metadata][plan_type]": "remote",
-                "payment_method_collection": "if_required",
-                "return_url": "https://harborprivacy.com/welcome?session_id={CHECKOUT_SESSION_ID}",
-            },
+            data=params,
             timeout=10
         )
         data = r.json()
         if r.status_code != 200:
             return jsonify({"error": data.get("error", {}).get("message", "Stripe error")}), 500
-        return jsonify({"clientSecret": data["client_secret"]})
+        return jsonify({"clientSecret": data["client_secret"], "publishableKey": pub_key})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
