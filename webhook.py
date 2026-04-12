@@ -202,9 +202,9 @@ def generate_qr_code(client_id):
         import qrcode
         QR_DIR = "/var/www/network/qrcodes"
         os.makedirs(QR_DIR, exist_ok=True)
-        doh = f"https://{DOH_BASE}/{client_id}"
+        dot_host = f"{client_id}.doh.harborprivacy.com"
         qr = qrcode.QRCode(version=1, box_size=10, border=4)
-        qr.add_data(doh)
+        qr.add_data(dot_host)
         qr.make(fit=True)
         img = qr.make_image(fill_color="#00e5c0", back_color="#0a0e0f")
         img.save(f"{QR_DIR}/{client_id}.png")
@@ -218,7 +218,8 @@ def generate_android_page(client_id):
     try:
         ANDROID_DIR = "/var/www/network/setup/android"
         os.makedirs(ANDROID_DIR, exist_ok=True)
-        doh = f"https://{DOH_BASE}/{client_id}"
+        dot_host = f"{client_id}.doh.harborprivacy.com"
+        doh_url = f"https://{DOH_BASE}/{client_id}"
         qr_url = f"https://harborprivacy.com/qrcodes/{client_id}.png"
         html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -235,7 +236,9 @@ h1{{font-size:28px;font-weight:700;margin-bottom:8px;}}
 .note{{font-family:'DM Mono',monospace;font-size:11px;color:#6b8a87;margin-bottom:32px;}}
 .card{{background:#111618;border:1px solid #1e2a2d;padding:24px;margin-bottom:16px;}}
 .label{{font-family:'DM Mono',monospace;font-size:10px;color:#00e5c0;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:12px;}}
-.doh{{background:#0a0e0f;border-left:3px solid #00e5c0;padding:16px;font-family:'DM Mono',monospace;font-size:13px;color:#00e5c0;word-break:break-all;margin-bottom:12px;}}
+.addr{{background:#0a0e0f;border-left:3px solid #00e5c0;padding:16px;font-family:'DM Mono',monospace;font-size:13px;color:#00e5c0;word-break:break-all;margin-bottom:12px;}}
+.addr-secondary{{background:#0a0e0f;border-left:3px solid #1e2a2d;padding:14px;font-family:'DM Mono',monospace;font-size:12px;color:#6b8a87;word-break:break-all;margin-bottom:12px;}}
+.sublabel{{font-family:'DM Mono',monospace;font-size:9px;color:#6b8a87;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:6px;}}
 .btn{{display:block;text-align:center;background:#00e5c0;color:#0a0e0f;padding:12px 20px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.08em;text-decoration:none;margin-bottom:8px;cursor:pointer;border:none;width:100%;}}
 .btn-outline{{background:transparent;border:1px solid #1e2a2d;color:#6b8a87;display:block;text-align:center;}}
 .step{{display:flex;gap:16px;margin-bottom:16px;}}
@@ -247,24 +250,29 @@ h1{{font-size:28px;font-weight:700;margin-bottom:8px;}}
 <body>
 <a href="https://harborprivacy.com" style="font-family:'DM Mono',monospace;font-size:12px;color:#6b8a87;text-decoration:none;display:block;margin-bottom:32px;">harbor/privacy</a>
 <h1>Android <span class="accent">Setup</span></h1>
-<p class="note">Your personal private DNS setup page</p>
+<p class="note">No app required — uses Android's built-in Private DNS</p>
 <div class="card">
-  <div class="label">Your Private DNS Address</div>
-  <div class="doh" id="doh-addr">{doh}</div>
-  <button class="btn" onclick="navigator.clipboard.writeText('{doh}').then(()=>{{this.innerText='Copied!';setTimeout(()=>this.innerText='Copy Address',2000)}})">Copy Address</button>
+  <div class="label">Your Addresses</div>
+  <div class="sublabel">Private DNS Hostname (Android native)</div>
+  <div class="addr" id="dot-host">{dot_host}</div>
+  <button class="btn" onclick="navigator.clipboard.writeText('{dot_host}').then(()=>{{this.innerText='Copied!';setTimeout(()=>this.innerText='Copy Hostname',2000)}})">Copy Hostname</button>
+  <div class="sublabel" style="margin-top:16px;">DNS over HTTPS (browsers &amp; other apps)</div>
+  <div class="addr-secondary" id="doh-url">{doh_url}</div>
+  <button class="btn btn-outline" onclick="navigator.clipboard.writeText('{doh_url}').then(()=>{{this.innerText='Copied!';setTimeout(()=>this.innerText='Copy DoH URL',2000)}})">Copy DoH URL</button>
+</div>
+<div class="card">
+  <div class="label">Setup Instructions (Android Native)</div>
+  <div class="step"><div class="step-num">01</div><div class="step-text">Open <strong style="color:#e8f0ef;">Settings</strong> on your Android phone</div></div>
+  <div class="step"><div class="step-num">02</div><div class="step-text">Go to <strong style="color:#e8f0ef;">Network &amp; Internet → Private DNS</strong></div></div>
+  <div class="step"><div class="step-num">03</div><div class="step-text">Select <strong style="color:#e8f0ef;">Private DNS provider hostname</strong></div></div>
+  <div class="step"><div class="step-num">04</div><div class="step-text">Paste your hostname above and tap <strong style="color:#e8f0ef;">Save</strong></div></div>
+  <a href="android-app://com.android.settings#android.settings.PRIVATE_DNS_SETTINGS" class="btn btn-outline" style="margin-top:16px;" onclick="window.location='intent:#Intent;action=android.settings.PRIVATE_DNS_SETTINGS;end';return false;">Open Android DNS Settings</a>
 </div>
 <div class="card">
   <div class="label">Scan QR Code</div>
-  <img src="{qr_url}" class="qr-img" alt="QR Code">
-  <p style="font-family:'DM Mono',monospace;font-size:11px;color:#6b8a87;text-align:center;margin-top:12px;">Scan to copy your DNS address</p>
-</div>
-<div class="card">
-  <div class="label">Setup Instructions</div>
-  <div class="step"><div class="step-num">01</div><div class="step-text">Open Settings on your Android phone</div></div>
-  <div class="step"><div class="step-num">02</div><div class="step-text">Go to Network and Internet then Private DNS</div></div>
-  <div class="step"><div class="step-num">03</div><div class="step-text">Select Private DNS provider hostname</div></div>
-  <div class="step"><div class="step-num">04</div><div class="step-text">Paste your address above and tap Save</div></div>
-  <a href="intent:#Intent;action=android.settings.PRIVATE_DNS_SETTINGS;end" class="btn btn-outline" style="margin-top:16px;">Open Android DNS Settings</a>
+  <img src="{qr_url}" class="qr-img" alt="QR Code" onerror="this.style.display='none';document.getElementById('qr-err').style.display='block'">
+  <div id="qr-err" style="display:none;text-align:center;padding:20px;font-family:'DM Mono',monospace;font-size:11px;color:#6b8a87;">QR code not available yet — use Copy Hostname above</div>
+  <p style="font-family:'DM Mono',monospace;font-size:11px;color:#6b8a87;text-align:center;margin-top:12px;">Scan to copy your Private DNS hostname</p>
 </div>
 </body>
 </html>"""
@@ -429,11 +437,21 @@ def log_customer(client_id, name, email, plan, stripe_customer_id="", plan_type=
              "stripe_customer_id": stripe_customer_id, "status": status}
     open(CUSTOMERS_LOG, "a").write(json.dumps(entry) + "\n")
 
+EMAIL_FOOTER = """
+<div style="margin-top:32px;padding-top:20px;border-top:1px solid #1e2a2d;color:#6b8a87;font-size:11px;font-family:sans-serif;line-height:1.6;">
+  This is a transactional email related to your Harbor Privacy subscription. You will not receive unsolicited marketing emails.<br>
+  Harbor Privacy &nbsp;&middot;&nbsp; Pembroke, MA 02359 &nbsp;&middot;&nbsp;
+  <a href="https://harborprivacy.com/nologs" style="color:#6b8a87;">Privacy Policy</a> &nbsp;&middot;&nbsp;
+  <a href="https://harborprivacy.com" style="color:#6b8a87;">harborprivacy.com</a>
+</div>
+"""
+
 def send_email(to, subject, html):
     try:
+        full_html = html + EMAIL_FOOTER
         r = requests.post("https://api.resend.com/emails",
             headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
-            json={"from": f"Harbor Privacy <{FROM_EMAIL}>", "to": [to], "subject": subject, "html": html},
+            json={"from": f"Harbor Privacy <{FROM_EMAIL}>", "to": [to], "subject": subject, "html": full_html},
             timeout=10)
         if r.status_code == 200:
             log.info(f"Email sent to {to}")
@@ -654,60 +672,6 @@ def find_customer_by_email(email):
         pass
     return None
 
-def enable_family_safe(client_id):
-    try:
-        import requests as req
-        AGH = os.environ.get("ADGUARD_URL","http://127.0.0.1:8080")
-        USER = os.environ.get("ADGUARD_USER","admin")
-        PASS = os.environ.get("ADGUARD_PASS","")
-        r = req.get(f"{AGH}/control/clients", auth=(USER,PASS), timeout=10)
-        clients = r.json().get("clients",[])
-        client = next((c for c in clients if client_id in c.get("ids",[])), None)
-        if not client:
-            return False
-        ss = {"enabled":True,"bing":True,"duckduckgo":True,"ecosia":True,"google":True,"pixabay":True,"yandex":True,"youtube":True}
-        data = {"safe_search":ss,"blocked_services_schedule":{"time_zone":"Local"},"name":client["name"],"blocked_services":client.get("blocked_services") or [],"ids":client.get("ids",[]),"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":True,"safebrowsing_enabled":True,"safesearch_enabled":True,"use_global_blocked_services":False,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False}
-        req.post(f"{AGH}/control/clients/update", json={"name":client["name"],"data":data}, auth=(USER,PASS), timeout=10)
-        return True
-    except Exception as e:
-        log.error(f"enable_family_safe error: {e}")
-        return False
-
-def disable_family_safe(client_id):
-    try:
-        import requests as req
-        AGH = os.environ.get("ADGUARD_URL","http://127.0.0.1:8080")
-        USER = os.environ.get("ADGUARD_USER","admin")
-        PASS = os.environ.get("ADGUARD_PASS","")
-        r = req.get(f"{AGH}/control/clients", auth=(USER,PASS), timeout=10)
-        clients = r.json().get("clients",[])
-        client = next((c for c in clients if client_id in c.get("ids",[])), None)
-        if not client:
-            return False
-        ss = {"enabled":False,"bing":False,"duckduckgo":False,"ecosia":False,"google":False,"pixabay":False,"yandex":False,"youtube":False}
-        data = {"safe_search":ss,"blocked_services_schedule":{"time_zone":"Local"},"name":client["name"],"blocked_services":client.get("blocked_services") or [],"ids":client.get("ids",[]),"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":False,"safebrowsing_enabled":True,"safesearch_enabled":False,"use_global_blocked_services":True,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False}
-        req.post(f"{AGH}/control/clients/update", json={"name":client["name"],"data":data}, auth=(USER,PASS), timeout=10)
-        return True
-    except Exception as e:
-        log.error(f"disable_family_safe error: {e}")
-        return False
-
-def update_customer_family_safe(email, enabled):
-    try:
-        lines = open(CUSTOMERS_LOG).readlines()
-        new_lines = []
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            r = json.loads(line)
-            if r.get("email","").lower() == email.lower():
-                r["family_safe"] = enabled
-            new_lines.append(json.dumps(r))
-        open(CUSTOMERS_LOG,"w").write("\n".join(new_lines) + "\n")
-    except Exception as e:
-        log.error(f"update_customer_family_safe error: {e}")
-
 def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url="", plan_type=None):
     doh = f"https://{DOH_BASE}/{client_id}"
 
@@ -736,25 +700,26 @@ def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url
         return
 
     if plan == "remote":
+        dot_host = f"{client_id}.doh.harborprivacy.com"
         ios_btn = f'<p><a href="{profile_url}" style="display:inline-block;background:#00e5c0;color:#0a0e0f;padding:12px 24px;text-decoration:none;font-family:monospace;font-size:13px;">Download iOS DNS Profile</a></p><p style="font-size:12px;color:#6b8a87;">Tap on iPhone/iPad then Settings > General > VPN & Device Management > Install</p>' if profile_url else "<p style='color:#6b8a87;'>iOS profile will be sent separately.</p>"
         html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
 <h1 style="font-family:Georgia,serif;font-weight:400;">Your Harbor Privacy Setup</h1>
 <p>Hi {name},</p><p>Your private DNS endpoint is ready.</p>
-<h2 style="font-family:Georgia,serif;font-weight:400;">Your Personal DoH Address</h2>
-<p style="background:#111618;border-left:3px solid #00e5c0;padding:16px;font-family:monospace;font-size:14px;color:#00e5c0;word-break:break-all;">{doh}</p>
+<h2 style="font-family:Georgia,serif;font-weight:400;">Your Personal DNS Addresses</h2>
+<p style="font-family:monospace;font-size:10px;color:#6b8a87;letter-spacing:0.1em;margin-bottom:4px;">ANDROID PRIVATE DNS HOSTNAME</p>
+<p style="background:#111618;border-left:3px solid #00e5c0;padding:16px;font-family:monospace;font-size:14px;color:#00e5c0;word-break:break-all;margin-bottom:16px;">{dot_host}</p>
+<p style="font-family:monospace;font-size:10px;color:#6b8a87;letter-spacing:0.1em;margin-bottom:4px;">DNS OVER HTTPS (BROWSERS &amp; OTHER APPS)</p>
+<p style="background:#111618;border-left:3px solid #1e2a2d;padding:14px;font-family:monospace;font-size:13px;color:#6b8a87;word-break:break-all;margin-bottom:16px;">{doh}</p>
 <div style="background:#111618;border:1px solid #00e5c0;padding:20px;margin-bottom:24px;"><p style="font-family:monospace;font-size:11px;color:#00e5c0;letter-spacing:0.1em;margin-bottom:8px;">SAVE 44% — UPGRADE TO ANNUAL</p><p style="color:#e8f0ef;margin-bottom:12px;">Lock in your rate for a full year at $39.99. Use code <strong>FOUNDERS10</strong> for 50% off while it lasts.</p><a href="https://buy.stripe.com/9B69AS6knepVbPL2Gz6kg09?prefilled_email={email}" style="background:#00e5c0;color:#0a0e0f;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Upgrade to Annual &#8594;</a></div><h2 style="font-family:Georgia,serif;font-weight:400;">Setup Instructions</h2>
 <h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">iPhone / iPad</h3><p style="color:#6b8a87;font-size:13px;margin-bottom:12px;"><strong style="color:#e8f0ef;">Note:</strong> When installing the profile you may see an "Unsigned" notice. This is normal for small businesses and is safe to install. The profile only configures your DNS settings and nothing else.</p>{ios_btn}
 <h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">Android / Pixel</h3>
-<p style="color:#6b8a87;font-size:13px;margin-bottom:12px;">Android uses a different setup method. Use the free <strong style="color:#e8f0ef;">Intra app</strong> (by Google) for the best experience with your personal DNS address.</p>
-<ol style="color:#6b8a87;font-size:13px;margin-bottom:16px;"><li>Install <strong style="color:#e8f0ef;">Intra</strong> from the Play Store (free, by Google Jigsaw)</li><li>Open Intra > tap the settings gear</li><li>Select "Custom DNS over HTTPS server"</li><li>Paste your personal address: <strong style="color:#e8f0ef;">{doh}</strong></li><li>Tap OK and enable Intra</li></ol>
+<p style="color:#6b8a87;font-size:13px;margin-bottom:12px;">Android has built-in Private DNS — no app needed. Takes 30 seconds.</p>
+<ol style="color:#6b8a87;font-size:13px;margin-bottom:16px;"><li>Go to <strong style="color:#e8f0ef;">Settings → Network &amp; Internet → Private DNS</strong></li><li>Select <strong style="color:#e8f0ef;">Private DNS provider hostname</strong></li><li>Enter: <strong style="color:#e8f0ef;">{dot_host}</strong></li><li>Tap Save</li></ol>
 <p><a href="https://harborprivacy.com/setup/android/{client_id}.html" style="display:inline-block;background:transparent;border:1px solid #00e5c0;color:#00e5c0;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Android Setup Guide + QR Code &#8594;</a></p>
-<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">Xfinity Router</h3>
-<ol style="color:#6b8a87;"><li>Go to 10.0.0.1</li><li>Login with router sticker credentials</li><li>Advanced > DNS Settings</li><li>Primary DNS: <strong style="color:#e8f0ef;">doh.harborprivacy.com</strong></li><li>Save and reboot</li></ol>
 <div style="border-top:1px solid #1e2a2d;margin-top:32px;padding-top:24px;">
 <h3 style="color:#6b8a87;font-family:monospace;font-size:11px;letter-spacing:0.1em;">IF YOU EVER CANCEL - HOW TO REMOVE HARBOR PRIVACY</h3>
 <p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">iPhone/iPad:</strong> Settings > General > VPN and Device Management > Harbor Privacy DNS > Remove Profile</p>
 <p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">Android/Pixel:</strong> Settings > Network and Internet > Private DNS > set to Off or Automatic</p>
-<p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">Xfinity Router:</strong> Go to 10.0.0.1 > Advanced > DNS Settings > restore to Automatic > reboot</p>
 <p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">Other Routers:</strong> Router admin panel > DNS settings > set to Automatic > save and reboot</p>
 </div>
 </p><div style="border-top:1px solid #1e2a2d;padding-top:20px;margin-top:20px;">{('<a href="' + invoice_url + '" style="display:inline-block;background:#00e5c0;color:#0a0e0f;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;margin-right:8px;">View Invoice &#8594;</a>') if invoice_url else ''}<a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" style="display:inline-block;border:1px solid #00e5c0;color:#00e5c0;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Manage Subscription &#8594;</a></div><p style="padding-top:24px;color:#6b8a87;">Questions? Reply or text <strong style="color:#e8f0ef;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a></p>
@@ -775,7 +740,6 @@ def send_cancellation_email(email, name):
 <h2 style="font-family:Georgia,serif;font-weight:400;">Remove Harbor Privacy from your devices</h2>
 <p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">iPhone/iPad:</strong> Settings > General > VPN and Device Management > Harbor Privacy DNS > Remove Profile</p>
 <p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">Android/Pixel:</strong> Settings > Network and Internet > Private DNS > set to Off or Automatic</p>
-<p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">Xfinity Router:</strong> Go to 10.0.0.1 > Advanced > DNS Settings > restore to Automatic > reboot</p>
 <p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">Other Routers:</strong> Router admin panel > DNS settings > set to Automatic > save and reboot</p>
 <p style="margin-top:16px;color:#6b8a87;">Need help? Reply to this email and I will walk you through it.</p>
 <p>Resubscribe at <a href="https://harborprivacy.com/pricing" style="color:#00e5c0;">harborprivacy.com/pricing</a></p>
@@ -805,10 +769,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
             payload = self.rfile.read(length)
             sig = self.headers.get("X-Hub-Signature-256", "")
             secret = os.environ.get("GITHUB_WEBHOOK_SECRET", "").encode()
-            if secret:
-                expected = "sha256=" + hmac.new(secret, payload, hashlib.sha256).hexdigest()
-                if not hmac.compare_digest(expected, sig):
-                    self.send_response(400); self.end_headers(); return
+            if not secret:
+                log.error("GITHUB_WEBHOOK_SECRET not set — deploy endpoint disabled")
+                self.send_response(403); self.end_headers(); return
+            expected = "sha256=" + hmac.new(secret, payload, hashlib.sha256).hexdigest()
+            if not hmac.compare_digest(expected, sig):
+                self.send_response(400); self.end_headers(); return
             self.send_response(200); self.end_headers()
             subprocess.Popen(["bash", "-c", "cd /var/www/network && git pull origin main >> /home/ubuntu/deploy.log 2>&1 && find /var/www/network -name '*.html' -exec sed -i 's/\xe2\x80\x93/--/g' {} \;"])
             log.info("GitHub deploy triggered")
@@ -821,10 +787,14 @@ class WebhookHandler(BaseHTTPRequestHandler):
         payload = self.rfile.read(length)
         sig = self.headers.get("Stripe-Signature", "")
 
+        if not STRIPE_WEBHOOK_SECRET and not STRIPE_WEBHOOK_SECRET_TEST:
+            log.error("No Stripe webhook secret configured — rejecting all webhook requests")
+            self.send_response(500); self.end_headers(); return
+
         verified = (verify_sig(payload, sig, STRIPE_WEBHOOK_SECRET) if STRIPE_WEBHOOK_SECRET else False) or \
                    (verify_sig(payload, sig, STRIPE_WEBHOOK_SECRET_TEST) if STRIPE_WEBHOOK_SECRET_TEST else False)
 
-        if (STRIPE_WEBHOOK_SECRET or STRIPE_WEBHOOK_SECRET_TEST) and not verified:
+        if not verified:
             log.warning("Invalid Stripe signature")
             self.send_response(400); self.end_headers(); return
 
@@ -859,6 +829,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                             add_to_allowed_clients(client_id)
                             profile_url = save_ios_profile(client_id, name)
                         generate_qr_code(client_id)
+                        generate_android_page(client_id)
                         invoice_id = s.get("invoice", "")
                         invoice_url = ""
                         if invoice_id:
@@ -896,8 +867,45 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 try:
                     invoice = event["data"]["object"]
                     customer_email = invoice.get("customer_email","")
-                    customer_name = invoice.get("customer_name","Customer")
+                    customer_name = invoice.get("customer_name") or "Customer"
+                    stripe_id = invoice.get("customer","")
+                    billing_reason = invoice.get("billing_reason","")
+                    invoice_id = invoice.get("id","")
                     lines_data = invoice.get("lines",{}).get("data",[])
+
+                    # New subscription — provision if not already done
+                    if billing_reason == "subscription_create" and customer_email:
+                        if is_processed(invoice_id):
+                            log.info(f"Skipping already-provisioned invoice: {invoice_id}")
+                        elif find_customer_by_email(customer_email):
+                            log.info(f"Customer already exists, skipping provision: {customer_email}")
+                            mark_processed(invoice_id)
+                        else:
+                            plan_type = None
+                            for line in lines_data:
+                                plan_type = (line.get("metadata") or {}).get("plan_type") or \
+                                            (line.get("parent",{}).get("subscription_details",{}) or {}).get("metadata",{}).get("plan_type")
+                                if plan_type:
+                                    break
+                            # Also check subscription-level metadata
+                            if not plan_type:
+                                plan_type = (invoice.get("parent",{}).get("subscription_details",{}) or {}).get("metadata",{}).get("plan_type")
+                            plan_type = plan_type or "remote"
+                            is_trial = invoice.get("amount_due", 1) == 0
+                            client_id = generate_client_id(customer_name, customer_email)
+                            try:
+                                create_adguard_client(client_id, customer_name)
+                                add_to_allowed_clients(client_id)
+                                profile_url = save_ios_profile(client_id, customer_name)
+                                generate_qr_code(client_id)
+                                generate_android_page(client_id)
+                                send_welcome_email(customer_email, customer_name, client_id, "remote", profile_url, invoice.get("hosted_invoice_url",""), plan_type=plan_type)
+                                log_customer(client_id, customer_name, customer_email, "remote", stripe_id, plan_type=plan_type, is_trial=is_trial)
+                                mark_processed(invoice_id)
+                                log.info(f"Provisioned via invoice: {customer_email} ({client_id})")
+                            except Exception as pe:
+                                log.error(f"Invoice provision failed for {customer_email}: {pe}")
+
                     for line in lines_data:
                         product_id = line.get("pricing",{}).get("price_details",{}).get("product","")
                         if product_id == "prod_UAtyhAUNLKSyLQ":
@@ -919,7 +927,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
             elif etype == "customer.subscription.updated":
                 try:
-                    sub = data["object"]
+                    sub = event["data"]["object"]
                     stripe_id = sub.get("customer", "")
                     items = sub.get("items", {}).get("data", [])
                     if items:

@@ -4,11 +4,13 @@ Harbor Privacy Customer Dashboard
 dashboard.harborprivacy.com
 """
 
-import os, json, secrets
+import os, json, secrets, logging
 from datetime import datetime, timedelta
 from functools import wraps
 from io import BytesIO
 import base64
+
+log = logging.getLogger(__name__)
 
 import bcrypt
 import jwt
@@ -16,8 +18,10 @@ import pyotp
 import qrcode
 import requests
 from flask import Flask, request, jsonify, render_template_string, redirect, make_response, session
+from flask_wtf.csrf import CSRFProtect, generate_csrf
 
 app = Flask(__name__)
+csrf = CSRFProtect(app)
 
 @app.after_request
 def add_no_cache(response):
@@ -147,26 +151,47 @@ def _save_codes(codes):
         os.chmod(SUPPORT_CODES_FILE, 0o600)
     except Exception as e:
         print(f"Support code save error: {e}")
-LOGIN_ATTEMPTS = {}  # {ip: {count, locked_until}}
+_RATE_LIMIT_FILE = "/var/lib/harbor/login_attempts.json"
+
+def _load_attempts():
+    import json as _json, time as _t
+    try:
+        with open(_RATE_LIMIT_FILE) as _f:
+            data = _json.load(_f)
+        # Purge expired entries to keep the file small
+        now = _t.time()
+        return {ip: e for ip, e in data.items() if e.get("locked_until", 0) > now or e.get("count", 0) > 0}
+    except (FileNotFoundError, ValueError):
+        return {}
+
+def _save_attempts(data):
+    import json as _json, os as _os
+    _os.makedirs(_os.path.dirname(_RATE_LIMIT_FILE), exist_ok=True)
+    with open(_RATE_LIMIT_FILE, "w") as _f:
+        _json.dump(data, _f)
 
 def check_rate_limit(ip):
     import time as _t
-    entry = LOGIN_ATTEMPTS.get(ip, {})
+    entry = _load_attempts().get(ip, {})
     if entry.get("locked_until", 0) > _t.time():
         return False
     return True
 
 def record_failed_login(ip):
     import time as _t
-    entry = LOGIN_ATTEMPTS.get(ip, {"count": 0, "locked_until": 0})
+    data = _load_attempts()
+    entry = data.get(ip, {"count": 0, "locked_until": 0})
     entry["count"] = entry.get("count", 0) + 1
     if entry["count"] >= 5:
         entry["locked_until"] = _t.time() + 900
         entry["count"] = 0
-    LOGIN_ATTEMPTS[ip] = entry
+    data[ip] = entry
+    _save_attempts(data)
 
 def clear_failed_logins(ip):
-    LOGIN_ATTEMPTS.pop(ip, None)
+    data = _load_attempts()
+    data.pop(ip, None)
+    _save_attempts(data)
 
 def generate_support_code(client_id):
     code = str(secrets.randbelow(900000) + 100000)
@@ -355,18 +380,14 @@ def save_active_profile(client_id, profile_name):
 def set_client_blocked_services(client_id, services):
     client = get_client(client_id)
     if not client:
-        with open("/tmp/profile_debug.txt", "a") as dbg:
-            dbg.write(f"set_client_blocked: no client found for {client_id}\n")
+        log.warning(f"set_client_blocked: no client found for {client_id}")
         return False
     updated = {**client, "blocked_services": services, "use_global_blocked_services": False}
     try:
         r = requests.post(f"{ADGUARD_URL}/control/clients/update", json={"name": client.get("name", client_id), "data": updated}, auth=(ADGUARD_USER, ADGUARD_PASS), timeout=10)
-        with open("/tmp/profile_debug.txt", "a") as dbg:
-            dbg.write(f"set_client_blocked: status={r.status_code} response={r.text[:100]}\n")
         return r.status_code == 200
     except Exception as e:
-        with open("/tmp/profile_debug.txt", "a") as dbg:
-            dbg.write(f"set_client_blocked error: {e}\n")
+        log.error(f"set_client_blocked error: {e}")
         return False
 
 def add_custom_rule(client_id, domain, block=True):
@@ -447,11 +468,20 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+EMAIL_FOOTER = """
+<div style="margin-top:32px;padding-top:20px;border-top:1px solid #1e2a2d;color:#6b8a87;font-size:11px;font-family:sans-serif;line-height:1.6;">
+  This is a transactional email related to your Harbor Privacy subscription. You will not receive unsolicited marketing emails.<br>
+  Harbor Privacy &nbsp;&middot;&nbsp; Pembroke, MA 02359 &nbsp;&middot;&nbsp;
+  <a href="https://harborprivacy.com/nologs" style="color:#6b8a87;">Privacy Policy</a> &nbsp;&middot;&nbsp;
+  <a href="https://harborprivacy.com" style="color:#6b8a87;">harborprivacy.com</a>
+</div>
+"""
+
 def send_email(to, subject, html):
     try:
         requests.post("https://api.resend.com/emails",
             headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
-            json={"from": f"Harbor Privacy <{FROM_EMAIL}>", "to": [to], "subject": subject, "html": html},
+            json={"from": f"Harbor Privacy <{FROM_EMAIL}>", "to": [to], "subject": subject, "html": html + EMAIL_FOOTER},
             timeout=10)
     except:
         pass
@@ -747,12 +777,14 @@ def login():
 
   {% if step == '1' %}
   <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="check_email">
     <input type="email" name="email" placeholder="Your email address" value="{{ email }}" required autocomplete="email" autofocus>
     <button type="submit" class="btn" style="width:100%;">Continue →</button>
   </form>
   {% else %}
   <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="login">
     <input type="hidden" name="email" value="{{ email }}">
     <div style="background:var(--surface);border:1px solid var(--border);padding:12px 16px;margin-bottom:16px;font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;">
@@ -854,6 +886,7 @@ def setup():
   <p class="note" style="margin-bottom:32px;">{% if is_admin %}Set a password for your Harbor Privacy admin account.{% else %}Welcome to Harbor Privacy. Create a password to access your dashboard.{% endif %}</p>
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
   <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="email" value="{{ email }}">
     <input type="hidden" name="is_admin" value="{{ '1' if is_admin else '0' }}">
     <div style="background:var(--surface);border:1px solid var(--border);padding:12px 16px;margin-bottom:16px;font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);">{{ email }}</div>
@@ -917,11 +950,12 @@ def dashboard():
 
     rules = get_client_rules(client_id) if client_id else []
     family_safe = client.get("parental_enabled", False) if client else False
+    plan_type = customer.get("plan_type", "") if customer else ""
+    is_active = customer.get("status", "active") == "active" if customer else False
     harbor_kids = True if (customer and plan_type != "harbor-remote-light" and is_active) else customer.get("harbor_kids", False) if customer else False
     filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
-    plan_type = customer.get("plan_type", "") if customer else ""
     is_trial = customer.get("is_trial", False) if customer else False
     plan_badge = ""
 
@@ -950,7 +984,7 @@ def dashboard():
     </script>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
       <a href="https://harborprivacy.com/profiles/{{ client_id }}.mobileconfig" style="display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Download iOS Profile</a>
-      <a href="https://harborprivacy.com/setup/android/{{ client_id }}" target="_blank" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Android Setup + QR</a>
+      <a href="https://harborprivacy.com/setup/android/{{ client_id }}.html" target="_blank" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Android Setup + QR</a>
     </div>
     <p class="note" style="margin-top:12px;">Add this to your iPhone under Settings → General → VPN & Device Management, or Android under Settings → Private DNS.</p>
   </div>
@@ -1140,7 +1174,7 @@ def dashboard():
     </script>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
       <a href="https://harborprivacy.com/profiles/{{ client_id }}.mobileconfig" style="display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Download iOS Profile</a>
-      <a href="https://harborprivacy.com/setup/android/{{ client_id }}" target="_blank" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Android Setup + QR</a>
+      <a href="https://harborprivacy.com/setup/android/{{ client_id }}.html" target="_blank" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Android Setup + QR</a>
     </div>
     <p class="note" style="margin-top:12px;">Use this address in your DNS over HTTPS settings. <a href="https://harborprivacy.com/docs" style="color:var(--accent);">Setup guide →</a></p>
     {% else %}
@@ -1230,7 +1264,7 @@ def dashboard():
       <div style="background:var(--surface);border-left:3px solid var(--accent);padding:10px 14px;font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);word-break:break-all;margin-bottom:10px;">https://doh.harborprivacy.com/dns-query/{{ kp.name }}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <a href="https://harborprivacy.com/profiles/{{ kp.name }}.mobileconfig" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#8659; iOS/Mac Profile</a>
-        <a href="https://harborprivacy.com/setup/android/{{ kp.name }}" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#9632; Android QR</a>
+        <a href="https://harborprivacy.com/setup/android/{{ kp.name }}.html" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#9632; Android QR</a>
         <a href="https://harborprivacy.com/docs/harbor-kids#kids-setup" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">Windows Setup</a>
       </div>
     </div>
@@ -1508,7 +1542,7 @@ def log_dns_analytics():
 @app.route("/admin/analytics")
 @admin_required
 def admin_analytics():
-    import json as _json, time
+    import json as _json, time, html as _html
     ANALYTICS_FILE = "/var/log/harbor-dns-analytics.json"
     try:
         records = _json.loads(open(ANALYTICS_FILE).read())
@@ -1565,11 +1599,11 @@ def admin_analytics():
   </div>
   <div class="card" style="margin-bottom:20px;">
     <div class="card-label">ISPs Detected This Week</div>
-    """ + "".join([f'<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);"><span style="color:{"var(--accent)" if "Harbor" in isp else "var(--text)"};">{isp}</span><span style="font-family:DM Mono,monospace;font-size:12px;color:var(--muted);">{count}</span></div>' for isp,count in isp_sorted]) + """
+    """ + "".join([f'<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);"><span style="color:{"var(--accent)" if "Harbor" in isp else "var(--text)"};">{_html.escape(isp)}</span><span style="font-family:DM Mono,monospace;font-size:12px;color:var(--muted);">{count}</span></div>' for isp,count in isp_sorted]) + """
   </div>
   <div class="card" style="margin-bottom:20px;">
     <div class="card-label">Traffic Sources This Week</div>
-    """ + "".join([f'<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);"><span>{ref}</span><span style="font-family:DM Mono,monospace;font-size:12px;color:var(--muted);">{count}</span></div>' for ref,count in ref_sorted]) + """
+    """ + "".join([f'<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);"><span>{_html.escape(ref)}</span><span style="font-family:DM Mono,monospace;font-size:12px;color:var(--muted);">{count}</span></div>' for ref,count in ref_sorted]) + """
   </div>
   <div class="card" style="margin-bottom:20px;">
     <div class="card-label">Checks by Hour Today</div>
@@ -1744,6 +1778,8 @@ def admin_customer(client_id):
     family_safe = client.get("parental_enabled", False) if client else False
     filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
+    plan_type = customer.get("plan_type", "remote") if customer else "remote"
+    is_active = customer.get("status", "active") == "active" if customer else False
     harbor_kids = True if (customer and plan_type != "harbor-remote-light" and is_active) else customer.get("harbor_kids", False) if customer else False
     is_founder = customer.get("is_founder", False) if customer else False
     cstats = get_client_stats(client_id)
@@ -1794,6 +1830,7 @@ def admin_customer(client_id):
     <a href="https://dashboard.harborprivacy.com/dashboard?preview=1" target="_blank" class="btn" style="display:block;text-align:center;margin-bottom:16px;">Preview Customer Dashboard</a>
     <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:12px;">Test Plan Mode</div>
     <form method="POST" action="/admin/customer/{{ customer.client_id }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="action" value="toggle_plan">
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <select name="plan_type" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;font-family:'DM Mono',monospace;font-size:12px;flex:1;">
@@ -1819,6 +1856,7 @@ def admin_customer(client_id):
       </div>
     </div>
     <form method="POST" action="/admin/customer/{{ customer.client_id }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="hidden" name="action" value="update_email">
       <input type="hidden" name="old_email" value="{{ customer.email }}">
       <div style="display:flex;gap:8px;">
@@ -1898,7 +1936,7 @@ def admin_customer(client_id):
       <div style="background:var(--surface);border-left:3px solid var(--accent);padding:10px 14px;font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);word-break:break-all;margin-bottom:10px;">https://doh.harborprivacy.com/dns-query/{{ kp.name }}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <a href="https://harborprivacy.com/profiles/{{ kp.name }}.mobileconfig" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#8659; iOS/Mac Profile</a>
-        <a href="https://harborprivacy.com/setup/android/{{ kp.name }}" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#9632; Android QR</a>
+        <a href="https://harborprivacy.com/setup/android/{{ kp.name }}.html" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#9632; Android QR</a>
         <a href="https://harborprivacy.com/docs/harbor-kids#kids-setup" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">Windows Setup</a>
       </div>
     </div>
@@ -2079,6 +2117,7 @@ def settings():
   <div class="card">
     <div class="card-label">Change Password</div>
     <form method="POST" action="/settings/password">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="password" name="current" placeholder="Current password" required>
       <input type="password" name="new_pw" placeholder="New password (min 8 characters)" required minlength="8">
       <input type="password" name="confirm" placeholder="Confirm new password" required>
@@ -2094,6 +2133,7 @@ def settings():
     {% else %}
     <p style="color:var(--accent);font-family:'DM Mono',monospace;font-size:13px;margin-bottom:16px;">&#10003; Two-factor authentication is enabled.</p>
     <form method="POST" action="/settings/2fa/disable" style="display:flex;gap:12px;flex-wrap:wrap;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <input type="password" name="password" placeholder="Enter password to disable" required style="margin:0;flex:1;">
       <button type="submit" class="btn btn-danger">Disable 2FA</button>
     </form>
@@ -2209,6 +2249,7 @@ def setup_2fa():
   <p style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:8px;letter-spacing:0.1em;">CAN'T SCAN? ENTER THIS CODE MANUALLY:</p>
   <div style="background:var(--bg);border:1px solid var(--border);padding:12px 16px;font-family:'DM Mono',monospace;font-size:14px;color:var(--accent);letter-spacing:0.2em;word-break:break-all;margin-bottom:24px;">{{ secret }}</div>
   <form method="POST" action="/settings/2fa/enable">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="secret" value="{{ secret }}">
     <input type="text" name="code" placeholder="Enter 6-digit code to confirm" maxlength="6" required autofocus>
     <button type="submit" class="btn" style="width:100%;">Enable 2FA →</button>
@@ -2300,6 +2341,7 @@ def forgot():
   {% else %}
   <p class="note" style="margin-bottom:28px;">Enter your email and we will send a reset link.</p>
   <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="email" name="email" placeholder="Your email address" value="{{ email }}" required autofocus>
     <button type="submit" class="btn" style="width:100%;">Send Reset Link →</button>
   </form>
@@ -2346,6 +2388,7 @@ def reset():
   <h1 style="margin-bottom:8px;">Set new password.</h1>
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
   <form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="token" value="{{ token }}">
     <input type="password" name="password" placeholder="New password (min 8 characters)" required minlength="8" autofocus>
     <input type="password" name="confirm" placeholder="Confirm new password" required>
@@ -2371,7 +2414,7 @@ def windows_send_code():
     if not customer:
         return jsonify({"ok": False, "error": "No account found for that email"})
     import time as _time
-    code = str(_random.randint(100000, 999999))
+    code = str(secrets.randbelow(900000) + 100000)
     WINDOWS_APP_CODES[email] = {"code": code, "expires": _time.time() + 600}
     html = f'<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;"><h2 style="font-family:Georgia,serif;font-weight:400;">Your Harbor Privacy Login Code</h2><p>Use this code to sign in to the Harbor Privacy Windows app:</p><p style="background:#111618;border-left:3px solid #00e5c0;padding:20px;font-family:monospace;font-size:36px;color:#00e5c0;letter-spacing:0.4em;text-align:center;">{code}</p><p style="color:#6b8a87;font-size:13px;">Expires in 10 minutes.</p><p style="color:#6b8a87;font-size:13px;">- Tim | harborprivacy.com</p></div>'
     send_email(email, "Your Harbor Privacy Login Code", html)
@@ -2954,76 +2997,38 @@ Rules:
 Return JSON only with keys: {", ".join(platform_keys)}"""
     return prompt, platform_keys
 
-def _generate_image_claude(brand, topic, post_text=""):
+def _generate_image_claude(brand, topic):
     import requests as _req
-    import json as _json, uuid, os as _os
-    import cairosvg
-
+    import base64, json as _json
     if brand == "career":
-        svg_prompt = f"""Create a 1080x1080 SVG social media graphic for a career tools brand.
-Topic: {topic}
-Caption context: {post_text[:200] if post_text else topic}
-
-Design requirements:
-- Background: #f8fafb (very light gray)
-- Accent color: #34d399 (soft teal)
-- Secondary: #1e293b (dark slate for text)
-- Bold, modern typography using system fonts
-- Include a large impactful headline (5-8 words max) pulled from the topic
-- Clean geometric shapes as accents
-- Professional and optimistic feel
-- No clipart or icons, use shapes and text only
-- Make it look like a premium career brand ad
-
-Return ONLY valid SVG code starting with <svg, no explanation, no markdown."""
+        img_prompt = f"""Create a clean, light-themed social media image for a career tool about: {topic}.
+Style: white or very light gray background, soft teal (#34d399) accents, minimal geometric shapes, professional and optimistic mood, no text, no people, abstract but purposeful."""
     else:
-        svg_prompt = f"""Create a 1080x1080 SVG social media graphic for Harbor Privacy, a home network privacy service.
-Topic: {topic}
-Caption context: {post_text[:200] if post_text else topic}
-
-Design requirements:
-- Background: #0a0e0f (very dark, almost black)
-- Primary accent: #00e5c0 (teal/cyan)
-- Text color: #e8f0ef (off white)
-- Muted color: #6b8a87
-- Bold, impactful headline (5-8 words max) pulled from the topic - make it stop the scroll
-- Clean geometric elements, grid lines, or minimal shapes as accents
-- Dark tech/privacy aesthetic
-- No clipart or icons, use shapes and text only
-- Make it look like a premium privacy brand advertisement
-- Add "harborprivacy.com" in small monospace text at the bottom
-
-Return ONLY valid SVG code starting with <svg, no explanation, no markdown."""
+        img_prompt = f"""Create a dark-themed social media image for a home network privacy service about: {topic}.
+Style: very dark background (#0a0e0f), teal accent color (#00e5c0), clean geometric grid lines, tech and privacy theme, no text, no people, abstract and minimal."""
 
     try:
         r = _req.post("https://api.anthropic.com/v1/messages",
             headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY",""), "anthropic-version": "2023-06-01", "content-type": "application/json"},
             json={
-                "model": "claude-sonnet-4-6",
-                "max_tokens": 4000,
-                "messages": [{"role": "user", "content": svg_prompt}]
+                "model": "claude-opus-4-5-20251101",
+                "max_tokens": 1024,
+                "messages": [{"role": "user", "content": [
+                    {"type": "text", "text": img_prompt},
+                    {"type": "text", "text": "Generate this as a 1:1 square image suitable for Instagram. Return only the image, no explanation."}
+                ]}]
             },
             timeout=60)
         data = r.json()
-        svg_text = ""
         for block in data.get("content", []):
-            if block.get("type") == "text":
-                svg_text = block["text"].strip()
-                break
-        if not svg_text or not svg_text.startswith("<svg"):
-            print(f"SVG gen failed: {svg_text[:200]}")
-            return None
-        img_id = str(uuid.uuid4())[:8]
-        svg_path = f"/var/www/network/social-images/{img_id}.svg"
-        png_path = f"/var/www/network/social-images/{img_id}.png"
-        with open(svg_path, "w") as f:
-            f.write(svg_text)
-        cairosvg.svg2png(url=svg_path, write_to=png_path, output_width=1080, output_height=1080)
-        _os.remove(svg_path)
-        return f"https://harborprivacy.com/social-images/{img_id}.png"
-    except Exception as e:
-        print(f"Image gen error: {e}")
-        return None
+            if block.get("type") == "image":
+                b64 = block["source"]["data"]
+                mt = block["source"]["media_type"]
+                return f"data:{mt};base64,{b64}"
+    except Exception:
+        pass
+    return None
+
 def _generate_image_openai(brand, topic):
     import requests as _req
     openai_key = os.environ.get("OPENAI_API_KEY", "")
@@ -3425,6 +3430,51 @@ loadStatus();
 </script>
 </body>
 </html>"""
+
+@app.route("/api/checkout/session", methods=["POST"])
+def create_checkout_session():
+    import requests as _req
+    stripe_key = os.environ.get("STRIPE_SECRET_KEY", "")
+    if not stripe_key:
+        return jsonify({"error": "Stripe not configured"}), 500
+    try:
+        r = _req.post("https://api.stripe.com/v1/checkout/sessions",
+            auth=(stripe_key, ""),
+            data={
+                "ui_mode": "embedded",
+                "mode": "subscription",
+                "line_items[0][price]": "price_1TCTlYCOrGNrBgIf4euUONmf",
+                "line_items[0][quantity]": "1",
+                "subscription_data[trial_period_days]": "30",
+                "subscription_data[metadata][plan_type]": "remote",
+                "payment_method_collection": "if_required",
+                "return_url": "https://harborprivacy.com/welcome?session_id={CHECKOUT_SESSION_ID}",
+            },
+            timeout=10
+        )
+        data = r.json()
+        if r.status_code != 200:
+            return jsonify({"error": data.get("error", {}).get("message", "Stripe error")}), 500
+        return jsonify({"clientSecret": data["client_secret"]})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# Exempt JSON API and public endpoints from CSRF.
+# These are called via fetch() with Content-Type: application/json — browsers
+# cannot send cross-origin JSON requests without a CORS preflight, which Flask
+# does not permit, so they are not vulnerable to CSRF.
+_CSRF_EXEMPT = {
+    'log_dns_analytics', 'dns_whoami', 'dns_check',
+    'windows_send_code', 'windows_verify', 'create_checkout_session',
+    'social_autopost', 'social_status', 'social_toggle', 'social_generate',
+}
+for _ep, _fn in app.view_functions.items():
+    if (_ep.startswith('api_') or _ep.startswith('admin_delete') or
+            _ep.startswith('admin_resend') or _ep.startswith('admin_reprovision') or
+            _ep in _CSRF_EXEMPT):
+        csrf.exempt(_fn)
+
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=int(os.environ.get("DASHBOARD_PORT", 7000)), debug=False)
