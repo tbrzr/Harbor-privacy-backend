@@ -2954,38 +2954,76 @@ Rules:
 Return JSON only with keys: {", ".join(platform_keys)}"""
     return prompt, platform_keys
 
-def _generate_image_claude(brand, topic):
+def _generate_image_claude(brand, topic, post_text=""):
     import requests as _req
-    import base64, json as _json
+    import json as _json, uuid, os as _os
+    import cairosvg
+
     if brand == "career":
-        img_prompt = f"""Create a clean, light-themed social media image for a career tool about: {topic}.
-Style: white or very light gray background, soft teal (#34d399) accents, minimal geometric shapes, professional and optimistic mood, no text, no people, abstract but purposeful."""
+        svg_prompt = f"""Create a 1080x1080 SVG social media graphic for a career tools brand.
+Topic: {topic}
+Caption context: {post_text[:200] if post_text else topic}
+
+Design requirements:
+- Background: #f8fafb (very light gray)
+- Accent color: #34d399 (soft teal)
+- Secondary: #1e293b (dark slate for text)
+- Bold, modern typography using system fonts
+- Include a large impactful headline (5-8 words max) pulled from the topic
+- Clean geometric shapes as accents
+- Professional and optimistic feel
+- No clipart or icons, use shapes and text only
+- Make it look like a premium career brand ad
+
+Return ONLY valid SVG code starting with <svg, no explanation, no markdown."""
     else:
-        img_prompt = f"""Create a dark-themed social media image for a home network privacy service about: {topic}.
-Style: very dark background (#0a0e0f), teal accent color (#00e5c0), clean geometric grid lines, tech and privacy theme, no text, no people, abstract and minimal."""
+        svg_prompt = f"""Create a 1080x1080 SVG social media graphic for Harbor Privacy, a home network privacy service.
+Topic: {topic}
+Caption context: {post_text[:200] if post_text else topic}
+
+Design requirements:
+- Background: #0a0e0f (very dark, almost black)
+- Primary accent: #00e5c0 (teal/cyan)
+- Text color: #e8f0ef (off white)
+- Muted color: #6b8a87
+- Bold, impactful headline (5-8 words max) pulled from the topic - make it stop the scroll
+- Clean geometric elements, grid lines, or minimal shapes as accents
+- Dark tech/privacy aesthetic
+- No clipart or icons, use shapes and text only
+- Make it look like a premium privacy brand advertisement
+- Add "harborprivacy.com" in small monospace text at the bottom
+
+Return ONLY valid SVG code starting with <svg, no explanation, no markdown."""
 
     try:
         r = _req.post("https://api.anthropic.com/v1/messages",
             headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY",""), "anthropic-version": "2023-06-01", "content-type": "application/json"},
             json={
-                "model": "claude-opus-4-5-20251101",
-                "max_tokens": 1024,
-                "messages": [{"role": "user", "content": [
-                    {"type": "text", "text": img_prompt},
-                    {"type": "text", "text": "Generate this as a 1:1 square image suitable for Instagram. Return only the image, no explanation."}
-                ]}]
+                "model": "claude-sonnet-4-6",
+                "max_tokens": 4000,
+                "messages": [{"role": "user", "content": svg_prompt}]
             },
             timeout=60)
         data = r.json()
+        svg_text = ""
         for block in data.get("content", []):
-            if block.get("type") == "image":
-                b64 = block["source"]["data"]
-                mt = block["source"]["media_type"]
-                return f"data:{mt};base64,{b64}"
-    except Exception:
-        pass
-    return None
-
+            if block.get("type") == "text":
+                svg_text = block["text"].strip()
+                break
+        if not svg_text or not svg_text.startswith("<svg"):
+            print(f"SVG gen failed: {svg_text[:200]}")
+            return None
+        img_id = str(uuid.uuid4())[:8]
+        svg_path = f"/var/www/network/social-images/{img_id}.svg"
+        png_path = f"/var/www/network/social-images/{img_id}.png"
+        with open(svg_path, "w") as f:
+            f.write(svg_text)
+        cairosvg.svg2png(url=svg_path, write_to=png_path, output_width=1080, output_height=1080)
+        _os.remove(svg_path)
+        return f"https://harborprivacy.com/social-images/{img_id}.png"
+    except Exception as e:
+        print(f"Image gen error: {e}")
+        return None
 def _generate_image_openai(brand, topic):
     import requests as _req
     openai_key = os.environ.get("OPENAI_API_KEY", "")
