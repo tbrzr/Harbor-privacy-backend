@@ -3,10 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Harbor Privacy Pricing — DNS Ad Blocker Starting at $5.99/mo</title>
-<meta name="description" content="Harbor Privacy blocks ads, trackers, and malware on every home device. Plans start at $5.99/month. 30-day free trial. Works anywhere in the world.">
+<title>Harbor Privacy — Pricing</title>
+<meta name="description" content="Harbor Privacy pricing. Plans start at $1.99/month. Harbor Remote at $5.99/month includes Harbor Kids -- per-device filtering for families. One-time $399 on-site installation available.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://harborprivacy.com/pricing">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://harborprivacy.com/pricing">
+<meta property="og:title" content="Harbor Privacy — Pricing">
+<meta property="og:description" content="Plans start at $1.99/month. Harbor Remote at $5.99/month includes Harbor Kids for families. One-time $399 on-site install available on the South Shore.">
+<meta property="og:image" content="https://harborprivacy.com/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://harborprivacy.com/og-image.png">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
@@ -18,7 +27,8 @@
   body::before { content: ""; position: fixed; inset: 0; background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px); background-size: 60px 60px; opacity: 0.3; pointer-events: none; z-index: 0; }
 
   /* SIDEBAR */
-  .sidebar { width: var(--sidebar-width); min-height: 100vh; background: var(--surface); border-right: 1px solid var(--border); position: fixed; top: 0; left: 0; z-index: 100; display: flex; flex-direction: column; overflow-y: auto; transition: transform 0.3s ease; }
+  .sidebar { width: var(--sidebar-width); min-height: 100vh; background: var(--surface); border-right: 1px solid var(--border); position: fixed; top: 0; left: 0; z-index: 100; display: flex; flex-direction: column; overflow-y: auto; transition: transform 0.3s ease; scrollbar-width: none; -ms-overflow-style: none; }
+  .sidebar::-webkit-scrollbar { display: none; }
   .sidebar-logo { padding: 28px 24px 20px; border-bottom: 1px solid var(--border); }
   .sidebar-logo a { font-family: "DM Mono", monospace; font-size: 15px; color: var(--accent); letter-spacing: 0.1em; text-decoration: none; display: block; }
   .sidebar-logo a span { color: var(--muted); }
@@ -35,7 +45,8 @@
   .sidebar-footer { padding: 16px 24px; margin-top: auto; border-top: 1px solid var(--border); }
   .sidebar-footer a { font-family: "DM Mono", monospace; font-size: 10px; color: var(--muted); text-decoration: none; display: block; margin-bottom: 4px; }
   .mobile-nav { display: none; position: fixed; top: 0; left: 0; right: 0; height: 56px; background: var(--surface); border-bottom: 1px solid var(--border); z-index: 200; align-items: center; padding: 0 20px; justify-content: space-between; }
-  .hamburger { background: none; border: none; color: var(--text); font-size: 20px; cursor: pointer; padding: 4px; }
+  .hamburger span { display: block; width: 22px; height: 2px; background: var(--accent); margin: 4px 0; }
+  .hamburger { background: none; border: none; color: var(--text); font-size: 20px; cursor: pointer; padding: 4px; display: flex; flex-direction: column; justify-content: center; }
   .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 99; }
 
   /* MAIN */
@@ -122,18 +133,16 @@
   }
 </style>
 <script>function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open");document.getElementById("overlay").classList.toggle("open");}</script>
-</head></head>
+</head>
 <body>
 
-<script>function toggleSidebarDUP(){document.getElementById("sidebar").classList.toggle("open");document.getElementById("overlay").classList.toggle("open");}</script>
-
-<div class="mobile-nav"><button class="hamburger" onclick="toggleSidebar()" style="background:var(--surface);border:1px solid var(--border);padding:10px 12px;cursor:pointer;display:flex;flex-direction:column;gap:5px;"><span style="display:block;width:20px;height:1.5px;background:var(--accent);"></span><span style="display:block;width:20px;height:1.5px;background:var(--accent);"></span><span style="display:block;width:20px;height:1.5px;background:var(--accent);"></span></button><span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);">harbor<span style="color:var(--muted);"> / </span>privacy</span><a href="/free-trial" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--bg);background:var(--accent);color:#0a0e0f;font-weight:600;padding:6px 12px;text-decoration:none;">Try Free</a></div>
+<div class="mobile-nav"><button class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button><span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);">harbor<span style="color:var(--muted);"> / </span>privacy</span><a href="/free-trial" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--bg);background:var(--accent);padding:6px 12px;text-decoration:none;">Try Free</a></div>
 <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
 
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
     <a href="/">harbor<span>/</span>privacy</a>
-    <div class="tagline">private dns for your home</div>
+    <div class="tagline">Pembroke, MA · South Shore</div>
   </div>
   <a href="https://dashboard.harborprivacy.com" target="_blank" style="display:block;margin:16px;padding:12px 16px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;transition:all 0.2s;" onmouseover="this.style.background='#00e5c015'" onmouseout="this.style.background='transparent'">&#9635; My Dashboard</a>
   <nav>
@@ -174,11 +183,6 @@
 
 <div class="container">
 
-  <!-- PROMO BANNER -->
-  <div class="promo-banner">
-    <strong>Founders Offer</strong> &mdash; 50% off any Harbor Remote plan. Use code <span class="promo-code">FOUNDERS10</span> at checkout. First 10 only &mdash; expires April 30.
-  </div>
-
   <!-- PAGE HEADER -->
   <div class="page-tag">Pricing</div>
   <h1>Simple, honest<br><em>pricing.</em></h1>
@@ -187,9 +191,22 @@
   <!-- HARBOR REMOTE -->
   <div id="remote">
     <div class="section-header">
-      <div class="section-label">Harbor Remote &mdash; Works Anywhere</div>
-      <h2>Private DNS. No hardware, no visit.</h2>
-      <p class="section-desc">We configure a private encrypted DNS endpoint for your devices. Blocks ads, trackers, and malware automatically on every device. Cancel anytime.</p>
+      <div class="section-label">Harbor Remote &mdash; Includes Harbor Kids</div>
+      <h2>Private DNS with Harbor Kids included.</h2>
+      <p class="section-desc">Everything in Harbor Light, plus Harbor Kids -- per-device filtering and parental controls for separate devices in your home. No hardware, no visit, cancel anytime.</p>
+    </div>
+
+    <!-- HARBOR LIGHT -->
+    <div style="border:1px solid var(--border);background:var(--surface);padding:28px 32px;margin-bottom:1px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:24px;">
+      <div>
+        <div class="plan-period" style="margin-bottom:8px;">Harbor Light</div>
+        <div style="display:flex;align-items:baseline;gap:8px;">
+          <div class="plan-price">$1.99</div>
+          <div class="plan-price-sub" style="margin:0;">per month</div>
+        </div>
+        <div style="font-size:14px;color:var(--muted);margin-top:8px;max-width:420px;">Ad and tracker blocking for your devices. Great for individuals who want clean, private browsing without parental controls or per-device filtering. 30-day free trial included.</div>
+      </div>
+      <a href="https://buy.stripe.com/cNi3cugZ1dlR07380T6kg0e" target="_blank" class="plan-btn outline" style="white-space:nowrap;padding:12px 24px;font-size:12px;">Start Free Trial &#8594;</a>
     </div>
 
     <div class="remote-grid">
@@ -223,7 +240,7 @@
         <a href="https://buy.stripe.com/9B69AS6knepVbPL2Gz6kg09" target="_blank" class="plan-btn">Get Started &#8594;</a>
       </div>
     </div>
-    <p class="price-note">* Use code FOUNDERS10 for 50% off at checkout. Free trial included on monthly plan. Cancel anytime.</p>
+    <p class="price-note">* Harbor Kids included — per-device filtering and parental controls for separate devices. Free trial included on monthly plan. Cancel anytime.</p>
   </div>
 
   <hr class="section-divider">
@@ -281,7 +298,7 @@
             <a href="https://buy.stripe.com/aFa28q6kn6Xt6vr94X6kg03" target="_blank" class="addon-link">Pay now &#8594;</a>
           </div>
         </div>
-        <p class="price-note">* Travel outside South Shore may incur additional fee. Use code FOUNDERS10INSTALL for 10% off your install.</p>
+        <p class="price-note">* Travel outside South Shore may incur additional fee.</p>
       </div>
     </div>
   </div>
