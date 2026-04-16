@@ -917,13 +917,12 @@ def dashboard():
 
     rules = get_client_rules(client_id) if client_id else []
     family_safe = client.get("parental_enabled", False) if client else False
-    plan_type = customer.get("plan_type", "remote") if customer else "remote"
-    is_active = customer.get("status", "active") == "active" if customer else False
+    plan_type = customer.get("plan_type", "") if customer else ""
+    is_active = customer.get("active", True) if customer else False
     harbor_kids = True if (customer and plan_type != "harbor-remote-light" and is_active) else customer.get("harbor_kids", False) if customer else False
     filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
-    is_founder = customer.get("is_founder", False) if customer else False
-    plan_type = customer.get("plan_type", "") if customer else ""
+    is_founder = customer.get("is_founder", False) if customer else ""
     is_trial = customer.get("is_trial", False) if customer else False
     plan_badge = ""
 
@@ -1746,8 +1745,8 @@ def admin_customer(client_id):
     family_safe = client.get("parental_enabled", False) if client else False
     filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
-    plan_type = customer.get("plan_type", "remote") if customer else "remote"
-    is_active = customer.get("status", "active") == "active" if customer else False
+    plan_type = customer.get("plan_type", "") if customer else ""
+    is_active = customer.get("active", True) if customer else False
     harbor_kids = True if (customer and plan_type != "harbor-remote-light" and is_active) else customer.get("harbor_kids", False) if customer else False
     is_founder = customer.get("is_founder", False) if customer else False
     cstats = get_client_stats(client_id)
@@ -3393,10 +3392,6 @@ loadStatus();
 </html>"""
 
 
-
-
-
-
 @app.route("/api/checkout/session", methods=["POST"])
 def create_checkout_session():
     import stripe
@@ -3405,7 +3400,7 @@ def create_checkout_session():
         session = stripe.checkout.Session.create(
             mode="subscription",
             ui_mode="embedded_page",
-            line_items=[{"price": "price_1TCTlYCOrGNrBgIf4euUONmf", "quantity": 1}],
+            line_items=[{"price": "price_1TE36NCOrGNrBgIf2T8ApaAG", "quantity": 1}],
             return_url="https://harborprivacy.com/welcome?session_id={CHECKOUT_SESSION_ID}",
             subscription_data={"trial_period_days": 30},
             payment_method_collection="if_required",

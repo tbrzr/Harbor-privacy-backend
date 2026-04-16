@@ -838,5 +838,67 @@ def send_resume_review_email(job):
     except Exception as e:
         print(f"Email send failed: {e}")
 
+
+@app.route('/api/checkout/coverletter', methods=['POST'])
+def checkout_coverletter():
+    import stripe
+    stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+    data = request.get_json() or {}
+    job_id = data.get('job_id', '')
+    email = data.get('email', '')
+    try:
+        session = stripe.checkout.Session.create(
+            mode='payment',
+            ui_mode='embedded_page',
+            line_items=[{'price': 'price_1TJp41COrGNrBgIfigsCPnXk', 'quantity': 1}],
+            client_reference_id=job_id,
+            customer_email=email or None,
+            return_url=f'https://career.harborprivacy.com/processing?job_id={job_id}',
+        )
+        return jsonify({'clientSecret': session.client_secret})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/checkout/resume', methods=['POST'])
+def checkout_resume():
+    import stripe
+    stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+    data = request.get_json() or {}
+    job_id = data.get('job_id', '')
+    email = data.get('email', '')
+    try:
+        session = stripe.checkout.Session.create(
+            mode='payment',
+            ui_mode='embedded_page',
+            line_items=[{'price': 'price_1TJovtCOrGNrBgIfyZJVIQEc', 'quantity': 1}],
+            client_reference_id=job_id,
+            customer_email=email or None,
+            return_url=f'https://resume.harborprivacy.com/processing?job_id={job_id}',
+        )
+        return jsonify({'clientSecret': session.client_secret})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/checkout/adjust', methods=['POST'])
+def checkout_adjust():
+    import stripe
+    stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+    data = request.get_json() or {}
+    job_id = data.get('job_id', '')
+    adj_count = data.get('adj_count', 1)
+    email = data.get('email', '')
+    try:
+        session = stripe.checkout.Session.create(
+            mode='payment',
+            ui_mode='embedded_page',
+            line_items=[{'price': 'price_1TJmbTCOrGNrBgIfi1sZQTuF', 'quantity': 1}],
+            client_reference_id=f'{job_id}_adjust_{adj_count}',
+            customer_email=email or None,
+            return_url=f'https://career.harborprivacy.com/success',
+        )
+        return jsonify({'clientSecret': session.client_secret})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=7100, debug=False)
