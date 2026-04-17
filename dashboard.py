@@ -917,11 +917,12 @@ def dashboard():
 
     rules = get_client_rules(client_id) if client_id else []
     family_safe = client.get("parental_enabled", False) if client else False
+    plan_type = customer.get("plan_type", "") if customer else ""
+    is_active = customer.get("active", True) if customer else False
     harbor_kids = True if (customer and plan_type != "harbor-remote-light" and is_active) else customer.get("harbor_kids", False) if customer else False
     filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
-    plan_type = customer.get("plan_type", "") if customer else ""
     is_trial = customer.get("is_trial", False) if customer else False
     plan_badge = ""
 
@@ -1744,6 +1745,8 @@ def admin_customer(client_id):
     family_safe = client.get("parental_enabled", False) if client else False
     filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
+    plan_type = customer.get("plan_type", "") if customer else ""
+    is_active = customer.get("active", True) if customer else False
     harbor_kids = True if (customer and plan_type != "harbor-remote-light" and is_active) else customer.get("harbor_kids", False) if customer else False
     is_founder = customer.get("is_founder", False) if customer else False
     cstats = get_client_stats(client_id)
@@ -3389,14 +3392,15 @@ loadStatus();
 </html>"""
 
 
-@app.route("/api/trial/start", methods=["POST"])
+@app.route("/begin", methods=["POST"])
 def start_trial():
     import sys, uuid
     sys.path.insert(0, '/home/ubuntu/harbor-backend')
     from webhook import create_adguard_client, add_to_allowed_clients, save_ios_profile, generate_qr_code, log_customer, send_welcome_email, generate_client_id
     try:
         data = request.get_json(silent=True) or {}
-        email = data.get("email", "").strip().lower()
+        email = (data.get("email") if data else None) or request.form.get("email", "")
+        email = email.strip().lower()
         if not email or "@" not in email:
             return jsonify({"error": "Valid email required"}), 400
         customers = load_customers()
@@ -3410,6 +3414,8 @@ def start_trial():
         generate_qr_code(client_id)
         log_customer(client_id, name, email, "remote", "", plan_type="harbor-remote-light", is_trial=True, status="trial")
         send_welcome_email(email, name, client_id, "remote", profile_url, "", plan_type="harbor-remote-light")
+        if request.form.get("email"):
+            return redirect("/welcome")
         return jsonify({"ok": True, "redirect": "/welcome"})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
