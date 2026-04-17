@@ -71,7 +71,7 @@ def load_customers():
             for line in f:
                 try:
                     r = json.loads(line.strip())
-                    if r.get("status") == "active":
+                    if r.get("status") in ("active", "trial"):
                         customers.append(r)
                 except:
                     pass
@@ -917,12 +917,11 @@ def dashboard():
 
     rules = get_client_rules(client_id) if client_id else []
     family_safe = client.get("parental_enabled", False) if client else False
-    plan_type = customer.get("plan_type", "") if customer else ""
-    is_active = customer.get("active", True) if customer else False
     harbor_kids = True if (customer and plan_type != "harbor-remote-light" and is_active) else customer.get("harbor_kids", False) if customer else False
     filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
-    is_founder = customer.get("is_founder", False) if customer else ""
+    is_founder = customer.get("is_founder", False) if customer else False
+    plan_type = customer.get("plan_type", "") if customer else ""
     is_trial = customer.get("is_trial", False) if customer else False
     plan_badge = ""
 
@@ -1745,8 +1744,6 @@ def admin_customer(client_id):
     family_safe = client.get("parental_enabled", False) if client else False
     filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
-    plan_type = customer.get("plan_type", "") if customer else ""
-    is_active = customer.get("active", True) if customer else False
     harbor_kids = True if (customer and plan_type != "harbor-remote-light" and is_active) else customer.get("harbor_kids", False) if customer else False
     is_founder = customer.get("is_founder", False) if customer else False
     cstats = get_client_stats(client_id)
@@ -3392,22 +3389,30 @@ loadStatus();
 </html>"""
 
 
-@app.route("/api/checkout/session", methods=["POST"])
-def create_checkout_session():
-    import stripe
-    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+@app.route("/api/trial/start", methods=["POST"])
+def start_trial():
+    import sys, uuid
+    sys.path.insert(0, '/home/ubuntu/harbor-backend')
+    from webhook import create_adguard_client, add_to_allowed_clients, save_ios_profile, generate_qr_code, log_customer, send_welcome_email, generate_client_id
     try:
-        session = stripe.checkout.Session.create(
-            mode="subscription",
-            ui_mode="embedded_page",
-            line_items=[{"price": "price_1TE36NCOrGNrBgIf2T8ApaAG", "quantity": 1}],
-            return_url="https://harborprivacy.com/welcome?session_id={CHECKOUT_SESSION_ID}",
-            subscription_data={"trial_period_days": 30},
-            payment_method_collection="if_required",
-        )
-        return jsonify({"clientSecret": session.client_secret})
+        data = request.get_json(silent=True) or {}
+        email = data.get("email", "").strip().lower()
+        if not email or "@" not in email:
+            return jsonify({"error": "Valid email required"}), 400
+        customers = load_customers()
+        if any(c.get("email") == email for c in customers):
+            return jsonify({"error": "already_exists"}), 409
+        name = email.split("@")[0].capitalize()
+        client_id = generate_client_id(name, email)
+        create_adguard_client(client_id, name)
+        add_to_allowed_clients(client_id)
+        profile_url = save_ios_profile(client_id, name)
+        generate_qr_code(client_id)
+        log_customer(client_id, name, email, "remote", "", plan_type="harbor-remote-light", is_trial=True, status="trial")
+        send_welcome_email(email, name, client_id, "remote", profile_url, "", plan_type="harbor-remote-light")
+        return jsonify({"ok": True, "redirect": "/welcome"})
     except Exception as e:
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=int(os.environ.get("DASHBOARD_PORT", 7000)), debug=False)
