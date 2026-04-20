@@ -2910,6 +2910,20 @@ Both tools delete your data within 2 hours. No account needed."""
         cta_fb = "career.harborprivacy.com"
         cta_ig = "Link in bio"
         cta_li = "career.harborprivacy.com"
+    elif brand == "fax":
+        context = """Harbor Privacy Fax is an anonymous fax service at fax.harborprivacy.com. $2.99/fax up to 10 pages. No account required. Documents are permanently deleted the moment delivery is confirmed. Operates under the HIPAA conduit exception. Supports PDF, images, and Word docs. Send from your phone in under 2 minutes."""
+        problem_angles = [
+            "Doctors, lawyers, and insurance companies still require fax. Most people don't own a fax machine.",
+            "You shouldn't have to create an account just to send one medical record.",
+            "Most online fax services store your documents on their servers. Harbor Privacy Fax deletes yours the moment it delivers.",
+            "HIPAA still requires fax for many medical record requests. Here's how to send one from your phone.",
+            "Your legal documents deserve more privacy than an email attachment. Fax is still the standard -- and now it's anonymous.",
+        ]
+        import random
+        problem = random.choice(problem_angles)
+        cta_fb = "fax.harborprivacy.com -- no account needed"
+        cta_ig = "Link in bio -- send a fax from your phone"
+        cta_li = "fax.harborprivacy.com"
     else:
         context = """Harbor Privacy is a managed home network privacy service. Harbor Light $1.99/mo (ad and tracker blocking). Harbor Remote $5.99/mo with 30-day free trial (full privacy on any network). Blocks ads before they load, stops trackers, blocks malware. Works on every device automatically. No tech knowledge needed."""
         problem_angles = [
@@ -2958,7 +2972,7 @@ def _generate_image_claude(brand, topic):
     import requests as _req
     import base64, json as _json
     if brand == "career":
-        img_prompt = f"""Create a clean, light-themed social media image for a career tool about: {topic}.
+        img_prompt = f"""Create a dark-themed social media image for Harbor Privacy Fax -- anonymous fax service, dark background, teal accent, minimal and professional, about: {topic}.""" if brand == "fax" else f"""Create a dark-themed social media image for Harbor Privacy Fax -- anonymous fax service, dark background, teal accent, minimal and professional, about: {topic}.""" if brand == "fax" else f"""Create a clean, light-themed social media image for a career tool about: {topic}.
 Style: white or very light gray background, soft teal (#34d399) accents, minimal geometric shapes, professional and optimistic mood, no text, no people, abstract but purposeful."""
     else:
         img_prompt = f"""Create a dark-themed social media image for a home network privacy service about: {topic}.
@@ -3000,7 +3014,15 @@ def _generate_image_openai(brand, topic):
             headers={"Authorization": f"Bearer {openai_key}", "Content-Type": "application/json"},
             json={"model": "dall-e-3", "prompt": img_prompt, "n": 1, "size": "1024x1024"},
             timeout=60)
-        return r.json()["data"][0]["url"]
+        temp_url = r.json()["data"][0]["url"]
+        # Download immediately and serve from harborprivacy.com
+        import time as _t, pathlib
+        img_dir = pathlib.Path("/var/www/network/social-images")
+        img_dir.mkdir(exist_ok=True)
+        fname = f"social-{brand}-{int(_t.time())}.png"
+        img_data = _req.get(temp_url, timeout=30).content
+        (img_dir / fname).write_bytes(img_data)
+        return f"https://harborprivacy.com/social-images/{fname}"
     except Exception:
         return None
 
@@ -3190,6 +3212,7 @@ input:focus,textarea:focus{border-color:var(--accent);}
   <div class="brand-switcher">
     <button class="brand-btn active" id="btnHarbor" onclick="setBrand('harbor')">HARBOR PRIVACY</button>
     <button class="brand-btn" id="btnCareer" onclick="setBrand('career')">CAREER BY HARBOR</button>
+    <button class="brand-btn" id="btnFax" onclick="setBrand('fax')">HARBOR FAX</button>
   </div>
 
   <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:20px 28px;">
@@ -3269,13 +3292,27 @@ var careerTopics = [
 function setBrand(brand) {
   currentBrand = brand;
   var isCareer = brand === "career";
+  var isFax = brand === "fax";
   document.body.className = isCareer ? "career-mode" : "";
-  document.getElementById("btnHarbor").className = "brand-btn" + (isCareer ? "" : " active");
+  document.getElementById("btnHarbor").className = "brand-btn" + (brand === "harbor" ? " active" : "");
   document.getElementById("btnCareer").className = "brand-btn" + (isCareer ? " active" : "");
-  document.getElementById("pageTitle").textContent = isCareer ? "Career by Harbor -- Social" : "Social Scheduler";
-  document.getElementById("pageSub").textContent = isCareer ? "Generate career-focused posts. Light theme. Problem-first strategy." : "Generate daily posts for Facebook and Instagram. Problem-first strategy.";
-  renderChips(isCareer ? careerTopics : harborTopics);
-  document.getElementById("topicInput").value = isCareer ? careerTopics[0] : harborTopics[0];
+  document.getElementById("btnFax").className = "brand-btn" + (isFax ? " active" : "");
+  if (isCareer) {
+    document.getElementById("pageTitle").textContent = "Career by Harbor -- Social";
+    document.getElementById("pageSub").textContent = "Generate career-focused posts. Light theme. Problem-first strategy.";
+    renderChips(careerTopics);
+    document.getElementById("topicInput").value = careerTopics[0];
+  } else if (isFax) {
+    document.getElementById("pageTitle").textContent = "Harbor Privacy Fax -- Social";
+    document.getElementById("pageSub").textContent = "Generate posts for the fax service. Privacy-first, HIPAA conduit, anonymous fax angle.";
+    renderChips(faxTopics);
+    document.getElementById("topicInput").value = faxTopics[0];
+  } else {
+    document.getElementById("pageTitle").textContent = "Social Scheduler";
+    document.getElementById("pageSub").textContent = "Generate daily posts for Facebook and Instagram. Problem-first strategy.";
+    renderChips(harborTopics);
+    document.getElementById("topicInput").value = harborTopics[0];
+  }
   document.getElementById("resultsCard").style.display = "none";
 }
 
@@ -3382,6 +3419,16 @@ async function toggleAutoPost() {
   updateToggleUI(data.enabled);
 }
 
+var faxTopics = [
+  "Send a fax anonymously -- no account needed",
+  "HIPAA conduit exception -- what it means for medical records",
+  "Why lawyers still use fax in 2026",
+  "Send medical records without a fax machine",
+  "No phone line needed -- fax from your phone in 60 seconds",
+  "Your fax document is deleted the moment it delivers",
+  "Anonymous fax for legal documents",
+  "Privacy-first faxing for healthcare professionals",
+];
 setBrand("harbor");
 loadStatus();
 </script>
