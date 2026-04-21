@@ -724,6 +724,42 @@ def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url
 </div>
 </p><div style="border-top:1px solid #1e2a2d;padding-top:20px;margin-top:20px;">{('<a href="' + invoice_url + '" style="display:inline-block;background:#00e5c0;color:#0a0e0f;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;margin-right:8px;">View Invoice &#8594;</a>') if invoice_url else ''}<a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" style="display:inline-block;border:1px solid #00e5c0;color:#00e5c0;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Manage Subscription &#8594;</a></div><p style="padding-top:24px;color:#6b8a87;">Questions? Reply or text <strong style="color:#e8f0ef;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a></p>
 </div>'''
+    elif plan == "trial":
+        dot_host = f"{client_id}.doh.harborprivacy.com"
+        ios_btn = f'<p><a href="{profile_url}" style="display:inline-block;background:#00e5c0;color:#0a0e0f;padding:12px 24px;text-decoration:none;font-family:monospace;font-size:13px;">Download iOS DNS Profile</a></p><p style="font-size:12px;color:#6b8a87;">Tap on iPhone/iPad then Settings > General > VPN &amp; Device Management > Install</p>' if profile_url else ""
+        dashboard_url = f"https://dashboard.harborprivacy.com/login?email={email}&client_id={client_id}"
+        html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
+<h1 style="font-family:Georgia,serif;font-weight:400;">Your 30-Day Free Trial is Ready</h1>
+<p>Hi {name},</p>
+<p>Your Harbor Privacy account is set up and your private DNS is active. Here's everything you need to get started.</p>
+<h2 style="font-family:Georgia,serif;font-weight:400;">Your Personal DNS Address</h2>
+<p style="font-family:monospace;font-size:10px;color:#6b8a87;letter-spacing:0.1em;margin-bottom:4px;">ANDROID PRIVATE DNS HOSTNAME</p>
+<p style="background:#111618;border-left:3px solid #00e5c0;padding:16px;font-family:monospace;font-size:14px;color:#00e5c0;word-break:break-all;margin-bottom:16px;">{dot_host}</p>
+<p style="font-family:monospace;font-size:10px;color:#6b8a87;letter-spacing:0.1em;margin-bottom:4px;">DNS OVER HTTPS</p>
+<p style="background:#111618;border-left:3px solid #1e2a2d;padding:14px;font-family:monospace;font-size:13px;color:#6b8a87;word-break:break-all;margin-bottom:24px;">{doh}</p>
+<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">iPhone / iPad</h3>
+<p style="color:#6b8a87;font-size:13px;margin-bottom:12px;"><strong style="color:#e8f0ef;">Note:</strong> You may see an "Unsigned" notice when installing -- this is normal and safe. The profile only sets your DNS.</p>
+{ios_btn}
+<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">Android</h3>
+<ol style="color:#6b8a87;font-size:13px;margin-bottom:16px;">
+<li>Settings &rarr; Network &amp; Internet &rarr; Private DNS</li>
+<li>Select <strong style="color:#e8f0ef;">Private DNS provider hostname</strong></li>
+<li>Enter: <strong style="color:#e8f0ef;">{dot_host}</strong></li>
+<li>Tap Save</li>
+</ol>
+<p><a href="https://harborprivacy.com/setup/android/{client_id}.html" style="display:inline-block;background:transparent;border:1px solid #00e5c0;color:#00e5c0;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Android Setup Guide + QR Code &rarr;</a></p>
+<div style="background:#111618;border:1px solid #00e5c0;padding:20px;margin:28px 0;">
+<p style="font-family:monospace;font-size:11px;color:#00e5c0;letter-spacing:0.1em;margin-bottom:8px;">YOUR DASHBOARD</p>
+<p style="color:#e8f0ef;margin-bottom:16px;">View your DNS stats, manage settings, and upgrade when you're ready.</p>
+<a href="{dashboard_url}" style="background:#00e5c0;color:#0a0e0f;padding:12px 24px;text-decoration:none;font-family:monospace;font-size:12px;font-weight:700;">Sign In to Dashboard &rarr;</a>
+</div>
+<div style="background:#111618;border:1px solid #1e2a2d;padding:20px;margin-bottom:24px;">
+<p style="font-family:monospace;font-size:11px;color:#6b8a87;letter-spacing:0.1em;margin-bottom:8px;">AFTER YOUR TRIAL</p>
+<p style="color:#6b8a87;font-size:13px;">Harbor Light is $3.99/mo after your 30-day trial. No credit card needed today -- you'll get a reminder before it ends.</p>
+</div>
+<p style="border-top:1px solid #1e2a2d;padding-top:24px;color:#6b8a87;">Questions? Reply to this email or text <strong style="color:#e8f0ef;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a></p>
+</div>'''
+        send_email(email, "Your Harbor Privacy free trial is ready", html)
     else:
         html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
 <h1 style="font-family:Georgia,serif;font-weight:400;">Installation Confirmed</h1>

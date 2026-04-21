@@ -698,18 +698,18 @@ def login():
                     error = "Session expired. Please start over."
                     step = "1"
                     email = ""
-                elif not bcrypt.checkpw(password.encode(), user["password"].encode()):
+                elif not (session.get("pw_verified") == email) and not bcrypt.checkpw(password.encode(), user["password"].encode()):
                     record_failed_login(ip)
                     error = "Incorrect password."
                     step = "2"
                     show_2fa = bool(user.get("totp_secret"))
                 else:
                     if user.get("totp_secret"):
-                        if not totp_code:
+                        if not totp_code and session.get("pw_verified") != email:
                             session["pw_verified"] = email
                             show_2fa = True
                             step = "2"
-                        elif session.get("pw_verified") != email:
+                        elif session.get("pw_verified") != email and not totp_code:
                             error = "Session expired. Please start over."
                             step = "1"
                             session.pop("pw_verified", None)
@@ -945,11 +945,11 @@ def dashboard():
 
     rules = get_client_rules(client_id) if client_id else []
     family_safe = client.get("parental_enabled", False) if client else False
+    plan_type = customer.get("plan_type", "") if customer else ""
     harbor_kids = True if (customer and plan_type != "harbor-remote-light" and is_active) else customer.get("harbor_kids", False) if customer else False
     filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
-    plan_type = customer.get("plan_type", "") if customer else ""
     is_trial = customer.get("is_trial", False) if customer else False
     plan_badge = ""
 
@@ -3092,6 +3092,53 @@ def social_generate():
         "image_url": image_url
     })
 
+@app.route("/begin", methods=["POST"])
+def begin_trial():
+    import json as _json
+    from webhook import (generate_client_id, create_adguard_client, save_ios_profile,
+                         log_customer, send_welcome_email, add_to_allowed_clients,
+                         generate_android_page, generate_qr_code)
+    try:
+        data = request.get_json(silent=True) or {}
+        email = (data.get("email") or request.form.get("email", "")).strip().lower()
+        if not email or "@" not in email:
+            return jsonify({"error": "Valid email required"}), 400
+
+        # Check for duplicate
+        try:
+            with open("/home/ubuntu/harbor-backend/harbor-customers.json") as f:
+                customers = _json.load(f)
+        except Exception:
+            customers = {}
+        for cid, c in customers.items():
+            if c.get("email", "").lower() == email:
+                return jsonify({"error": "An account with that email already exists."}), 409
+
+        name = email.split("@")[0].capitalize()
+        client_id = generate_client_id(name, email)
+        plan = "trial"
+        plan_type = "light"
+
+        # Build AdGuard client
+        create_adguard_client(client_id, name)
+        add_to_allowed_clients(client_id)
+        save_ios_profile(client_id, name)
+        generate_android_page(client_id)
+        generate_qr_code(client_id)
+
+        profile_url = f"https://harborprivacy.com/profiles/{client_id}.mobileconfig"
+        log_customer(client_id, name, email, plan, stripe_customer_id="",
+                     plan_type=plan_type, is_trial=True, status="active")
+        send_welcome_email(email, name, client_id, plan, profile_url=profile_url, plan_type=plan_type)
+
+        # JSON for fetch() calls, redirect for direct form POST
+        if request.is_json:
+            return jsonify({"ok": True, "message": "Check your email for setup instructions."})
+        return redirect("https://harborprivacy.com/welcome.html")
+    except Exception as e:
+        log.error(f"/begin error: {e}")
+        return jsonify({"error": "Something went wrong. Please try again."}), 500
+
 @app.route("/api/social/post-to-make", methods=["POST"])
 @admin_required
 def post_to_make():
@@ -3207,123 +3254,196 @@ SOCIAL_HTML = """<!DOCTYPE html>
 <title>Social Scheduler -- Harbor Privacy</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+<link rel="manifest" href="/social-app.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="HP Social">
+<meta name="theme-color" content="#00e5c0">
+<link rel="apple-touch-icon" href="/social-icon-192.png">
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/social-sw.js").catch(function(){});
+}
+</script>
 <style>
-:root{--bg:#0a0e0f;--surface:#111618;--border:#1e2a2d;--accent:#00e5c0;--text:#e8f0ef;--muted:#6b8a87;}
+:root{--bg:#0a0e0f;--surface:#111618;--border:#1e2a2d;--accent:#00e5c0;--text:#e8f0ef;--muted:#6b8a87;--accent-hover:#00ffda;}
 .career-mode{--bg:#f7f9f8;--surface:#ffffff;--border:#d4e8e2;--accent:#34d399;--text:#0f2921;--muted:#4b7263;}
+.tim-mode{--bg:#0f1923;--surface:#121e28;--border:#1e3040;--accent:#4a9edd;--text:#e8eef3;--muted:#7a9bb5;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:var(--bg);color:var(--text);font-family:"DM Sans",sans-serif;line-height:1.7;transition:background 0.3s,color 0.3s;}
 body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:0.3;pointer-events:none;z-index:0;}
-nav{padding:16px 32px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;background:var(--surface);}
+nav{padding:0;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:10;background:var(--surface);}
+.nav-top{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);}
 .logo{font-family:"DM Mono",monospace;font-size:14px;color:var(--accent);letter-spacing:0.1em;text-decoration:none;}
 .logo span{color:var(--muted);}
-.nav-links{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.nav-links{display:flex;gap:20px;align-items:center;padding:10px 24px;}
 .nav-links a{font-family:"DM Mono",monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.06em;}
 .nav-links a:hover,.nav-links a.active{color:var(--accent);}
 .badge-admin{background:#7c3aed;color:#fff;font-family:"DM Mono",monospace;font-size:9px;padding:2px 8px;letter-spacing:0.1em;}
-.container{max-width:800px;margin:0 auto;padding:48px 24px;position:relative;z-index:1;}
-h1{font-family:"DM Serif Display",serif;font-size:32px;font-weight:400;margin-bottom:8px;}
-.sub{color:var(--muted);font-size:14px;margin-bottom:40px;}
-.card{background:var(--surface);border:1px solid var(--border);padding:28px;margin-bottom:24px;}
+.container{max-width:860px;margin:0 auto;padding:32px 20px;position:relative;z-index:1;}
+h1{font-family:"DM Serif Display",serif;font-size:28px;font-weight:400;margin-bottom:4px;}
+.sub{color:var(--muted);font-size:13px;margin-bottom:28px;}
+.card{background:var(--surface);border:1px solid var(--border);padding:24px;margin-bottom:20px;border-radius:2px;}
 label{font-family:"DM Mono",monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;display:block;margin-bottom:8px;}
-input,textarea,select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:"DM Mono",monospace;font-size:13px;padding:10px 14px;margin-bottom:16px;outline:none;}
+input,textarea,select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:"DM Mono",monospace;font-size:13px;padding:10px 14px;margin-bottom:16px;outline:none;border-radius:2px;}
 input:focus,textarea:focus{border-color:var(--accent);}
-.btn{background:var(--accent);color:var(--bg);border:none;padding:12px 28px;font-family:"DM Mono",monospace;font-size:12px;letter-spacing:0.1em;cursor:pointer;font-weight:600;}
-.btn:hover{opacity:0.9;}
-.btn:disabled{background:var(--muted);cursor:not-allowed;}
-.btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:"DM Mono",monospace;font-size:11px;cursor:pointer;}
+.btn{background:var(--accent);color:var(--bg);border:none;padding:14px 28px;font-family:"DM Mono",monospace;font-size:12px;letter-spacing:0.1em;cursor:pointer;font-weight:600;border-radius:2px;transition:opacity 0.2s;}
+.btn:hover{opacity:0.88;}
+.btn:disabled{background:var(--muted);cursor:not-allowed;opacity:0.6;}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted);padding:12px 20px;font-family:"DM Mono",monospace;font-size:11px;cursor:pointer;border-radius:2px;transition:all 0.2s;}
 .btn-outline:hover{border-color:var(--accent);color:var(--accent);}
-.btn-copy{background:transparent;border:1px solid var(--accent);color:var(--accent);padding:8px 16px;font-family:"DM Mono",monospace;font-size:11px;cursor:pointer;margin-top:8px;}
-.btn-copy:hover{background:rgba(52,211,153,0.1);}
-.post-box{background:var(--bg);border:1px solid var(--border);padding:16px;font-size:14px;color:var(--text);line-height:1.7;white-space:pre-wrap;min-height:80px;margin-bottom:8px;}
-.img-preview{width:100%;max-width:400px;border:1px solid var(--border);display:block;margin:16px 0;}
+.btn-copy{background:transparent;border:1px solid var(--accent);color:var(--accent);padding:10px 18px;font-family:"DM Mono",monospace;font-size:11px;cursor:pointer;border-radius:2px;margin-top:8px;transition:background 0.2s;}
+.btn-copy:hover{background:rgba(0,229,192,0.08);}
+.btn-linkedin{background:#0a66c2;color:#fff;border:none;padding:14px 24px;font-family:"DM Mono",monospace;font-size:11px;letter-spacing:0.08em;cursor:pointer;border-radius:2px;display:inline-flex;align-items:center;gap:8px;font-weight:600;transition:background 0.2s;}
+.btn-linkedin:hover{background:#0958a8;}
+.btn-linkedin svg{width:16px;height:16px;fill:#fff;flex-shrink:0;}
+.post-box{background:var(--bg);border:1px solid var(--border);padding:16px;font-size:14px;color:var(--text);line-height:1.7;white-space:pre-wrap;min-height:80px;margin-bottom:8px;border-radius:2px;cursor:text;}
+.post-box:focus{outline:1px solid var(--accent);}
+.img-preview{width:100%;max-width:360px;border:1px solid var(--border);display:block;margin:12px 0;border-radius:2px;}
 .platform-label{font-family:"DM Mono",monospace;font-size:10px;color:var(--muted);letter-spacing:0.15em;margin-bottom:8px;}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;vertical-align:middle;margin-right:8px;}
 @keyframes spin{to{transform:rotate(360deg);}}
-.topics{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
-.topic-chip{background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 12px;font-family:"DM Mono",monospace;font-size:10px;cursor:pointer;letter-spacing:0.05em;}
-.topic-chip:hover{border-color:var(--accent);color:var(--accent);}
-.brand-switcher{display:flex;gap:0;margin-bottom:32px;border:1px solid var(--border);}
-.brand-btn{flex:1;padding:12px;font-family:"DM Mono",monospace;font-size:11px;letter-spacing:0.1em;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all 0.2s;}
+.topics{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;}
+.topic-chip{background:transparent;border:1px solid var(--border);color:var(--muted);padding:6px 12px;font-family:"DM Mono",monospace;font-size:10px;cursor:pointer;letter-spacing:0.05em;border-radius:2px;transition:all 0.15s;}
+.topic-chip:hover,.topic-chip.selected{border-color:var(--accent);color:var(--accent);background:rgba(0,229,192,0.05);}
+.brand-switcher{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin-bottom:28px;border:1px solid var(--border);border-radius:2px;overflow:hidden;}
+.brand-btn{padding:10px 4px;font-family:"DM Mono",monospace;font-size:9px;letter-spacing:0.08em;cursor:pointer;border:none;border-right:1px solid var(--border);background:transparent;color:var(--muted);transition:all 0.2s;white-space:nowrap;}
+.brand-btn:last-child{border-right:none;}
 .brand-btn.active{background:var(--accent);color:var(--bg);font-weight:600;}
+.platform-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);}
+.platform-row:last-child{border-bottom:none;}
+.platform-name{font-size:14px;color:var(--text);display:flex;align-items:center;gap:8px;}
+.platform-icon{font-size:16px;}
+.toggle-btn{font-family:"DM Mono",monospace;font-size:10px;padding:6px 16px;border:1px solid var(--accent);color:var(--accent);background:transparent;cursor:pointer;border-radius:2px;letter-spacing:0.1em;transition:all 0.2s;min-width:48px;}
+.toggle-btn.off{border-color:var(--border);color:var(--muted);}
+.results-grid{display:grid;gap:20px;}
+.platform-card{background:var(--bg);border:1px solid var(--border);border-radius:2px;padding:18px;}
+.action-bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:20px;padding-top:20px;border-top:1px solid var(--border);}
+.status-msg{font-family:monospace;font-size:12px;color:var(--muted);flex:1;min-width:0;}
+.status-msg.ok{color:var(--accent);}
+.status-msg.err{color:#f87171;}
+.autopost-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+.char-count{font-family:"DM Mono",monospace;font-size:10px;color:var(--muted);text-align:right;margin-top:4px;}
 </style>
 </head>
 <body>
-<nav style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);">
+<nav>
+  <div class="nav-top">
     <a href="/admin" class="logo">harbor<span>/</span>privacy</a>
     <span class="badge-admin">ADMIN</span>
   </div>
-  <div class="nav-links" style="padding:10px 24px;border-bottom:1px solid var(--border);justify-content:flex-start;gap:20px;">
-    <a href="https://harborprivacy.com" style="font-size:10px;">← Site</a>
+  <div class="nav-links">
+    <a href="https://harborprivacy.com" style="font-size:10px;">&#8592; Site</a>
     <a href="/admin">Customers</a>
     <a href="/social" class="active">Social</a>
     <a href="/settings">Settings</a>
     <a href="/logout" style="margin-left:auto;">Sign Out</a>
   </div>
 </nav>
+
 <div class="container">
   <h1 id="pageTitle">Social Scheduler</h1>
-  <p class="sub" id="pageSub">Generate daily posts for Facebook and Instagram. Problem-first strategy.</p>
+  <p class="sub" id="pageSub">Generate posts for Facebook, Instagram, and LinkedIn.</p>
 
+  <!-- Brand tabs -->
   <div class="brand-switcher">
-    <button class="brand-btn active" id="btnHarbor" onclick="setBrand('harbor')">HARBOR PRIVACY</button>
-    <button class="brand-btn" id="btnCareer" onclick="setBrand('career')">CAREER BY HARBOR</button>
-    <button class="brand-btn" id="btnFax" onclick="setBrand('fax')">HARBOR FAX</button>
+    <button class="brand-btn active" id="btnHarbor" onclick="setBrand('harbor')">HARBOR DNS</button>
+    <button class="brand-btn" id="btnCareer" onclick="setBrand('career')">CAREER</button>
+    <button class="brand-btn" id="btnFax" onclick="setBrand('fax')">FAX</button>
+    <button class="brand-btn" id="btnTim" onclick="setBrand('tim')">TIM BRAZER</button>
+    <button class="brand-btn" id="btnAuto" onclick="setBrand('auto')">AUTO</button>
   </div>
 
-  <div class="card" style="display:flex;align-items:center;justify-content:space-between;padding:20px 28px;">
-    <div>
-      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;margin-bottom:4px;">DAILY AUTO-POST</div>
-      <div style="font-size:13px;color:var(--muted);" id="autoPostLabel">Loading...</div>
+  <!-- Auto-post toggle (hidden for tim brand) -->
+  <div class="card" id="autopostCard">
+    <div class="autopost-bar">
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;margin-bottom:4px;">DAILY AUTO-POST</div>
+        <div style="font-size:13px;color:var(--muted);" id="autoPostLabel">Loading...</div>
+      </div>
+      <button id="toggleBtn" onclick="toggleAutoPost()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:0.08em;">...</button>
     </div>
-    <button id="toggleBtn" onclick="toggleAutoPost()" style="background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:0.08em;">...</button>
   </div>
 
+  <!-- Compose card -->
   <div class="card">
     <label>TOPIC</label>
     <div class="topics" id="topicChips"></div>
     <input type="text" id="topicInput" placeholder="Or type a custom topic...">
-    <div style="margin:16px 0 12px;">
-      <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.15em;margin-bottom:10px;">PLATFORMS</div>
-      <div style="display:flex;flex-direction:column;gap:8px;">
-        <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:14px;color:var(--text);">Facebook</span><button onclick="togglePlatform(this,'facebook')" data-platform="facebook" data-on="true" style="font-family:'DM Mono',monospace;font-size:11px;padding:4px 14px;border:1px solid var(--accent);color:var(--accent);background:transparent;cursor:pointer;letter-spacing:0.1em;">ON</button></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:14px;color:var(--text);">Instagram</span><button onclick="togglePlatform(this,'instagram')" data-platform="instagram" data-on="true" style="font-family:'DM Mono',monospace;font-size:11px;padding:4px 14px;border:1px solid var(--accent);color:var(--accent);background:transparent;cursor:pointer;letter-spacing:0.1em;">ON</button></div>
-        <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-size:14px;color:var(--text);">LinkedIn</span><button onclick="togglePlatform(this,'linkedin')" data-platform="linkedin" data-on="true" style="font-family:'DM Mono',monospace;font-size:11px;padding:4px 14px;border:1px solid var(--accent);color:var(--accent);background:transparent;cursor:pointer;letter-spacing:0.1em;">ON</button></div>
+
+    <label style="margin-top:4px;">PLATFORMS</label>
+    <div id="platformRows">
+      <div class="platform-row" id="rowFacebook">
+        <span class="platform-name"><span class="platform-icon">&#128196;</span> Facebook</span>
+        <button onclick="togglePlatform(this,'facebook')" data-platform="facebook" data-on="true" class="toggle-btn">ON</button>
+      </div>
+      <div class="platform-row" id="rowInstagram">
+        <span class="platform-name"><span class="platform-icon">&#128247;</span> Instagram</span>
+        <button onclick="togglePlatform(this,'instagram')" data-platform="instagram" data-on="true" class="toggle-btn">ON</button>
+      </div>
+      <div class="platform-row" id="rowLinkedin">
+        <span class="platform-name"><span class="platform-icon">&#128188;</span> LinkedIn</span>
+        <button onclick="togglePlatform(this,'linkedin')" data-platform="linkedin" data-on="false" class="toggle-btn off">OFF</button>
       </div>
     </div>
-    <button class="btn" id="generateBtn" onclick="generate()">Generate Post + Image</button>
+
+    <div style="margin-top:20px;">
+      <button class="btn" id="generateBtn" onclick="generate()" style="width:100%;padding:16px;">&#9889; Generate Post + Image</button>
+    </div>
   </div>
 
-  <div class="card" id="resultsCard" style="display:none;">
-    <div style="margin-bottom:32px;" id="fbSection">
-      <div class="platform-label">FACEBOOK</div>
-      <div class="post-box" id="fbPost"></div>
-      <button class="btn-copy" onclick="copyText('fbPost', this)">Copy Caption</button>
-    </div>
-    <div style="margin-bottom:32px;" id="igSection">
-      <div class="platform-label">INSTAGRAM</div>
-      <div class="post-box" id="igPost"></div>
-      <button class="btn-copy" onclick="copyText('igPost', this)">Copy Caption</button>
-    </div>
-    <div style="margin-bottom:32px;" id="liSection">
-      <div class="platform-label">LINKEDIN</div>
-      <div class="post-box" id="liPost"></div>
-      <button class="btn-copy" onclick="copyText('liPost', this)">Copy Caption</button>
-    </div>
-    <div>
-      <div class="platform-label">IMAGE</div>
+  <!-- Results -->
+  <div id="resultsCard" style="display:none;">
+
+    <!-- Image first on mobile -->
+    <div class="card" id="imgCard">
+      <div class="platform-label">GENERATED IMAGE</div>
+      <div id="imgLoading" style="font-family:monospace;font-size:12px;color:var(--muted);display:none;padding:20px 0;"><span class="spinner"></span>Generating image...</div>
       <img id="imgPreview" class="img-preview" style="display:none;">
-      <div id="imgLoading" style="font-family:monospace;font-size:12px;color:var(--muted);display:none;"><span class="spinner"></span>Generating image...</div>
-      <br>
-      <a id="imgDownload" class="btn-copy" style="display:none;text-decoration:none;" download="harbor-post.png">Download Image</a>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;">
+        <a id="imgDownload" class="btn-copy" style="display:none;text-decoration:none;" download="harbor-post.png">&#8595; Download</a>
+      </div>
     </div>
-    <div style="margin-top:24px;padding-top:24px;border-top:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap;">
-      <button class="btn-outline" onclick="generate()">Regenerate</button>
-      <button class="btn" id="postMakeBtn" onclick="postToMake()">Post to Facebook &amp; Instagram</button>
-      <span id="makeStatus" style="font-family:monospace;font-size:12px;color:var(--muted);align-self:center;"></span>
+
+    <!-- Platform results -->
+    <div class="results-grid">
+      <div class="platform-card" id="fbSection">
+        <div class="platform-label">&#128196; FACEBOOK</div>
+        <div class="post-box" id="fbPost" contenteditable="true"></div>
+        <div class="char-count" id="fbCount">0 chars</div>
+        <button class="btn-copy" onclick="copyText('fbPost', this)">Copy</button>
+      </div>
+      <div class="platform-card" id="igSection">
+        <div class="platform-label">&#128247; INSTAGRAM</div>
+        <div class="post-box" id="igPost" contenteditable="true"></div>
+        <div class="char-count" id="igCount">0 chars</div>
+        <button class="btn-copy" onclick="copyText('igPost', this)">Copy</button>
+      </div>
+      <div class="platform-card" id="liSection">
+        <div class="platform-label">&#128188; LINKEDIN</div>
+        <div class="post-box" id="liPost" contenteditable="true"></div>
+        <div class="char-count" id="liCount">0 chars</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px;align-items:center;">
+          <button class="btn-copy" onclick="copyText('liPost', this)">Copy</button>
+          <button class="btn-linkedin" onclick="openLinkedIn()">
+            <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+            Open LinkedIn
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action bar -->
+    <div class="card" style="margin-top:20px;">
+      <div class="action-bar">
+        <button class="btn-outline" onclick="generate()">&#8635; Regenerate</button>
+        <button class="btn" id="postMakeBtn" onclick="postToMake()" id="fbigOnly" style="display:none;">&#8679; Post FB + IG</button>
+        <span class="status-msg" id="makeStatus"></span>
+      </div>
     </div>
   </div>
 </div>
+
 <script>
 var currentBrand = "harbor";
 
@@ -3336,7 +3456,6 @@ var harborTopics = [
   "malware on home networks",
   "free trial offer"
 ];
-
 var careerTopics = [
   "ATS filtering out your resume",
   "sending the same resume everywhere",
@@ -3346,32 +3465,81 @@ var careerTopics = [
   "resume keyword matching",
   "job search privacy"
 ];
+var faxTopics = [
+  "Send a fax anonymously -- no account needed",
+  "HIPAA conduit exception explained",
+  "Why lawyers still fax in 2026",
+  "Send medical records from your phone",
+  "No phone line needed",
+  "Your fax document is deleted on delivery",
+  "Anonymous fax for legal documents",
+  "Privacy-first faxing for healthcare"
+];
+var timTopics = [
+  "Servant leadership in healthcare operations",
+  "Why front-end ops make or break revenue cycle",
+  "20 years in diagnostic imaging -- what I learned",
+  "Epic Cadence and Radiant -- real world tips",
+  "Building a privacy startup while job searching",
+  "Healthcare operations and patient access",
+  "MBA lessons applied to healthcare management",
+  "Transformational leadership in multi-site ops",
+  "Why I founded Harbor Privacy",
+  "Practice administrator skills that matter most"
+];
 
 function setBrand(brand) {
   currentBrand = brand;
   var isCareer = brand === "career";
-  var isFax = brand === "fax";
-  document.body.className = isCareer ? "career-mode" : "";
-  document.getElementById("btnHarbor").className = "brand-btn" + (brand === "harbor" ? " active" : "");
-  document.getElementById("btnCareer").className = "brand-btn" + (isCareer ? " active" : "");
-  document.getElementById("btnFax").className = "brand-btn" + (isFax ? " active" : "");
-  if (isCareer) {
-    document.getElementById("pageTitle").textContent = "Career by Harbor -- Social";
-    document.getElementById("pageSub").textContent = "Generate career-focused posts. Light theme. Problem-first strategy.";
-    renderChips(careerTopics);
-    document.getElementById("topicInput").value = careerTopics[0];
-  } else if (isFax) {
-    document.getElementById("pageTitle").textContent = "Harbor Privacy Fax -- Social";
-    document.getElementById("pageSub").textContent = "Generate posts for the fax service. Privacy-first, HIPAA conduit, anonymous fax angle.";
-    renderChips(faxTopics);
-    document.getElementById("topicInput").value = faxTopics[0];
+  var isTim = brand === "tim";
+  var isAuto = brand === "auto";
+  document.body.className = isCareer ? "career-mode" : isTim ? "tim-mode" : "";
+  ["harbor","career","fax","tim","auto"].forEach(function(b) {
+    document.getElementById("btn" + b.charAt(0).toUpperCase() + b.slice(1)).className =
+      "brand-btn" + (brand === b ? " active" : "");
+  });
+  var titles = {
+    harbor: ["Social Scheduler", "Harbor Privacy DNS -- Facebook & Instagram."],
+    career: ["Career by Harbor", "Career tool posts -- light theme, problem-first."],
+    fax: ["Harbor Fax", "Fax service posts -- anonymous, HIPAA, privacy angle."],
+    tim: ["Tim Brazer", "Personal LinkedIn content -- healthcare ops & leadership."],
+    auto: ["Auto-Post", "Daily automated posting settings."]
+  };
+  document.getElementById("pageTitle").textContent = titles[brand][0];
+  document.getElementById("pageSub").textContent = titles[brand][1];
+  // Topic chips
+  var topicMap = {harbor: harborTopics, career: careerTopics, fax: faxTopics, tim: timTopics, auto: []};
+  renderChips(topicMap[brand] || []);
+  if ((topicMap[brand] || []).length) document.getElementById("topicInput").value = topicMap[brand][0];
+  // Platform toggles for tim -- LinkedIn only on by default
+  if (isTim) {
+    setPlatformVisible("facebook", false);
+    setPlatformVisible("instagram", false);
+    setPlatformVisible("linkedin", true);
+    setPlatformOn("linkedin", true);
   } else {
-    document.getElementById("pageTitle").textContent = "Social Scheduler";
-    document.getElementById("pageSub").textContent = "Generate daily posts for Facebook and Instagram. Problem-first strategy.";
-    renderChips(harborTopics);
-    document.getElementById("topicInput").value = harborTopics[0];
+    setPlatformVisible("facebook", true);
+    setPlatformVisible("instagram", true);
+    setPlatformVisible("linkedin", brand !== "harbor" && brand !== "fax");
+    setPlatformOn("facebook", true);
+    setPlatformOn("instagram", true);
   }
+  // Post button visibility
+  document.getElementById("postMakeBtn").style.display = isTim ? "none" : "inline-flex";
+  document.getElementById("autopostCard").style.display = (isTim || isAuto) ? "none" : "block";
   document.getElementById("resultsCard").style.display = "none";
+}
+
+function setPlatformVisible(p, show) {
+  var row = document.getElementById("row" + p.charAt(0).toUpperCase() + p.slice(1));
+  if (row) row.style.display = show ? "flex" : "none";
+}
+function setPlatformOn(p, on) {
+  var btn = document.querySelector("[data-platform='" + p + "']");
+  if (!btn) return;
+  btn.dataset.on = on.toString();
+  btn.textContent = on ? "ON" : "OFF";
+  btn.className = "toggle-btn" + (on ? "" : " off");
 }
 
 function renderChips(topics) {
@@ -3381,7 +3549,11 @@ function renderChips(topics) {
     var btn = document.createElement("button");
     btn.className = "topic-chip";
     btn.textContent = t;
-    btn.onclick = function() { document.getElementById("topicInput").value = t; };
+    btn.onclick = function() {
+      document.querySelectorAll(".topic-chip").forEach(function(c){c.classList.remove("selected");});
+      btn.classList.add("selected");
+      document.getElementById("topicInput").value = t;
+    };
     el.appendChild(btn);
   });
 }
@@ -3390,8 +3562,14 @@ function togglePlatform(btn, platform) {
   var on = btn.dataset.on === "true";
   btn.dataset.on = (!on).toString();
   btn.textContent = on ? "OFF" : "ON";
-  btn.style.borderColor = on ? "var(--muted)" : "var(--accent)";
-  btn.style.color = on ? "var(--muted)" : "var(--accent)";
+  btn.className = "toggle-btn" + (on ? " off" : "");
+}
+
+function updateCharCount(boxId, countId, limit) {
+  var text = document.getElementById(boxId).textContent || "";
+  var el = document.getElementById(countId);
+  el.textContent = text.length + " chars" + (limit ? " / " + limit : "");
+  el.style.color = (limit && text.length > limit) ? "#f87171" : "var(--muted)";
 }
 
 async function generate() {
@@ -3401,12 +3579,16 @@ async function generate() {
   document.querySelectorAll("[data-platform]").forEach(function(b) {
     platforms[b.dataset.platform] = b.dataset.on === "true";
   });
+  // Tim brand always LinkedIn only
+  if (currentBrand === "tim") { platforms = {facebook: false, instagram: false, linkedin: true}; }
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Generating...';
   document.getElementById("resultsCard").style.display = "none";
+  document.getElementById("imgLoading").style.display = "block";
   document.getElementById("imgPreview").style.display = "none";
   document.getElementById("imgDownload").style.display = "none";
-  document.getElementById("imgLoading").style.display = "block";
+  document.getElementById("makeStatus").textContent = "";
+  document.getElementById("makeStatus").className = "status-msg";
 
   try {
     var r = await fetch("/api/social/generate", {
@@ -3415,16 +3597,20 @@ async function generate() {
       body: JSON.stringify({topic: topic, brand: currentBrand, platforms: platforms})
     });
     var data = await r.json();
-    document.getElementById("fbSection").style.display = platforms.facebook !== false ? "block" : "none";
-    document.getElementById("igSection").style.display = platforms.instagram !== false ? "block" : "none";
-    document.getElementById("liSection").style.display = platforms.linkedin !== false ? "block" : "none";
-    if (platforms.facebook !== false) document.getElementById("fbPost").textContent = data.facebook || "";
-    if (platforms.instagram !== false) document.getElementById("igPost").textContent = data.instagram || "";
-    if (platforms.linkedin !== false) document.getElementById("liPost").textContent = data.linkedin || "";
+    var showFb = platforms.facebook !== false;
+    var showIg = platforms.instagram !== false;
+    var showLi = platforms.linkedin === true;
+    document.getElementById("fbSection").style.display = showFb ? "block" : "none";
+    document.getElementById("igSection").style.display = showIg ? "block" : "none";
+    document.getElementById("liSection").style.display = showLi ? "block" : "none";
+    if (showFb) { document.getElementById("fbPost").textContent = data.facebook || ""; updateCharCount("fbPost","fbCount",63206); }
+    if (showIg) { document.getElementById("igPost").textContent = data.instagram || ""; updateCharCount("igPost","igCount",2200); }
+    if (showLi) { document.getElementById("liPost").textContent = data.linkedin || ""; updateCharCount("liPost","liCount",3000); }
     document.getElementById("resultsCard").style.display = "block";
     document.getElementById("imgLoading").style.display = "none";
-
-    if (data.image_url) {
+    // Tim brand -- hide image section
+    document.getElementById("imgCard").style.display = currentBrand === "tim" ? "none" : "block";
+    if (data.image_url && currentBrand !== "tim") {
       var img = document.getElementById("imgPreview");
       img.src = data.image_url;
       img.style.display = "block";
@@ -3437,15 +3623,33 @@ async function generate() {
     document.getElementById("imgLoading").style.display = "none";
   } finally {
     btn.disabled = false;
-    btn.textContent = "Generate Post + Image";
+    btn.innerHTML = "&#9889; Generate Post + Image";
   }
 }
 
 function copyText(id, btn) {
   var text = document.getElementById(id).textContent;
   navigator.clipboard.writeText(text).then(function() {
+    var orig = btn.textContent;
     btn.textContent = "Copied!";
-    setTimeout(function() { btn.textContent = "Copy Caption"; }, 2000);
+    setTimeout(function() { btn.textContent = orig; }, 2000);
+  });
+}
+
+function openLinkedIn() {
+  var text = encodeURIComponent(document.getElementById("liPost").textContent || "");
+  // Try LinkedIn app deep link first, fall back to web share
+  var appUrl = "linkedin://";
+  var webUrl = "https://www.linkedin.com/feed/?shareActive=true";
+  // Copy to clipboard then open
+  navigator.clipboard.writeText(document.getElementById("liPost").textContent || "").then(function() {
+    var status = document.getElementById("makeStatus");
+    status.className = "status-msg ok";
+    status.textContent = "Copied! Opening LinkedIn...";
+    setTimeout(function() {
+      window.location.href = appUrl;
+      setTimeout(function() { window.open(webUrl, "_blank"); }, 1200);
+    }, 400);
   });
 }
 
@@ -3455,9 +3659,9 @@ async function postToMake() {
   var imageUrl = document.getElementById("imgPreview").src;
   var fbText = document.getElementById("fbPost").textContent;
   var igText = document.getElementById("igPost").textContent;
-  if (!imageUrl || !fbText) { status.textContent = "Generate a post first."; return; }
+  if (!fbText && !igText) { status.textContent = "No post content."; return; }
   btn.disabled = true;
-  btn.textContent = "Posting...";
+  btn.innerHTML = '<span class="spinner"></span>Posting...';
   status.textContent = "";
   try {
     var r = await fetch("/api/social/post-to-make", {
@@ -3467,25 +3671,60 @@ async function postToMake() {
     });
     var data = await r.json();
     if (data.ok) {
-      status.style.color = "var(--accent)";
-      status.textContent = "Posted to Make!";
+      status.className = "status-msg ok";
+      status.textContent = "&#10003; Posted to Make!";
     } else {
-      status.style.color = "#f87171";
+      status.className = "status-msg err";
       status.textContent = "Error: " + (data.error || "unknown");
     }
   } catch(e) {
-    status.style.color = "#f87171";
+    status.className = "status-msg err";
     status.textContent = "Failed: " + e.message;
   } finally {
     btn.disabled = false;
-    btn.textContent = "Post to Facebook & Instagram";
+    btn.innerHTML = "&#8679; Post FB + IG";
+  }
+}
+
+async function postToMake() {
+  var btn = document.getElementById("postMakeBtn");
+  var status = document.getElementById("makeStatus");
+  var imageUrl = document.getElementById("imgPreview").src;
+  var fbText = document.getElementById("fbPost").textContent;
+  var igText = document.getElementById("igPost").textContent;
+  if (!fbText && !igText) { status.textContent = "No post content."; return; }
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Posting...';
+  status.textContent = "";
+  try {
+    var r = await fetch("/api/social/post-to-make", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({image_url: imageUrl, facebook_text: fbText, instagram_text: igText, brand: currentBrand})
+    });
+    var data = await r.json();
+    if (data.ok) {
+      status.className = "status-msg ok";
+      status.textContent = "Posted to Make!";
+    } else {
+      status.className = "status-msg err";
+      status.textContent = "Error: " + (data.error || "unknown");
+    }
+  } catch(e) {
+    status.className = "status-msg err";
+    status.textContent = "Failed: " + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = "&#8679; Post FB + IG";
   }
 }
 
 async function loadStatus() {
-  var r = await fetch("/api/social/status");
-  var data = await r.json();
-  updateToggleUI(data.enabled);
+  try {
+    var r = await fetch("/api/social/status");
+    var data = await r.json();
+    updateToggleUI(data.enabled);
+  } catch(e) {}
 }
 
 function updateToggleUI(enabled) {
@@ -3510,16 +3749,6 @@ async function toggleAutoPost() {
   updateToggleUI(data.enabled);
 }
 
-var faxTopics = [
-  "Send a fax anonymously -- no account needed",
-  "HIPAA conduit exception -- what it means for medical records",
-  "Why lawyers still use fax in 2026",
-  "Send medical records without a fax machine",
-  "No phone line needed -- fax from your phone in 60 seconds",
-  "Your fax document is deleted the moment it delivers",
-  "Anonymous fax for legal documents",
-  "Privacy-first faxing for healthcare professionals",
-];
 setBrand("harbor");
 loadStatus();
 </script>
