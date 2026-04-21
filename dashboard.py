@@ -1,3 +1,25 @@
+# ============================================================
+# Harbor Privacy Dashboard -- dashboard.py
+# ============================================================
+# Single-file Flask app. Intentionally monolithic for now.
+#
+# FUTURE REFACTOR ROADMAP (do on staging branch, not main):
+#   auth.py          -- login, logout, session, admin_required decorator
+#   customers.py     -- load/save customers, get_client, has_family_addon
+#   dns.py           -- AdGuard API calls, get_client_rules, get_client_stats
+#   social.py        -- /social route, _build_post_prompt, social_generate
+#   admin.py         -- /admin, /admin/customer routes
+#   dashboard.py     -- /dashboard, /settings, customer-facing routes
+#   templates/       -- move HTML strings to Jinja2 template files
+#
+# CRITICAL VARIABLE ORDER -- DO NOT CHANGE:
+#   In admin_customer() and the main customer route (~line 920):
+#   plan_type MUST be defined BEFORE harbor_kids or NameError occurs.
+#   Both now have defensive guards but do not remove or reorder them.
+#
+# PRE-RESTART: always run ~/check-dashboard.sh instead of systemctl restart
+# ============================================================
+
 #!/usr/bin/env python3
 """
 Harbor Privacy Customer Dashboard
@@ -581,32 +603,38 @@ window.addEventListener("load",resetTimer);
 
 NAV_CUSTOMER = """
 <div id="timeout-warning" style="display:none;position:fixed;bottom:24px;right:24px;background:#111618;border:1px solid #00e5c0;padding:20px 24px;z-index:9999;font-family:monospace;font-size:12px;color:#e8f0ef;flex-direction:column;gap:12px;max-width:300px;"><span>You will be logged out in 5 minutes due to inactivity.</span><button onclick="resetTimer()" style="background:#00e5c0;color:#0a0e0f;border:none;padding:8px 16px;cursor:pointer;font-family:monospace;font-size:11px;">Stay Logged In</button></div>
-<nav>
-  <a href="/dashboard" class="logo">harbor<span>/</span>privacy</a>
-  <div class="nav-links">
-    <a href="https://harborprivacy.com">← Site</a>
+<nav style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);">
+    <a href="/dashboard" class="logo">harbor<span>/</span>privacy</a>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+      {% if user_email == "tim@harborprivacy.com" %}<span class="badge badge-owner">OWNER</span>{% endif %}
+      {% if is_trial %}<span class="badge badge-trial">FREE TRIAL</span>{% endif %}
+      {% if plan_badge %}<span class="badge badge-{{ plan_badge.lower().replace(' ','-') }}">{{ plan_badge }}</span>{% endif %}
+      {% if has_family_badge %}<span class="badge badge-family">FAMILY SAFE</span>{% endif %}
+      {% if harbor_kids %}<span class="badge" style="background:#06b6d4;color:#0a0e0f;">HARBOR KIDS</span>{% endif %}
+    </div>
+  </div>
+  <div class="nav-links" style="padding:10px 24px;border-bottom:1px solid var(--border);justify-content:flex-start;gap:20px;">
+    <a href="https://harborprivacy.com" style="font-size:10px;">← Site</a>
     <a href="/dashboard" class="{{ 'active' if active == 'dashboard' else '' }}">Dashboard</a>
     <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">Settings</a>
-    {% if user_email == "tim@harborprivacy.com" %}<span class="badge badge-owner">OWNER</span>{% endif %}
-    {% if is_trial %}<span class="badge badge-trial">FREE TRIAL</span>{% endif %}
-    {% if plan_badge %}<span class="badge badge-{{ plan_badge.lower().replace(' ','-') }}">{{ plan_badge }}</span>{% endif %}
-    {% if has_family_badge %}<span class="badge badge-family">FAMILY SAFE</span>{% endif %}
-    {% if harbor_kids %}<span class="badge" style="background:#06b6d4;color:#0a0e0f;">HARBOR KIDS</span>{% endif %}
-    <a href="/logout">Sign Out</a>
+    <a href="/logout" style="margin-left:auto;">Sign Out</a>
   </div>
 </nav>"""
 
 NAV_ADMIN = """
 <div id="timeout-warning" style="display:none;position:fixed;bottom:24px;right:24px;background:#111618;border:1px solid #00e5c0;padding:20px 24px;z-index:9999;font-family:monospace;font-size:12px;color:#e8f0ef;flex-direction:column;gap:12px;max-width:300px;"><span>You will be logged out in 5 minutes due to inactivity.</span><button onclick="resetTimer()" style="background:#00e5c0;color:#0a0e0f;border:none;padding:8px 16px;cursor:pointer;font-family:monospace;font-size:11px;">Stay Logged In</button></div>
-<nav>
-  <a href="/admin" class="logo">harbor<span>/</span>privacy</a>
-  <div class="nav-links">
-    <a href="https://harborprivacy.com">← Site</a>
+<nav style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);">
+    <a href="/admin" class="logo">harbor<span>/</span>privacy</a>
     <span class="badge badge-admin">ADMIN</span>
+  </div>
+  <div class="nav-links" style="padding:10px 24px;border-bottom:1px solid var(--border);justify-content:flex-start;gap:20px;">
+    <a href="https://harborprivacy.com" style="font-size:10px;">← Site</a>
     <a href="/admin" class="{{ 'active' if active == 'admin' else '' }}">Customers</a>
     <a href="/social" class="{{ 'active' if active == 'social' else '' }}">Social</a>
     <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">Settings</a>
-    <a href="/logout">Sign Out</a>
+    <a href="/logout" style="margin-left:auto;">Sign Out</a>
   </div>
 </nav>"""
 
@@ -1744,6 +1772,11 @@ def admin_customer(client_id):
     family_safe = client.get("parental_enabled", False) if client else False
     filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
+    plan_type = customer.get("plan_type", "remote") if customer else "remote"
+    is_active = customer.get("status", "") == "active" if customer else False
+    # CRITICAL: plan_type must always be defined before harbor_kids -- do not reorder
+    plan_type = customer.get("plan_type", "remote") if customer else "remote"
+    is_active = customer.get("status", "") == "active" if customer else False
     harbor_kids = True if (customer and plan_type != "harbor-remote-light" and is_active) else customer.get("harbor_kids", False) if customer else False
     is_founder = customer.get("is_founder", False) if customer else False
     cstats = get_client_stats(client_id)
@@ -3059,6 +3092,27 @@ def social_generate():
         "image_url": image_url
     })
 
+@app.route("/api/social/post-to-make", methods=["POST"])
+@admin_required
+def post_to_make():
+    import requests as _req
+    data = request.json or {}
+    image_url = data.get("image_url", "")
+    facebook_text = data.get("facebook_text", "")
+    instagram_text = data.get("instagram_text", "")
+    brand = data.get("brand", "harbor")
+    MAKE_WEBHOOK = "https://hook.us2.make.com/decgvbes5ixew3jqibnt5gr30ps7t3as"
+    try:
+        r = _req.post(MAKE_WEBHOOK, json={
+            "image_url": image_url,
+            "facebook_text": facebook_text,
+            "instagram_text": instagram_text,
+            "brand": brand
+        }, timeout=30)
+        return jsonify({"ok": True, "status": r.status_code})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 @app.route("/api/social/autopost", methods=["POST"])
 def social_autopost():
     import requests as _req, json as _json
@@ -3194,15 +3248,17 @@ input:focus,textarea:focus{border-color:var(--accent);}
 </style>
 </head>
 <body>
-<nav>
-  <a href="/admin" class="logo">harbor<span>/</span>privacy</a>
-  <div class="nav-links">
-    <a href="https://harborprivacy.com">← Site</a>
+<nav style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);">
+    <a href="/admin" class="logo">harbor<span>/</span>privacy</a>
     <span class="badge-admin">ADMIN</span>
+  </div>
+  <div class="nav-links" style="padding:10px 24px;border-bottom:1px solid var(--border);justify-content:flex-start;gap:20px;">
+    <a href="https://harborprivacy.com" style="font-size:10px;">← Site</a>
     <a href="/admin">Customers</a>
     <a href="/social" class="active">Social</a>
     <a href="/settings">Settings</a>
-    <a href="/logout">Sign Out</a>
+    <a href="/logout" style="margin-left:auto;">Sign Out</a>
   </div>
 </nav>
 <div class="container">
@@ -3261,8 +3317,10 @@ input:focus,textarea:focus{border-color:var(--accent);}
       <br>
       <a id="imgDownload" class="btn-copy" style="display:none;text-decoration:none;" download="harbor-post.png">Download Image</a>
     </div>
-    <div style="margin-top:24px;padding-top:24px;border-top:1px solid var(--border);">
+    <div style="margin-top:24px;padding-top:24px;border-top:1px solid var(--border);display:flex;gap:12px;flex-wrap:wrap;">
       <button class="btn-outline" onclick="generate()">Regenerate</button>
+      <button class="btn" id="postMakeBtn" onclick="postToMake()">Post to Facebook &amp; Instagram</button>
+      <span id="makeStatus" style="font-family:monospace;font-size:12px;color:var(--muted);align-self:center;"></span>
     </div>
   </div>
 </div>
@@ -3389,6 +3447,39 @@ function copyText(id, btn) {
     btn.textContent = "Copied!";
     setTimeout(function() { btn.textContent = "Copy Caption"; }, 2000);
   });
+}
+
+async function postToMake() {
+  var btn = document.getElementById("postMakeBtn");
+  var status = document.getElementById("makeStatus");
+  var imageUrl = document.getElementById("imgPreview").src;
+  var fbText = document.getElementById("fbPost").textContent;
+  var igText = document.getElementById("igPost").textContent;
+  if (!imageUrl || !fbText) { status.textContent = "Generate a post first."; return; }
+  btn.disabled = true;
+  btn.textContent = "Posting...";
+  status.textContent = "";
+  try {
+    var r = await fetch("/api/social/post-to-make", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({image_url: imageUrl, facebook_text: fbText, instagram_text: igText, brand: currentBrand})
+    });
+    var data = await r.json();
+    if (data.ok) {
+      status.style.color = "var(--accent)";
+      status.textContent = "Posted to Make!";
+    } else {
+      status.style.color = "#f87171";
+      status.textContent = "Error: " + (data.error || "unknown");
+    }
+  } catch(e) {
+    status.style.color = "#f87171";
+    status.textContent = "Failed: " + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Post to Facebook & Instagram";
+  }
 }
 
 async function loadStatus() {
