@@ -49,6 +49,11 @@ def add_no_cache(response):
         response.headers['Expires'] = '0'
     return response
 app.secret_key = os.environ.get("FLASK_SECRET", "harbor-privacy-secret-2026")
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_HTTPONLY"] = True
 
 SECRET_KEY = os.environ.get("DASHBOARD_SECRET", "change-me")
 ADGUARD_URL = os.environ.get("ADGUARD_URL", "http://127.0.0.1:8080")
@@ -698,21 +703,36 @@ def login():
                     error = "Session expired. Please start over."
                     step = "1"
                     email = ""
-                elif not (session.get("pw_verified") == email) and not bcrypt.checkpw(password.encode(), user["password"].encode()):
-                    record_failed_login(ip)
-                    error = "Incorrect password."
-                    step = "2"
-                    show_2fa = bool(user.get("totp_secret"))
                 else:
-                    if user.get("totp_secret"):
-                        if not totp_code and session.get("pw_verified") != email:
+                    # Check password -- use hmac token in hidden field to survive stateless proxy
+                    import hmac, hashlib
+                    PW_SIGN_KEY = app.secret_key if isinstance(app.secret_key, bytes) else app.secret_key.encode()
+                    pw_token = request.form.get("pw_token", "")
+                    expected_token = hmac.new(PW_SIGN_KEY, email.encode(), hashlib.sha256).hexdigest() if email else ""
+                    print(f"2FA debug: pw_token={pw_token!r} expected={expected_token!r} email={email!r} totp={totp_code!r} password_present={bool(password)}", flush=True)
+                    print(f"2FA compare: pw_token_len={len(pw_token)} expected_len={len(expected_token)} match={pw_token==expected_token}", flush=True)
+                    if pw_token and hmac.compare_digest(pw_token, expected_token):
+                        pw_ok = True
+                    elif password:
+                        pw_ok = bcrypt.checkpw(password.encode(), user["password"].encode())
+                    else:
+                        pw_ok = False
+                    print(f"2FA pw_ok_final: pw_ok={pw_ok!r}", flush=True)
+                    if pw_ok:
+                        error = ""
+                    if not pw_ok:  # noqa  # noqa
+                        record_failed_login(ip)
+                        error = "Incorrect password."
+                        step = "2"
+                        show_2fa = False
+                    elif user.get("totp_secret"):
+                        if not totp_code:
+                            import hmac as _hmac, hashlib as _hs
+                            _key = app.secret_key if isinstance(app.secret_key, bytes) else app.secret_key.encode()
+                            pw_tok = _hmac.new(_key, email.encode(), _hs.sha256).hexdigest()
                             session["pw_verified"] = email
                             show_2fa = True
                             step = "2"
-                        elif session.get("pw_verified") != email and not totp_code:
-                            error = "Session expired. Please start over."
-                            step = "1"
-                            session.pop("pw_verified", None)
                         elif not pyotp.TOTP(user["totp_secret"]).verify(totp_code, valid_window=1):
                             error = "Invalid 2FA code."
                             show_2fa = True
@@ -788,8 +808,10 @@ def login():
       <a href="/login" style="font-size:11px;color:var(--accent);text-decoration:none;">Change</a>
     </div>
     {% if show_2fa %}
+    <input type="hidden" name="pw_token" value="{{ pw_tok }}">
     <p style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;margin-bottom:8px;">AUTHENTICATOR CODE</p>
     <input type="text" name="totp" placeholder="6-digit code" maxlength="6" autocomplete="one-time-code" autofocus>
+    <input type="hidden" name="password" value="">
     {% else %}
     <input type="password" name="password" placeholder="Your password" required autocomplete="current-password" autofocus>
     {% endif %}
@@ -800,7 +822,10 @@ def login():
   </div>
   {% endif %}
 </div>"""
-    return render_template_string(html, step=step, email=email, error=error, show_2fa=show_2fa)
+    import hmac as _hmac2, hashlib as _hs2
+    _key2 = app.secret_key if isinstance(app.secret_key, bytes) else app.secret_key.encode()
+    pw_tok = _hmac2.new(_key2, email.encode(), _hs2.sha256).hexdigest() if email else ""
+    return render_template_string(html, step=step, email=email, error=error, show_2fa=show_2fa, pw_tok=pw_tok)
 
 @app.route("/dns-whoami/<token>")
 def dns_whoami(token):
@@ -3175,6 +3200,16 @@ def social_autopost():
         "home network privacy without tech knowledge",
         "trackers following you across every device",
         "why incognito mode is not actually private",
+        "smart TVs spying on your viewing habits",
+        "why your router is not protecting you",
+        "DNS privacy and why it matters",
+        "blocking ads before they load on every device",
+        "parental controls that actually work at the network level",
+        "what your ISP knows about your family",
+        "gaming consoles and privacy risks",
+        "how advertisers track you across every device",
+        "why public WiFi is dangerous and how to stay safe",
+        "what happens to your data when you use free apps",
     ]
     topics_career = [
         "ATS resume filtering",
@@ -3184,9 +3219,37 @@ def social_autopost():
         "AI resume review and feedback",
         "privacy when using AI career tools",
         "job search data privacy",
+        "how to write a cover letter that gets interviews",
+        "resume keywords that beat ATS screening",
+        "why generic cover letters get ignored",
+        "how to explain a career gap on your resume",
+        "the 6-second resume rule and how to beat it",
+        "tailoring your resume for remote jobs",
+        "what recruiters actually look for in a resume",
+        "how AI is changing the job application process",
+    ]
+    topics_fax = [
+        "send a fax anonymously without an account",
+        "HIPAA conduit exception and what it means for medical records",
+        "why lawyers still use fax in 2026",
+        "send medical records without a fax machine",
+        "no phone line needed to send a fax",
+        "your fax document is deleted the moment it delivers",
+        "anonymous fax for legal documents",
+        "privacy-first faxing for healthcare professionals",
+        "why fax is still the most trusted way to send sensitive documents",
+        "send a fax from your phone in under 2 minutes",
+        "no account required to send a fax",
+        "how to send medical records securely",
+        "HIPAA-friendly fax service with no stored documents",
     ]
     import random
-    topic = random.choice(topics_career if brand == "career" else topics_harbor)
+    if brand == "career":
+        topic = random.choice(topics_career)
+    elif brand == "fax":
+        topic = random.choice(topics_fax)
+    else:
+        topic = random.choice(topics_harbor)
     platforms = {"facebook": True, "instagram": True, "linkedin": False}
     prompt, platform_keys = _build_post_prompt(brand, topic, platforms)
     try:
