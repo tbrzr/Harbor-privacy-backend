@@ -3250,7 +3250,7 @@ def social_autopost():
         topic = random.choice(topics_fax)
     else:
         topic = random.choice(topics_harbor)
-    platforms = {"facebook": True, "instagram": True, "linkedin": False}
+    platforms = {"facebook": True, "instagram": True, "linkedin": True}
     prompt, platform_keys = _build_post_prompt(brand, topic, platforms)
     try:
         r = _req.post("https://api.anthropic.com/v1/messages",
@@ -3584,7 +3584,7 @@ function setBrand(brand) {
   } else {
     setPlatformVisible("facebook", true);
     setPlatformVisible("instagram", true);
-    setPlatformVisible("linkedin", brand !== "harbor" && brand !== "fax");
+    setPlatformVisible("linkedin", brand !== "harbor");
     setPlatformOn("facebook", true);
     setPlatformOn("instagram", true);
   }
