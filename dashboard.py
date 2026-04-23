@@ -3509,6 +3509,7 @@ input:focus,textarea:focus{border-color:var(--accent);}
 
 <script>
 var currentBrand = "harbor";
+var currentImageUrl = "";
 
 var harborTopics = [
   "ISP selling your browsing history",
@@ -3676,6 +3677,7 @@ async function generate() {
     if (data.image_url && currentBrand !== "tim") {
       var img = document.getElementById("imgPreview");
       img.src = data.image_url;
+      currentImageUrl = data.image_url;
       img.style.display = "block";
       var dl = document.getElementById("imgDownload");
       dl.href = data.image_url;
@@ -3719,7 +3721,7 @@ function openLinkedIn() {
 async function postToMake() {
   var btn = document.getElementById("postMakeBtn");
   var status = document.getElementById("makeStatus");
-  var imageUrl = document.getElementById("imgPreview").src;
+  var imageUrl = currentImageUrl || document.getElementById("imgPreview").src;
   var fbText = document.getElementById("fbPost").textContent;
   var igText = document.getElementById("igPost").textContent;
   if (!fbText && !igText) { status.textContent = "No post content."; return; }
@@ -3749,38 +3751,6 @@ async function postToMake() {
   }
 }
 
-async function postToMake() {
-  var btn = document.getElementById("postMakeBtn");
-  var status = document.getElementById("makeStatus");
-  var imageUrl = document.getElementById("imgPreview").src;
-  var fbText = document.getElementById("fbPost").textContent;
-  var igText = document.getElementById("igPost").textContent;
-  if (!fbText && !igText) { status.textContent = "No post content."; return; }
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span>Posting...';
-  status.textContent = "";
-  try {
-    var r = await fetch("/api/social/post-to-make", {
-      method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({image_url: imageUrl, facebook_text: fbText, instagram_text: igText, brand: currentBrand})
-    });
-    var data = await r.json();
-    if (data.ok) {
-      status.className = "status-msg ok";
-      status.textContent = "Posted to Make!";
-    } else {
-      status.className = "status-msg err";
-      status.textContent = "Error: " + (data.error || "unknown");
-    }
-  } catch(e) {
-    status.className = "status-msg err";
-    status.textContent = "Failed: " + e.message;
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = "&#8679; Post FB + IG";
-  }
-}
 
 async function loadStatus() {
   try {
