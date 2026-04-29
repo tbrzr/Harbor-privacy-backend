@@ -15,6 +15,13 @@ FROM_EMAIL = os.environ.get("FROM_EMAIL", "info@mail.harborprivacy.com")
 PROFILES_DIR = os.environ.get("PROFILES_DIR", "/var/www/network/profiles")
 PROFILES_URL = os.environ.get("PROFILES_URL", "https://harborprivacy.com/profiles")
 CUSTOMERS_LOG = "/var/log/harbor-customers.json"
+
+def load_customers():
+    try:
+        with open(CUSTOMERS_LOG) as f:
+            return [json.loads(l) for l in f if l.strip()]
+    except Exception:
+        return []
 SESSIONS_LOG = "/var/log/harbor-sessions.json"
 LOG_FILE = "/var/log/harbor-webhook.log"
 
