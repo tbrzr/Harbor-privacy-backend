@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>harbor/privacy &middot; start</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0e0f;--surface:#111618;--border:#1e2a2d;--accent:#00e5c0;--text:#e8f0ef;--muted:#6b8a87;--danger:#ff4e4e;--hover:#00ffda;--dns:#00e5c0;--booking:#7c6ff7;--fax:#00d4ff;--career:#f59e0b}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;min-height:100vh;overflow-x:hidden}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,192,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,192,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+  #auth-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;padding:24px}
+  .auth-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px 32px;width:100%;max-width:380px;text-align:center}
+  .auth-logo{font-family:'DM Serif Display',serif;font-size:28px;color:var(--text);margin-bottom:4px}
+  .auth-logo span{color:var(--accent)}
+  .auth-sub{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:32px}
+  .auth-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;color:var(--text);font-family:'DM Mono',monospace;font-size:14px;outline:none;transition:border-color 0.2s;margin-bottom:12px;letter-spacing:0.05em}
+  .auth-input:focus{border-color:var(--accent)}
+  .auth-btn{width:100%;background:var(--accent);color:var(--bg);border:none;border-radius:10px;padding:14px;font-family:'DM Sans',sans-serif;font-weight:500;font-size:15px;cursor:pointer;transition:background 0.2s}
+  .auth-btn:hover{background:var(--hover)}
+  .auth-error{color:var(--danger);font-size:13px;margin-top:10px;min-height:18px;font-family:'DM Mono',monospace}
+  .auth-forgot{margin-top:20px;font-size:12px;color:var(--muted);font-family:'DM Mono',monospace}
+  .auth-forgot a{color:var(--accent);text-decoration:none}
+  #app{display:none;position:relative;z-index:1}
+  header{padding:24px 24px 0;display:flex;align-items:center;justify-content:space-between;max-width:1100px;margin:0 auto}
+  .wordmark{font-family:'DM Serif Display',serif;font-size:22px;color:var(--text)}
+  .wordmark span{color:var(--accent)}
+  .header-meta{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;text-align:right}
+  .header-meta span{display:block;color:var(--accent);font-size:9px}
+  main{max-width:1100px;margin:0 auto;padding:32px 24px 80px}
+  .section{margin-bottom:40px}
+  .section-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 14px;text-decoration:none;display:flex;flex-direction:column;align-items:flex-start;gap:8px;transition:border-color 0.2s,transform 0.15s,background 0.2s;cursor:pointer;position:relative;overflow:hidden}
+  .card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--card-accent,var(--accent));opacity:0;transition:opacity 0.2s}
+  .card:hover{border-color:var(--card-accent,var(--accent));transform:translateY(-2px);background:#141c1e}
+  .card:hover::after{opacity:1}
+  .card-icon{width:36px;height:36px;border-radius:8px;background:var(--card-accent-bg,rgba(0,229,192,0.1));display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+  .card-name{font-size:13px;font-weight:500;color:var(--text);line-height:1.2}
+  .card-desc{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;line-height:1.3}
+  .card-badge{font-family:'DM Mono',monospace;font-size:9px;padding:2px 6px;border-radius:4px;background:var(--card-accent-bg,rgba(0,229,192,0.1));color:var(--card-accent,var(--accent));letter-spacing:0.05em}
+  .dns{--card-accent:#00e5c0;--card-accent-bg:rgba(0,229,192,0.08)}
+  .booking{--card-accent:#7c6ff7;--card-accent-bg:rgba(124,111,247,0.08)}
+  .fax{--card-accent:#00d4ff;--card-accent-bg:rgba(0,212,255,0.08)}
+  .career{--card-accent:#f59e0b;--card-accent-bg:rgba(245,158,11,0.08)}
+  .infra{--card-accent:#6b8a87;--card-accent-bg:rgba(107,138,135,0.08)}
+  .jobs{--card-accent:#a78bfa;--card-accent-bg:rgba(167,139,250,0.08)}
+  .school{--card-accent:#34d399;--card-accent-bg:rgba(52,211,153,0.08)}
+  .admin{--card-accent:#fb923c;--card-accent-bg:rgba(251,146,60,0.08)}
+  .clock-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;align-items:center;justify-content:space-between;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)}
+  #clock{color:var(--accent);font-size:13px}
+  .logout-btn{background:none;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;padding:4px 10px;border-radius:6px;cursor:pointer;transition:border-color 0.2s,color 0.2s}
+  .logout-btn:hover{border-color:var(--danger);color:var(--danger)}
+  .anchor-nav{display:flex;flex-wrap:wrap;gap:6px;padding:10px 24px;max-width:1100px;margin:0 auto}
+  .anchor-pill{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;text-decoration:none;padding:5px 11px;border-radius:20px;border:1px solid var(--card-accent,var(--border));color:var(--card-accent,var(--muted));background:var(--card-accent-bg,transparent);transition:background 0.15s,color 0.15s,transform 0.1s;white-space:nowrap}
+  .anchor-pill:hover{background:var(--card-accent,var(--accent));color:var(--bg);transform:translateY(-1px)}
+  .widgets-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:8px;margin-bottom:40px}
+  .widget{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 16px;display:flex;flex-direction:column;gap:8px}
+  .widget-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.15em;color:var(--muted);text-transform:uppercase;margin-bottom:4px;border-bottom:1px solid var(--border);padding-bottom:8px}
+  .widget-loading{color:var(--muted);font-size:13px;font-family:'DM Mono',monospace}
+  .widget-btn{margin-top:6px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:10px;padding:6px 10px;border-radius:6px;cursor:pointer;align-self:flex-start;transition:border-color 0.2s,color 0.2s}
+  .widget-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .weather-main{font-size:32px;font-family:'DM Serif Display',serif;color:var(--text);line-height:1}
+  .weather-desc{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace}
+  .weather-row{display:flex;gap:16px;font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+  .mrr-main{font-family:'DM Serif Display',serif;font-size:30px;color:var(--accent);line-height:1}
+  .mrr-sub{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+  .server-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)}
+  .server-row:last-child{border-bottom:none}
+  .server-dot{width:8px;height:8px;border-radius:50%;background:var(--border);flex-shrink:0;transition:background 0.3s}
+  .server-dot.up{background:var(--accent);box-shadow:0 0 6px rgba(0,229,192,0.5)}
+  .server-dot.down{background:var(--danger);box-shadow:0 0 6px rgba(255,78,78,0.5)}
+  .server-dot.checking{background:var(--career);animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+  .server-name{font-size:12px;color:var(--text);flex:1}
+  .server-ip{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace}
+  .deadline-item{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);gap:8px}
+  .deadline-item:last-child{border-bottom:none}
+  .deadline-name{font-size:12px;color:var(--text);flex:1;line-height:1.3}
+  .deadline-course{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace}
+  .deadline-days{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;padding:2px 7px;border-radius:5px;white-space:nowrap;flex-shrink:0}
+  .days-urgent{background:rgba(255,78,78,0.15);color:#ff4e4e}
+  .days-soon{background:rgba(245,158,11,0.15);color:#f59e0b}
+  .days-ok{background:rgba(0,229,192,0.1);color:var(--accent)}
+  .deadline-cal{background:none;border:none;cursor:pointer;font-size:14px;opacity:0.5;transition:opacity 0.2s;padding:0 2px;flex-shrink:0}
+  .deadline-cal:hover{opacity:1}
+  .clip-item{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);cursor:pointer}
+  .clip-item:last-child{border-bottom:none}
+  .clip-text{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;transition:color 0.2s}
+  .clip-item:hover .clip-text{color:var(--text)}
+  .clip-copy{font-size:11px;color:var(--muted);flex-shrink:0}
+  .cust-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:8px;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .cust-field{font-size:11px;font-family:'DM Mono',monospace}
+  .cust-label{color:var(--muted);margin-bottom:2px}
+  .cust-value{color:var(--text)}
+  .cust-active{color:var(--accent)}
+  .cust-inactive{color:var(--danger)}
+  .cust-error{font-size:12px;color:var(--danger);font-family:'DM Mono',monospace;margin-top:8px}
+  .log-entry{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)}
+  .log-entry:last-child{border-bottom:none}
+  .log-date{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;white-space:nowrap;padding-top:2px;flex-shrink:0}
+  .log-text{font-size:12px;color:var(--text);flex:1;line-height:1.4}
+  .log-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;opacity:0.4;transition:opacity 0.2s;flex-shrink:0}
+  .log-del:hover{opacity:1;color:var(--danger)}
+  .log-empty{font-size:12px;color:var(--muted);font-family:'DM Mono',monospace}
+  .log-badge{font-family:'DM Mono',monospace;font-size:9px;padding:2px 5px;border-radius:4px;letter-spacing:0.05em;flex-shrink:0;align-self:flex-start;margin-top:2px}
+  .badge-gh{background:rgba(124,111,247,0.15);color:#7c6ff7}
+  .badge-manual{background:rgba(0,229,192,0.1);color:#00e5c0}
+  .log-repo{font-size:10px;color:#6b8a87;font-family:'DM Mono',monospace}
+  .cl-pagination{display:flex;gap:6px;margin-top:10px;align-items:center}
+  .cl-page-btn{background:transparent;border:1px solid #1e2a2d;color:#6b8a87;font-family:'DM Mono',monospace;font-size:10px;padding:4px 10px;border-radius:6px;cursor:pointer;transition:border-color 0.2s,color 0.2s}
+  .cl-page-btn:hover{border-color:#00e5c0;color:#00e5c0}
+  .cl-page-btn:disabled{opacity:0.3;cursor:default}
+  .cl-page-info{font-family:'DM Mono',monospace;font-size:10px;color:#6b8a87;flex:1;text-align:center}
+  .settings-group{margin-bottom:18px}
+  .settings-label{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:#e8f0ef;margin-bottom:3px}
+  .settings-hint{font-size:11px;color:#6b8a87;font-family:'DM Mono',monospace;margin-bottom:7px;line-height:1.4}
+  .settings-input{width:100%;background:#0a0e0f;border:1px solid #1e2a2d;border-radius:8px;padding:11px 13px;color:#e8f0ef;font-family:'DM Mono',monospace;font-size:12px;outline:none;transition:border-color 0.2s}
+  .settings-input:focus{border-color:#00e5c0}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+  .section{animation:fadeUp 0.4s ease both}
+  .section:nth-child(1){animation-delay:0.05s}.section:nth-child(2){animation-delay:0.10s}.section:nth-child(3){animation-delay:0.15s}.section:nth-child(4){animation-delay:0.20s}.section:nth-child(5){animation-delay:0.25s}.section:nth-child(6){animation-delay:0.30s}.section:nth-child(7){animation-delay:0.35s}
+  @media(max-width:600px){.grid{grid-template-columns:repeat(2,1fr)}.widgets-row{grid-template-columns:1fr}header{flex-direction:column;align-items:flex-start;gap:4px}.header-meta{text-align:left}.auth-box{padding:32px 20px}}
+</style>
+</head>
+<body>
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">harbor<span>/</span>privacy</div>
+    <div class="auth-sub">Command Center &middot; Private Access</div>
+    <input type="password" id="pw-input" class="auth-input" placeholder="passphrase" autocomplete="current-password">
+    <button class="auth-btn" onclick="tryLogin()">Enter</button>
+    <div class="auth-error" id="auth-error"></div>
+    <div class="auth-forgot">Locked out? <a href="?reset=hp-reset-2026">Reset session</a></div>
+  </div>
+</div>
+<div id="app">
+  <div class="clock-bar">
+    <span id="clock"></span>
+    <span>harbor/privacy &middot; start</span>
+    <div style="display:flex;gap:6px;">
+      <button class="logout-btn" onclick="openSettings()">&#9881; settings</button>
+      <button class="logout-btn" onclick="logout()">lock</button>
+    </div>
+  </div>
+  <nav class="anchor-nav">
+    <a href="#sec-products" class="anchor-pill dns">&#127760; Products</a>
+    <a href="#sec-business" class="anchor-pill career">&#128176; Business</a>
+    <a href="#sec-infra" class="anchor-pill infra">&#9881;&#65039; Infra</a>
+    <a href="#sec-jobs" class="anchor-pill jobs">&#128188; Jobs</a>
+    <a href="#sec-school" class="anchor-pill school">&#127891; School</a>
+    <a href="#sec-admin" class="anchor-pill admin">&#127973; Admin</a>
+    <a href="#sec-widgets" class="anchor-pill fax">&#128202; Widgets</a>
+  </nav>
+  <header>
+    <div class="wordmark">harbor<span>/</span>privacy</div>
+    <div class="header-meta">Command Center<span>start.harborprivacy.com</span></div>
+  </header>
+  <main>
+    <div class="section" id="sec-products">
+      <div class="section-label">Harbor Products</div>
+      <div class="grid">
+        <a href="https://harborprivacy.com" target="_blank" class="card dns"><div class="card-icon">&#127760;</div><div class="card-name">Harbor DNS</div><div class="card-desc">Main site &middot; DNS product</div><div class="card-badge">DNS</div></a>
+        <a href="https://adblock.harborprivacy.com" target="_blank" class="card dns"><div class="card-icon">&#128737;&#65039;</div><div class="card-name">AdBlock Portal</div><div class="card-desc">Customer AdGuard access</div><div class="card-badge">DNS</div></a>
+        <a href="https://booking.harborprivacy.com" target="_blank" class="card booking"><div class="card-icon">&#128197;</div><div class="card-name">Harbor Booking</div><div class="card-desc">Scheduling platform</div><div class="card-badge">BOOKING</div></a>
+        <a href="https://fax.harborprivacy.com" target="_blank" class="card fax"><div class="card-icon">&#128424;</div><div class="card-name">Harbor Fax</div><div class="card-desc">Anonymous fax &middot; $2.99/send</div><div class="card-badge">FAX</div></a>
+        <a href="https://career.harborprivacy.com" target="_blank" class="card career"><div class="card-icon">&#128196;</div><div class="card-name">Career Tools</div><div class="card-desc">AI resume + cover letter</div><div class="card-badge">CAREER</div></a>
+        <a href="https://dashboard.harborprivacy.com" target="_blank" class="card dns"><div class="card-icon">&#128202;</div><div class="card-name">Admin Dashboard</div><div class="card-desc">Customer management</div><div class="card-badge">ADMIN</div></a>
+      </div>
+    </div>
+    <div class="section" id="sec-business">
+      <div class="section-label">Business Tools</div>
+      <div class="grid">
+        <a href="https://dashboard.stripe.com" target="_blank" class="card dns"><div class="card-icon">&#128176;</div><div class="card-name">Stripe</div><div class="card-desc">Live payments</div><div class="card-badge">LIVE</div></a>
+        <a href="https://dashboard.stripe.com/test" target="_blank" class="card fax"><div class="card-icon">&#128296;</div><div class="card-name">Stripe Dev</div><div class="card-desc">Test mode</div><div class="card-badge">TEST</div></a>
+        <a href="https://stats.harborprivacy.com" target="_blank" class="card career"><div class="card-icon">&#128200;</div><div class="card-name">Umami</div><div class="card-desc">Self-hosted analytics</div><div class="card-badge">ANALYTICS</div></a>
+        <a href="https://make.com" target="_blank" class="card booking"><div class="card-icon">&#128257;</div><div class="card-name">Make.com</div><div class="card-desc">Social autopost webhooks</div><div class="card-badge">AUTOMATION</div></a>
+        <a href="https://telnyx.com/sign-in" target="_blank" class="card fax"><div class="card-icon">&#9742;&#65039;</div><div class="card-name">Telnyx</div><div class="card-desc">T.38 fax infrastructure</div><div class="card-badge">TELECOM</div></a>
+        <a href="https://resend.com/emails" target="_blank" class="card dns"><div class="card-icon">&#128231;</div><div class="card-name">Resend</div><div class="card-desc">Transactional email</div><div class="card-badge">EMAIL</div></a>
+      </div>
+    </div>
+    <div class="section" id="sec-infra">
+      <div class="section-label">Infrastructure</div>
+      <div class="grid">
+        <a href="https://cloud.oracle.com" target="_blank" class="card infra"><div class="card-icon">&#128421;&#65039;</div><div class="card-name">Oracle Cloud</div><div class="card-desc">VM3 &middot; primary</div><div class="card-badge">CLOUD</div></a>
+        <a href="https://github.com/tbrzr" target="_blank" class="card infra"><div class="card-icon">&#128190;</div><div class="card-name">GitHub</div><div class="card-desc">Private repos &middot; tbrzr</div><div class="card-badge">CODE</div></a>
+        <a href="https://ntfy.sh" target="_blank" class="card infra"><div class="card-icon">&#128276;</div><div class="card-name">ntfy.sh</div><div class="card-desc">harbor-brazer-monitor</div><div class="card-badge">ALERTS</div></a>
+        <a href="https://claude.ai" target="_blank" class="card infra"><div class="card-icon">&#129302;</div><div class="card-name">Claude</div><div class="card-desc">AI coding partner</div><div class="card-badge">AI</div></a>
+      </div>
+    </div>
+    <div class="section" id="sec-jobs">
+      <div class="section-label">Job Search</div>
+      <div class="grid">
+        <a href="https://linkedin.com" target="_blank" class="card jobs"><div class="card-icon">&#128279;</div><div class="card-name">LinkedIn</div><div class="card-desc">Network + apply</div><div class="card-badge">JOBS</div></a>
+        <a href="https://indeed.com" target="_blank" class="card jobs"><div class="card-icon">&#128269;</div><div class="card-name">Indeed</div><div class="card-desc">Job search</div><div class="card-badge">JOBS</div></a>
+      </div>
+    </div>
+    <div class="section" id="sec-school">
+      <div class="section-label">School</div>
+      <div class="grid">
+        <a href="https://fisher.edu" target="_blank" class="card school"><div class="card-icon">&#127891;</div><div class="card-name">Fisher College</div><div class="card-desc">Canvas LMS / MBA</div><div class="card-badge">MBA</div></a>
+      </div>
+    </div>
+    <div class="section" id="sec-admin">
+      <div class="section-label">Personal / Admin</div>
+      <div class="grid">
+        <a href="https://ebcflex.com" target="_blank" class="card admin"><div class="card-icon">&#127973;</div><div class="card-name">EBC Flex</div><div class="card-desc">COBRA admin</div><div class="card-badge">COBRA</div></a>
+      </div>
+    </div>
+    <div class="widgets-row" id="sec-widgets">
+      <div class="widget" id="weather-widget">
+        <div class="widget-label">PEMBROKE, MA</div>
+        <div id="weather-content" class="widget-loading">Loading...</div>
+      </div>
+      <div class="widget" id="mrr-widget">
+        <div class="widget-label">HARBOR MRR</div>
+        <div class="mrr-main" id="mrr-value">&#8212;</div>
+        <div class="mrr-sub" id="mrr-sub">Configure Stripe key in &#9881; settings</div>
+      </div>
+      <div class="widget deadline-widget">
+        <div class="widget-label">MBA DEADLINES</div>
+        <div id="deadlines-list"></div>
+      </div>
+      <div class="widget clipboard-widget">
+        <div class="widget-label">CLIPBOARD HISTORY</div>
+        <div id="clip-list"></div>
+        <button class="widget-btn" onclick="clearClipboard()">Clear</button>
+      </div>
+      <div class="widget">
+        <div class="widget-label">SERVER HEALTH</div>
+        <div id="server-list">
+          <div class="server-row"><span class="server-dot" id="dot-vm3"></span><span class="server-name">VM3 &middot; Harbor Privacy</span><span class="server-ip">129.80.154.105</span></div>
+          <div class="server-row"><span class="server-dot" id="dot-book"></span><span class="server-name">Booking</span><span class="server-ip">booking.harborprivacy.com</span></div>
+          <div class="server-row"><span class="server-dot" id="dot-dash"></span><span class="server-name">Dashboard</span><span class="server-ip">dashboard.harborprivacy.com</span></div>
+          <div class="server-row"><span class="server-dot" id="dot-doh"></span><span class="server-name">DoH</span><span class="server-ip">doh.harborprivacy.com</span></div>
+        </div>
+        <div id="server-updated" class="mrr-sub"></div>
+        <button class="widget-btn" onclick="checkServers()">&#8635; Refresh</button>
+      </div>
+      <div class="widget">
+        <div class="widget-label">FAX VOLUME</div>
+        <div class="mrr-main" id="fax-this-month">&#8212;</div>
+        <div class="mrr-sub" id="fax-sub">Configure Telnyx key in &#9881; settings</div>
+        <div id="fax-compare" style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace;"></div>
+      </div>
+      <div class="widget" style="grid-column:span 2;">
+        <div class="widget-label">CUSTOMER LOOKUP</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input id="cust-email" type="email" placeholder="customer@email.com" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" onkeydown="if(event.key==='Enter')lookupCustomer()">
+          <button onclick="lookupCustomer()" style="background:var(--accent);color:var(--bg);border:none;border-radius:8px;padding:9px 16px;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;transition:background 0.2s;" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background='var(--accent)'">Look up</button>
+        </div>
+        <div id="cust-result"></div>
+      </div>
+      <div class="widget" style="grid-column:span 2;">
+        <div class="widget-label">HARBOR CHANGELOG</div>
+        <div style="display:flex;gap:8px;align-items:flex-start;">
+          <input id="log-input" type="text" placeholder="What did you ship today?" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'" onkeydown="if(event.key==='Enter')addLogEntry()">
+          <button onclick="addLogEntry()" style="background:var(--accent);color:var(--bg);border:none;border-radius:8px;padding:9px 14px;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;cursor:pointer;transition:background 0.2s;white-space:nowrap;" onmouseover="this.style.background='var(--hover)'" onmouseout="this.style.background='var(--accent)'">+ Log</button>
+        </div>
+        <div id="changelog-list"></div>
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <button class="widget-btn" onclick="exportChangelog()">&#8595; Export</button>
+          <button class="widget-btn" onclick="clearChangelog()" style="color:var(--danger);border-color:rgba(255,78,78,0.3);">Clear all</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<div id="settings-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:500;align-items:flex-start;justify-content:center;overflow-y:auto;padding:24px 16px;">
+  <div style="background:#111618;border:1px solid #1e2a2d;border-radius:16px;padding:28px;width:100%;max-width:480px;margin:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+      <div style="font-family:'DM Serif Display',serif;font-size:20px;color:#e8f0ef;">Settings</div>
+      <button onclick="closeSettings()" style="background:none;border:none;color:#6b8a87;font-size:18px;cursor:pointer;line-height:1;">&#10005;</button>
+    </div>
+    <div class="settings-group"><div class="settings-label">Stripe Secret Key</div><div class="settings-hint">MRR widget + customer lookup</div><input id="s-stripe" type="password" placeholder="sk_live_..." class="settings-input"></div>
+    <div class="settings-group"><div class="settings-label">Telnyx API Key</div><div class="settings-hint">Fax volume widget</div><input id="s-telnyx" type="password" placeholder="KEY_..." class="settings-input"></div>
+    <div class="settings-group"><div class="settings-label">GitHub Personal Access Token</div><div class="settings-hint">Read-only repo scope &middot; pulls commits from Harbor repos</div><input id="s-github" type="password" placeholder="ghp_..." class="settings-input"></div>
+    <div class="settings-group"><div class="settings-label">Weather Location</div><div class="settings-hint">City name or ZIP (default: Pembroke MA)</div><input id="s-location" type="text" placeholder="Pembroke MA" class="settings-input"></div>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+      <button onclick="saveSettings()" style="flex:1;background:#00e5c0;color:#0a0e0f;border:none;border-radius:10px;padding:12px;font-family:'DM Sans',sans-serif;font-weight:500;font-size:14px;cursor:pointer;" onmouseover="this.style.background='#00ffda'" onmouseout="this.style.background='#00e5c0'">Save All</button>
+      <button onclick="closeSettings()" style="background:transparent;color:#6b8a87;border:1px solid #1e2a2d;border-radius:10px;padding:12px 20px;font-family:'DM Sans',sans-serif;cursor:pointer;">Cancel</button>
+    </div>
+    <div style="font-size:11px;color:#6b8a87;margin-top:12px;font-family:'DM Mono',monospace;line-height:1.5;">All keys stored in localStorage only. Never transmitted except to the respective service APIs.</div>
+  </div>
+</div>
+<script>
+const PASS='Penel0pe!@!@!@';
+const TOKEN_KEY='hp_start_token';
+const TOKEN_EXPIRY_KEY='hp_start_expiry';
+const DAYS_90=90*24*60*60*1000;
+const HARBOR_REPOS=['harborprivacy.com','harborprivacy-customer-setup-scripts','Harbor-privacy-backend','Oracle-VM1-AGH-backup','Rasberry-pi-home-AGH-backup'];
+const params=new URLSearchParams(window.location.search);
+if(params.get('reset')==='hp-reset-2026'){localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(TOKEN_EXPIRY_KEY);window.history.replaceState({},'',window.location.pathname);}
+function checkAuth(){const t=localStorage.getItem(TOKEN_KEY),e=localStorage.getItem(TOKEN_EXPIRY_KEY);if(t==='authenticated'&&e&&Date.now()<parseInt(e))showApp();}
+function tryLogin(){const v=document.getElementById('pw-input').value;if(v===PASS){localStorage.setItem(TOKEN_KEY,'authenticated');localStorage.setItem(TOKEN_EXPIRY_KEY,Date.now()+DAYS_90);showApp();}else{document.getElementById('auth-error').textContent='incorrect passphrase';document.getElementById('pw-input').value='';document.getElementById('pw-input').focus();}}
+function showApp(){document.getElementById('auth-screen').style.display='none';document.getElementById('app').style.display='block';startClock();loadWeather();loadMRR();renderDeadlines();initClipboard();checkServers();loadFaxVolume();loadChangelog();}
+function logout(){localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(TOKEN_EXPIRY_KEY);location.reload();}
+function startClock(){function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}tick();setInterval(tick,1000);}
+document.getElementById('pw-input').addEventListener('keydown',e=>{if(e.key==='Enter')tryLogin();});
+function openSettings(){document.getElementById('s-stripe').value=localStorage.getItem('hp_stripe_key')||'';document.getElementById('s-telnyx').value=localStorage.getItem('hp_telnyx_key')||'';document.getElementById('s-github').value=localStorage.getItem('hp_github_pat')||'';document.getElementById('s-location').value=localStorage.getItem('hp_location')||'';document.getElementById('settings-modal').style.display='flex';}
+function closeSettings(){document.getElementById('settings-modal').style.display='none';}
+function saveSettings(){const s=document.getElementById('s-stripe').value.trim(),t=document.getElementById('s-telnyx').value.trim(),g=document.getElementById('s-github').value.trim(),l=document.getElementById('s-location').value.trim();if(s)localStorage.setItem('hp_stripe_key',s);if(t)localStorage.setItem('hp_telnyx_key',t);if(g)localStorage.setItem('hp_github_pat',g);if(l)localStorage.setItem('hp_location',l);closeSettings();loadMRR();loadFaxVolume();loadWeather();loadChangelog();}
+async function loadWeather(){try{const loc=localStorage.getItem('hp_location')||'Pembroke MA';const g=await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(loc)+'&count=1');const gd=await g.json();const{latitude:lat,longitude:lon}=gd.results?.[0]||{latitude:42.07,longitude:-70.80};const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=America/New_York');const d=await r.json();const c=d.current;document.getElementById('weather-content').innerHTML='<div class="weather-main">'+weatherEmoji(c.weathercode)+' '+Math.round(c.temperature_2m)+'&deg;F</div><div class="weather-desc">'+weatherDesc(c.weathercode)+'</div><div class="weather-row"><span>&#128168; '+Math.round(c.windspeed_10m)+' mph</span><span>&#128167; '+c.relativehumidity_2m+'%</span></div>';}catch(e){document.getElementById('weather-content').innerHTML='<div class="weather-desc">Unavailable</div>';}}
+function weatherEmoji(c){if(c===0)return'&#9728;&#65039;';if(c<=2)return'&#9925;';if(c<=3)return'&#9729;&#65039;';if(c<=49)return'&#127787;&#65039;';if(c<=67)return'&#127783;&#65039;';if(c<=77)return'&#10052;&#65039;';if(c<=82)return'&#127782;&#65039;';if(c<=99)return'&#9928;&#65039;';return'&#127777;&#65039;';}
+function weatherDesc(c){const m={0:'Clear',1:'Mostly clear',2:'Partly cloudy',3:'Overcast',45:'Foggy',48:'Icy fog',51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',71:'Light snow',73:'Snow',75:'Heavy snow',77:'Snow grains',80:'Light showers',81:'Showers',82:'Heavy showers',95:'Thunderstorm',96:'Thunderstorm + hail',99:'Severe thunderstorm'};return m[c]||'Mixed conditions';}
+async function loadMRR(){const key=localStorage.getItem('hp_stripe_key');if(!key)return;document.getElementById('mrr-value').textContent='...';try{const r=await fetch('https://api.stripe.com/v1/subscriptions?status=active&limit=100',{headers:{Authorization:'Bearer '+key}});const d=await r.json();if(d.error)throw new Error(d.error.message);let mrr=0;for(const s of d.data){for(const i of s.items.data){const p=i.price,a=i.quantity*p.unit_amount;if(p.recurring.interval==='year')mrr+=a/12;else if(p.recurring.interval==='month')mrr+=a;else if(p.recurring.interval==='week')mrr+=a*4.33;}}mrr=mrr/100;document.getElementById('mrr-value').textContent='$'+mrr.toFixed(2);document.getElementById('mrr-sub').textContent=d.data.length+' active subs &middot; MRR';}catch(e){document.getElementById('mrr-value').textContent='&#8212;';document.getElementById('mrr-sub').textContent='Error: '+e.message;}}
+const SERVERS=[{id:'vm3',url:'https://harborprivacy.com'},{id:'book',url:'https://booking.harborprivacy.com'},{id:'dash',url:'https://dashboard.harborprivacy.com'},{id:'doh',url:'https://doh.harborprivacy.com'}];
+async function checkServers(){document.getElementById('server-updated').textContent='Checking...';SERVERS.forEach(s=>{const d=document.getElementById('dot-'+s.id);if(d)d.className='server-dot checking';});const results=await Promise.allSettled(SERVERS.map(s=>fetch(s.url,{method:'HEAD',mode:'no-cors',signal:AbortSignal.timeout(4000)})));results.forEach((r,i)=>{const s=SERVERS[i],dot=document.getElementById('dot-'+s.id);if(!dot)return;dot.className=r.status==='fulfilled'?'server-dot up':'server-dot down';});document.getElementById('server-updated').textContent='Updated '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});}
+async function loadFaxVolume(){const key=localStorage.getItem('hp_telnyx_key');if(!key)return;document.getElementById('fax-this-month').textContent='...';document.getElementById('fax-sub').textContent='Fetching...';try{const now=new Date();const ts=new Date(now.getFullYear(),now.getMonth(),1).toISOString();const ls=new Date(now.getFullYear(),now.getMonth()-1,1).toISOString();const le=ts;const[tr,lr]=await Promise.all([fetch('https://api.telnyx.com/v2/faxes?filter[created_at][gte]='+ts+'&page[size]=100',{headers:{Authorization:'Bearer '+key}}),fetch('https://api.telnyx.com/v2/faxes?filter[created_at][gte]='+ls+'&filter[created_at][lt]='+le+'&page[size]=100',{headers:{Authorization:'Bearer '+key}})]);const td=await tr.json(),ld=await lr.json();if(td.errors)throw new Error(td.errors[0].detail);const tc=td.data?.length??0,lc=ld.data?.length??0,diff=tc-lc;document.getElementById('fax-this-month').textContent=tc;document.getElementById('fax-sub').textContent='faxes sent this month';document.getElementById('fax-compare').textContent=(diff>=0?'+':'')+diff+' vs last month ('+lc+')';}catch(e){document.getElementById('fax-this-month').textContent='&#8212;';document.getElementById('fax-sub').textContent='Error: '+e.message;}}
+const DEADLINES=[{name:'Discussion 1 + Case 2.1',course:'5150',date:'2026-05-09'},{name:'Discussion 2',course:'5150',date:'2026-05-16'},{name:'Teams Session 2 + Case 5.1',course:'5150',date:'2026-05-23'},{name:'Midterm Exam',course:'5150',date:'2026-05-30'},{name:'Teams Session 3 + Case 7.1',course:'5150',date:'2026-06-06'},{name:'Discussion 4 + PBC Paper',course:'5150',date:'2026-06-13'},{name:'Teams Session 4 + Case 10.2',course:'5150',date:'2026-06-20'},{name:'Research Project',course:'5150',date:'2026-06-22'},{name:'Final Exam',course:'5150',date:'2026-06-26'},{name:'Exec Memo Wk1 (GAAP Foundations)',course:'5200',date:'2026-05-09'},{name:'Exec Memo Wk2 (Accounting Quality)',course:'5200',date:'2026-05-16'},{name:'Exec Memo Wk3 (Ratio Analysis)',course:'5200',date:'2026-05-23'},{name:'Exec Memo Wk4 (Cash Flows)',course:'5200',date:'2026-05-30'},{name:'Exec Memo Wk5 (Fair Value)',course:'5200',date:'2026-06-06'},{name:'Exec Memo Wk6 (Limitations)',course:'5200',date:'2026-06-13'},{name:'Exec Memo Wk7 (SEC / SOX)',course:'5200',date:'2026-06-20'},{name:'Final Report + Presentation',course:'5200',date:'2026-06-28'}];
+function renderDeadlines(){const now=new Date();now.setHours(0,0,0,0);const upcoming=DEADLINES.map(d=>({...d,days:Math.ceil((new Date(d.date+'T23:59:00')-now)/86400000)})).filter(d=>d.days>=0).sort((a,b)=>a.days-b.days).slice(0,7);document.getElementById('deadlines-list').innerHTML=upcoming.map(d=>{const cls=d.days<=2?'days-urgent':d.days<=7?'days-soon':'days-ok';const label=d.days===0?'TODAY':d.days===1?'1 day':d.days+'d';return'<div class="deadline-item"><div style="flex:1;min-width:0;"><div class="deadline-name">'+d.name+'</div><div class="deadline-course">MBA '+d.course+'</div></div><div class="deadline-days '+cls+'">'+label+'</div><button class="deadline-cal" onclick="addToCalendar('+JSON.stringify(d).replace(/"/g,"'")+')" title="Add to calendar">&#128197;</button></div>';}).join('');}
+function addToCalendar(d){const s=d.date.replace(/-/g,'');window.open('https://calendar.google.com/calendar/render?action=TEMPLATE&text='+encodeURIComponent('MBA '+d.course+': '+d.name)+'&dates='+s+'/'+s,'_blank');}
+let clipHistory=JSON.parse(localStorage.getItem('hp_clip_history')||'[]');
+function initClipboard(){renderClips();document.addEventListener('copy',()=>{setTimeout(async()=>{try{const text=await navigator.clipboard.readText();if(text&&text.trim()&&text!==clipHistory[0]){clipHistory.unshift(text.trim());if(clipHistory.length>10)clipHistory.pop();localStorage.setItem('hp_clip_history',JSON.stringify(clipHistory));renderClips();}}catch(e){}},100);});}
+function renderClips(){const el=document.getElementById('clip-list');if(!clipHistory.length){el.innerHTML='<div class="widget-loading">Copy something to track it</div>';return;}el.innerHTML=clipHistory.map((c,i)=>'<div class="clip-item" onclick="recopy('+i+')"><span class="clip-text">'+c.substring(0,60)+(c.length>60?'&hellip;':'')+'</span><span class="clip-copy">&#128203;</span></div>').join('');}
+async function recopy(i){try{await navigator.clipboard.writeText(clipHistory[i]);const items=document.querySelectorAll('.clip-item');if(items[i]){items[i].style.background='rgba(0,229,192,0.08)';setTimeout(()=>items[i].style.background='',600);}}catch(e){}}
+function clearClipboard(){clipHistory=[];localStorage.removeItem('hp_clip_history');renderClips();}
+async function lookupCustomer(){const email=document.getElementById('cust-email').value.trim();const key=localStorage.getItem('hp_stripe_key');const el=document.getElementById('cust-result');if(!email)return;if(!key){el.innerHTML='<div class="cust-error">Set Stripe key in &#9881; settings first</div>';return;}el.innerHTML='<div class="cust-error">Looking up...</div>';try{const r=await fetch('https://api.stripe.com/v1/customers/search?query=email:\''+encodeURIComponent(email)+'\'&expand[]=data.subscriptions',{headers:{Authorization:'Bearer '+key}});const d=await r.json();if(d.error)throw new Error(d.error.message);if(!d.data?.length){el.innerHTML='<div class="cust-error">No customer found.</div>';return;}const c=d.data[0],sub=c.subscriptions?.data?.[0];const planName=sub?.items?.data?.[0]?.price?.nickname||sub?.items?.data?.[0]?.price?.id||'N/A';const status=sub?.status||'no subscription';const statusCls=status==='active'?'cust-active':'cust-inactive';const nextBill=sub?.current_period_end?new Date(sub.current_period_end*1000).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}):'N/A';const created=new Date(c.created*1000).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});const amount=sub?.items?.data?.[0]?.price?.unit_amount?'$'+(sub.items.data[0].price.unit_amount/100).toFixed(2):'N/A';el.innerHTML='<div class="cust-card"><div class="cust-field"><div class="cust-label">NAME</div><div class="cust-value">'+( c.name||'&#8212;')+'</div></div><div class="cust-field"><div class="cust-label">STATUS</div><div class="cust-value '+statusCls+'">'+status.toUpperCase()+'</div></div><div class="cust-field"><div class="cust-label">PLAN</div><div class="cust-value">'+planName+'</div></div><div class="cust-field"><div class="cust-label">AMOUNT</div><div class="cust-value">'+amount+'/mo</div></div><div class="cust-field"><div class="cust-label">NEXT BILL</div><div class="cust-value">'+nextBill+'</div></div><div class="cust-field"><div class="cust-label">SINCE</div><div class="cust-value">'+created+'</div></div></div>';}catch(e){el.innerHTML='<div class="cust-error">Error: '+e.message+'</div>';}}
+let changelog=JSON.parse(localStorage.getItem('hp_changelog')||'[]');let ghCommits=[];let clPage=0;const CL_PER_PAGE=10;
+async function loadChangelog(){renderChangelog();const pat=localStorage.getItem('hp_github_pat');if(!pat)return;const since=new Date(Date.now()-30*24*60*60*1000).toISOString();ghCommits=[];try{const results=await Promise.allSettled(HARBOR_REPOS.map(async repo=>{let page=1,done=false,commits=[];while(!done){const r=await fetch('https://api.github.com/repos/tbrzr/'+repo+'/commits?since='+since+'&per_page=100&page='+page,{headers:{Authorization:'Bearer '+pat,Accept:'application/vnd.github.v3+json'}});if(!r.ok){done=true;break;}const data=await r.json();if(!data.length){done=true;break;}commits.push(...data.map(c=>({type:'gh',repo,text:c.commit.message.split('\n')[0].substring(0,80),date:c.commit.author.date,id:c.sha,url:c.html_url})));if(data.length<100)done=true;else page++;}return commits;}));results.forEach(r=>{if(r.status==='fulfilled')ghCommits.push(...r.value);});ghCommits.sort((a,b)=>new Date(b.date)-new Date(a.date));}catch(e){console.warn('GitHub fetch error:',e);}clPage=0;renderChangelog();}
+function addLogEntry(){const input=document.getElementById('log-input');const text=input.value.trim();if(!text)return;changelog.unshift({type:'manual',text,date:new Date().toISOString(),id:Date.now()});localStorage.setItem('hp_changelog',JSON.stringify(changelog));input.value='';clPage=0;renderChangelog();}
+function deleteLogEntry(id){changelog=changelog.filter(e=>e.id!==id);localStorage.setItem('hp_changelog',JSON.stringify(changelog));renderChangelog();}
+function renderChangelog(){const el=document.getElementById('changelog-list');const all=[...changelog.map(e=>({...e,type:e.type||'manual'})),...ghCommits].sort((a,b)=>new Date(b.date)-new Date(a.date));const total=all.length,totalPages=Math.ceil(total/CL_PER_PAGE)||1;const slice=all.slice(clPage*CL_PER_PAGE,(clPage+1)*CL_PER_PAGE);if(!all.length){el.innerHTML='<div class="log-empty">Nothing logged yet. Ship something or add a GitHub PAT in settings.</div>';return;}el.innerHTML=slice.map(e=>{const d=new Date(e.date);const label=d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});if(e.type==='gh'){return'<div class="log-entry"><span class="log-date">'+label+'</span><div style="flex:1;min-width:0;"><span class="log-text"><a href="'+e.url+'" target="_blank" style="color:var(--text);text-decoration:none;" onmouseover="this.style.color=\'var(--accent)\'" onmouseout="this.style.color=\'var(--text)\'">'+e.text+'</a></span><div class="log-repo">'+e.repo+'</div></div><span class="log-badge badge-gh">GH</span></div>';}return'<div class="log-entry"><span class="log-date">'+label+'</span><span class="log-text">'+e.text+'</span><span class="log-badge badge-manual">NOTE</span><button class="log-del" onclick="deleteLogEntry('+e.id+')" title="Delete">&#10005;</button></div>';}).join('');el.innerHTML+='<div class="cl-pagination"><button class="cl-page-btn" onclick="clPage--;renderChangelog()" '+(clPage===0?'disabled':'')+'>&#8592; prev</button><span class="cl-page-info">page '+(clPage+1)+' of '+totalPages+' &middot; '+total+' entries</span><button class="cl-page-btn" onclick="clPage++;renderChangelog()" '+(clPage>=totalPages-1?'disabled':'')+'>next &#8594;</button></div>';}
+function exportChangelog(){const all=[...changelog,...ghCommits].sort((a,b)=>new Date(b.date)-new Date(a.date));const lines=all.map(e=>new Date(e.date).toLocaleString('en-US')+' ['+(e.type==='gh'?'GH:'+e.repo:'NOTE')+'] '+e.text).join('\n');const blob=new Blob([lines],{type:'text/plain'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='harbor-changelog-'+new Date().toISOString().slice(0,10)+'.txt';a.click();}
+function clearChangelog(){if(!confirm('Clear manual entries? GitHub commits will still show.'))return;changelog=[];localStorage.removeItem('hp_changelog');renderChangelog();}
+checkAuth();
+</script>
+</body>
+</html>
