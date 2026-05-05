@@ -355,7 +355,7 @@ def _send_fax(order_token):
             (datetime.utcnow().isoformat(), order_token),
         )
         db.commit()
-        ntfy("Fax FAILED", f"Fax {order_token[:8]} failed: {e}", priority="high", tags="fax,x")
+        log.error("Fax send error for %s: %s", order_token, e)
     finally:
         db.close()
 
@@ -708,16 +708,26 @@ def telnyx_webhook():
         db.commit()
 
         if status == "delivered":
-            ntfy("Fax Delivered", f"Fax {order['token'][:8]} delivered to {order['fax_number']}", tags="fax,white_check_mark")
             delete_fax_files(order["token"])
             send_delivery_email(order["email"], order["token"], order["fax_number"], "delivered")
         else:
-            ntfy("Fax FAILED", f"Fax {order['token'][:8]} failed to {order['fax_number']}", priority="high", tags="fax,x")
             delete_fax_files(order["token"])
             send_delivery_email(order["email"], order["token"], order["fax_number"], "failed")
 
     db.close()
     return "ok", 200
+
+
+@app.route("/fax/health")
+def fax_health():
+    try:
+        stripe.Balance.retrieve()
+        stripe_ok = True
+    except Exception:
+        stripe_ok = False
+    status = "ok" if stripe_ok else "degraded"
+    code = 200 if stripe_ok else 503
+    return jsonify({"status": status, "stripe": "ok" if stripe_ok else "error"}), code
 
 
 if __name__ == "__main__":

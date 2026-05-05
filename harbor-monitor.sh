@@ -56,6 +56,7 @@ check_service() {
 }
 
 # Services
+check_service "Harbor Fax" "harbor-fax"
 check_service "AdGuard Home" "AdGuardHome"
 check_service "Unbound" "unbound"
 check_service "Harbor Dashboard" "harbor-dashboard"
@@ -67,6 +68,8 @@ check_http "Harbor Booking" "https://booking.harborprivacy.com/health" '"status"
 check_http "Harbor Privacy" "https://harborprivacy.com" "harbor"
 check_http "Harbor Dashboard" "https://dashboard.harborprivacy.com/login" "harbor"
 check_http "Harbor DoH" "https://doh.harborprivacy.com/dns-query" ""
+check_http "Harbor Fax Site" "https://fax.harborprivacy.com" "harbor"
+check_http "Harbor Fax Payments" "https://fax.harborprivacy.com/fax/health" '"stripe":"ok"'
 
 # DNS
 DNS_FAIL="/tmp/fail_dns"
