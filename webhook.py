@@ -395,6 +395,21 @@ def schedule_wipe(client_id, delay=3600):
     except Exception as e:
         log.error(f"Error scheduling wipe: {e}")
 
+def cancel_wipe(client_id):
+    try:
+        try:
+            with open(PENDING_WIPES_FILE) as f2:
+                pending = json.load(f2)
+        except:
+            pending = {}
+        if client_id in pending:
+            del pending[client_id]
+            with open(PENDING_WIPES_FILE, "w") as f2:
+                json.dump(pending, f2)
+            log.info(f"Cancelled scheduled wipe for {client_id}")
+    except Exception as e:
+        log.error(f"Error cancelling wipe: {e}")
+
 def process_pending_wipes():
     """Check pending wipes file and execute any that are due"""
     import time
@@ -888,6 +903,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                         try:
                             send_welcome_email(email, name, client_id, plan, profile_url, invoice_url, plan_type=plan_type)
                             log_customer(client_id, name, email, plan, stripe_id, plan_type=plan_type, is_trial=is_trial)
+                            cancel_wipe(client_id)
                             mark_processed(session_id)
                             log.info(f"Onboarded: {name} ({client_id})")
                         except Exception as pe:
