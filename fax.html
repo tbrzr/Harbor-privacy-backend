@@ -26,8 +26,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="HP Fax">
 <link rel="icon" type="image/svg+xml" href="/fax-favicon.svg">
-<link rel="icon" type="image/png" sizes="32x32" href="/fax-icon-32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/fax-icon-16.png">
+<link rel="apple-touch-icon" href="/fax-favicon.svg">
+<link rel="icon" type="image/svg+xml" href="/fax-favicon.svg">
+<link rel="apple-touch-icon" href="/fax-favicon.svg">
+<link rel="icon" type="image/svg+xml" href="/fax-favicon.svg">
+<link rel="apple-touch-icon" href="/fax-favicon.svg">
 <link rel="apple-touch-icon" href="/fax-icon-192.png">
 <script type="application/ld+json">
 {
@@ -531,13 +534,14 @@ footer a{color:#475569;text-decoration:none}
         if (data.error) { resultEl.style.color = '#f87171'; resultEl.textContent = data.error; promoId = null; promoDiscount = 0; return; }
         promoId = data.promo_id;
         promoDiscount = data.discount;
-        isFree = data.final === 0;
+        var finalAmount = Math.max(0, baseAmount - promoDiscount);
+        isFree = finalAmount === 0;
         resultEl.style.color = '#4ade80';
-        resultEl.textContent = '✓ ' + data.description + ' applied — New total: $' + (data.final/100).toFixed(2);
-        document.getElementById('s_total').textContent = '$' + (data.final/100).toFixed(2);
+        resultEl.textContent = '✓ Code applied — ' + (isFree ? 'FREE' : 'New total: $' + (finalAmount/100).toFixed(2));
+        document.getElementById('s_total').textContent = isFree ? 'FREE' : '$' + (finalAmount/100).toFixed(2);
         document.getElementById('card_section').style.display = isFree ? 'none' : 'block';
         document.getElementById('stripe_badge').style.display = isFree ? 'none' : 'flex';
-        payBtn.textContent = isFree ? 'Send for Free' : 'Pay Now';
+        payBtn.textContent = isFree ? 'Send for Free' : 'Pay $' + (finalAmount/100).toFixed(2);
       } catch(e) { resultEl.style.color = '#f87171'; resultEl.textContent = 'Could not validate code.'; }
     });
 
