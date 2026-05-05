@@ -1518,7 +1518,7 @@ def admin():
         <div style="display:flex;gap:6px;align-items:center;">
           <a href="/admin/customer/{{ c.client_id }}" class="btn btn-sm" style="padding:4px 10px;font-size:10px;">View →</a>
           {% if c.client_id != "harbor7066" %}
-          <a href="/admin/delete/{{ c.client_id }}" class="btn btn-sm" style="background:rgba(255,107,107,0.12);color:#ff6b6b;border-color:rgba(255,107,107,0.3);" onclick="return confirm('Delete {{ c.name }}?')">✕</a>
+          <button class="btn btn-sm" style="background:rgba(255,107,107,0.12);color:#ff6b6b;border-color:rgba(255,107,107,0.3);" onclick="deleteCustomer('{{ c.client_id }}','{{ c.name }}',this)">✕</button>
           {% endif %}
         </div>
       </div>
@@ -2947,45 +2947,6 @@ def admin_logs_stream():
     )
     from flask import Response
     return Response(result.stdout, mimetype="text/plain")
-
-
-@app.route("/admin/delete/<client_id>")
-@admin_required
-def admin_delete_get(client_id):
-    try:
-        import requests as _req
-        import sys as _sys
-        _sys.path.insert(0, "/home/ubuntu/harbor-backend")
-        from webhook import wipe_customer, STRIPE_SECRET
-        import json as _json
-        _customers_log = "/var/log/harbor-customers.json"
-        customers = [_json.loads(l) for l in open(_customers_log) if l.strip()]
-        customer = next((c for c in customers if c.get("client_id") == client_id), None)
-        if not customer:
-            return redirect("/admin")
-        if client_id in ["harbor7066"]:
-            return redirect("/admin")
-        protected_emails = ["admin@harborprivacy.com", "tim@harborprivacy.com"]
-        if customer.get("email") in protected_emails:
-            return redirect("/admin")
-        stripe_id = customer.get("stripe_customer_id","")
-        if stripe_id and STRIPE_SECRET:
-            try:
-                subs = _req.get(f"https://api.stripe.com/v1/subscriptions",
-                    params={"customer": stripe_id, "status": "active"},
-                    auth=(STRIPE_SECRET,"")).json()
-                for sub in subs.get("data",[]):
-                    _req.delete(f"https://api.stripe.com/v1/subscriptions/{sub['id']}",
-                        auth=(STRIPE_SECRET,""))
-            except Exception as e:
-                log.error(f"Stripe cancel error: {e}")
-        wipe_customer(client_id)
-        log.info(f"Deleted customer {client_id}")
-        return redirect("/admin")
-    except Exception as e:
-        import logging as _log
-        _log.getLogger(__name__).error(f"Delete error: {e}")
-        return redirect("/admin")
 
 
 @app.route("/social")
