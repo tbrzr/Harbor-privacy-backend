@@ -1796,33 +1796,13 @@ def api_admin_links():
     resp = jsonify({"ok": True})
     return resp
 
-@app.route("/admin/customer/<client_id>", methods=["GET", "POST"])
+@app.route("/admin/customer/<client_id>")
 @admin_required
 def admin_customer(client_id):
     customers = load_customers()
     customer = next((c for c in customers if c.get("client_id") == client_id), None)
     if not customer:
         return redirect("/admin")
-
-    if request.method == "POST":
-        action = request.form.get("action", "")
-        if action == "update_email":
-            old_email = request.form.get("old_email", "").strip()
-            new_email = request.form.get("new_email", "").strip().lower()
-            if old_email and new_email and old_email != new_email:
-                updated = update_customer_email(old_email, new_email)
-                log.info(f"Admin email update: {old_email} -> {new_email} success={updated}")
-        elif action == "toggle_plan" and customer.get("email") == ADMIN_EMAIL:
-            new_plan = request.form.get("plan_type", "remote")
-            customers = load_customers()
-            for c in customers:
-                if c.get("client_id") == client_id:
-                    c["plan_type"] = new_plan
-                    c["plan"] = "remote"
-                    break
-            save_customers(customers)
-            print(f"Admin plan toggle: {client_id} -> {new_plan}")
-        return redirect(f"/admin/customer/{client_id}")
 
     client = get_client(client_id)
     rules = get_client_rules(client_id) if client_id else []
@@ -1883,10 +1863,8 @@ def admin_customer(client_id):
     <div style="border-top:1px solid var(--border);margin:16px 0;"></div>
     <a href="https://dashboard.harborprivacy.com/dashboard?preview=1" target="_blank" class="btn" style="display:block;text-align:center;margin-bottom:16px;">Preview Customer Dashboard</a>
     <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:12px;">Test Plan Mode</div>
-    <form method="POST" action="/admin/customer/{{ customer.client_id }}">
-      <input type="hidden" name="action" value="toggle_plan">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <select name="plan_type" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;font-family:'DM Mono',monospace;font-size:12px;flex:1;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <select id="planSelect" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:8px 12px;font-family:'DM Mono',monospace;font-size:12px;flex:1;">
           <option value="remote" {% if customer.plan_type == "remote" %}selected{% endif %}>Harbor Remote</option>
           <option value="harbor-remote-light" {% if customer.plan_type == "harbor-remote-light" %}selected{% endif %}>Harbor Light</option>
           <option value="install" {% if customer.plan_type == "install" %}selected{% endif %}>On-Site Install</option>
@@ -1894,10 +1872,9 @@ def admin_customer(client_id):
           <option value="6month" {% if customer.plan_type == "6month" %}selected{% endif %}>Remote 6-Month</option>
           <option value="annual" {% if customer.plan_type == "annual" %}selected{% endif %}>Remote Annual</option>
         </select>
-        <button type="submit" class="btn" style="padding:8px 16px;">Switch</button>
+        <button class="btn" style="padding:8px 16px;" onclick="togglePlan('{{ customer.client_id }}',document.getElementById('planSelect').value,this)">Switch</button>
       </div>
       <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);margin-top:8px;">Current: {{ customer.plan_type }}</p>
-    </form>
     {% endif %}
 
     <div style="border-top:1px solid var(--border);margin:16px 0;"></div>
@@ -1908,14 +1885,10 @@ def admin_customer(client_id):
         <button onclick="reprovision('{{ customer.client_id }}')" class="btn btn-sm btn-danger">Re-provision</button>
       </div>
     </div>
-    <form method="POST" action="/admin/customer/{{ customer.client_id }}">
-      <input type="hidden" name="action" value="update_email">
-      <input type="hidden" name="old_email" value="{{ customer.email }}">
-      <div style="display:flex;gap:8px;">
-        <input type="email" name="new_email" placeholder="New email address" style="flex:1;margin:0;">
-        <button type="submit" class="btn btn-sm">Update</button>
+    <div style="display:flex;gap:8px;">
+        <input type="email" id="newEmailInput" placeholder="New email address" style="flex:1;margin:0;">
+        <button class="btn btn-sm" onclick="updateEmail('{{ customer.email }}',document.getElementById('newEmailInput').value,this)">Update</button>
       </div>
-    </form>
   </div>
 
   {% if not code_valid %}
@@ -2075,6 +2048,19 @@ async function deleteCustomer(cid, name, btn){
       btn.disabled = false;
     }
   };
+}
+async function togglePlan(cid, plan, btn){
+  btn.textContent='...';btn.disabled=true;
+  const r=await fetch('/api/admin/toggle-plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid,plan_type:plan})});
+  const d=await r.json();
+  btn.textContent=d.ok?'Done':'Error';btn.disabled=false;
+}
+async function updateEmail(oldEmail, newEmail, btn){
+  if(!newEmail){return;}
+  btn.textContent='...';btn.disabled=true;
+  const r=await fetch('/api/admin/update-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({old_email:oldEmail,new_email:newEmail})});
+  const d=await r.json();
+  btn.textContent=d.ok?'Updated':'Error';btn.disabled=false;
 }
 async function resendWelcome(cid){
   const btn=event.target;btn.textContent='Sending...';btn.disabled=true;
@@ -2887,6 +2873,37 @@ def api_rule():
         domain = data.get("domain", "").strip().lower()
         return jsonify({"ok": add_custom_rule(client_id, domain, data.get("block", True))})
     return jsonify({"ok": remove_custom_rule(client_id, data.get("rule", ""))})
+
+@app.route("/api/admin/update-email", methods=["POST"])
+@admin_required
+def api_admin_update_email():
+    data = request.get_json()
+    old_email = (data.get("old_email") or "").strip()
+    new_email = (data.get("new_email") or "").strip().lower()
+    if not old_email or not new_email or old_email == new_email:
+        return jsonify({"ok": False, "error": "Invalid emails"})
+    updated = update_customer_email(old_email, new_email)
+    log.info(f"Admin email update: {old_email} -> {new_email} success={updated}")
+    return jsonify({"ok": updated})
+
+@app.route("/api/admin/toggle-plan", methods=["POST"])
+@admin_required
+def api_admin_toggle_plan():
+    data = request.get_json()
+    client_id = data.get("client_id", "")
+    new_plan = data.get("plan_type", "remote")
+    customers = load_customers()
+    updated = False
+    for c in customers:
+        if c.get("client_id") == client_id:
+            c["plan_type"] = new_plan
+            c["plan"] = "remote"
+            updated = True
+            break
+    if updated:
+        save_customers(customers)
+        log.info(f"Admin plan toggle: {client_id} -> {new_plan}")
+    return jsonify({"ok": updated})
 
 @app.route("/api/admin/service", methods=["POST"])
 @admin_required
