@@ -55,7 +55,7 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 MEDIA_DIR.mkdir(exist_ok=True)
 
 stripe.api_key = STRIPE_SECRET
-telnyx.api_key = TELNYX_API_KEY
+telnyx_client = telnyx.Telnyx(api_key=TELNYX_API_KEY)
 
 ALLOWED_EXTS = {"pdf", "jpg", "jpeg", "png", "docx"}
 
@@ -263,7 +263,7 @@ def _send_fax(order_token):
         if not fax_number.startswith("+"):
             fax_number = "+1" + fax_number.replace("-", "").replace(" ", "").replace("(", "").replace(")", "")
 
-        resp = telnyx.Fax.create(
+        resp = telnyx_client.faxes.create(
             connection_id=TELNYX_CONNECTION_ID,
             from_=TELNYX_FROM_NUMBER,
             to=fax_number,
@@ -271,7 +271,7 @@ def _send_fax(order_token):
             store_media=False,
         )
 
-        telnyx_fax_id = resp.get("id") or resp.data.id if hasattr(resp, "data") else str(resp.id)
+        telnyx_fax_id = resp.data.id
         db.execute(
             "UPDATE fax_orders SET status='sending', telnyx_fax_id=?, merged_pdf=?, updated_at=? WHERE token=?",
             (telnyx_fax_id, merged_path, datetime.utcnow().isoformat(), order_token),
