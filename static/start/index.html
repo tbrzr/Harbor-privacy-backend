@@ -79,7 +79,7 @@
   .server-dot.checking{background:var(--career);animation:pulse 1s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
   .server-name{font-size:12px;color:var(--text);flex:1}
-  .server-ip{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace}
+  .server-ip{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px}
   .server-ms{font-size:10px;font-family:'DM Mono',monospace;min-width:42px;text-align:right;color:var(--muted)}
   .server-ms.fast{color:var(--accent)}.server-ms.slow{color:var(--career)}.server-ms.bad{color:var(--danger)}
   .agh-stat-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px}
