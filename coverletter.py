@@ -764,11 +764,13 @@ def generate_pdf(letter_text, name, output_path, phone=None, email=None):
         spaceAfter=6
     )
     
-    story.append(Paragraph(f"<b>{name}</b>", header_style))
+    def _esc(t):
+        return (t or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    story.append(Paragraph(f"<b>{_esc(name)}</b>", header_style))
     if phone:
-        story.append(Paragraph(phone, header_style))
+        story.append(Paragraph(_esc(phone), header_style))
     if email:
-        story.append(Paragraph(email, header_style))
+        story.append(Paragraph(_esc(email), header_style))
     
     story.append(Spacer(1, 0.3*inch))
     

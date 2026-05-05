@@ -3857,7 +3857,7 @@ async function generate() {
       document.getElementById("imgOverlaySub").textContent = sub;
       var brandLabels = {harbor:"harbor privacy", career:"career by harbor", fax:"harbor fax", booking:"harbor booking", tim:"tim brazer", auto:"harbor privacy"};
       document.getElementById("imgOverlayTop").textContent = brandLabels[currentBrand] || "harbor privacy";
-      img.onerror = function() { document.getElementById("imgOverlayWrap").style.display="block"; document.getElementById("imgOverlayWrap").innerHTML="<div style='padding:20px;color:#f87171;font-family:monospace;font-size:12px;'>Image load failed:<br>" + data.image_url + "</div>"; };
+      img.onerror = function() { document.getElementById("imgOverlayWrap").style.display="block"; document.getElementById("imgOverlayWrap").textContent="Image load failed."; };
       img.onload = function() {
         document.getElementById("imgOverlayWrap").style.display = "block";
         currentImageUrl = data.image_url;
