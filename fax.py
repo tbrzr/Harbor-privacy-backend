@@ -170,7 +170,7 @@ def estimate_docx_pages(docx_path):
         return 1
 
 
-def make_cover_page_bytes(to_name="", fax_number="", from_name="", subject="", message="", page_count=0):
+def make_cover_page_bytes(to_name="", fax_number="", from_name="", subject="", message="", page_count=0, branded=True):
     buf = BytesIO()
     c = rl_canvas.Canvas(buf, pagesize=letter)
     w, h = letter
@@ -178,23 +178,30 @@ def make_cover_page_bytes(to_name="", fax_number="", from_name="", subject="", m
     c.setFillColorRGB(0.039, 0.059, 0.118)
     c.rect(0, 0, w, h, fill=1, stroke=0)
 
-    # Header
-    c.setFillColorRGB(0, 0.831, 1)
-    c.setFont("Helvetica-Bold", 22)
-    c.drawCentredString(w / 2, h - 1.2 * inch, "Harbor Privacy Fax")
-
-    c.setFillColorRGB(0.58, 0.635, 0.722)
-    c.setFont("Helvetica", 10)
-    c.drawCentredString(w / 2, h - 1.6 * inch, "fax.harborprivacy.com")
+    if branded:
+        c.setFillColorRGB(0, 0.831, 1)
+        c.setFont("Helvetica-Bold", 22)
+        c.drawCentredString(w / 2, h - 1.2 * inch, "Harbor Privacy Fax")
+        c.setFillColorRGB(0.58, 0.635, 0.722)
+        c.setFont("Helvetica", 10)
+        c.drawCentredString(w / 2, h - 1.6 * inch, "fax.harborprivacy.com")
+        divider_y = h - 1.9 * inch
+        fields_y = h - 2.4 * inch
+    else:
+        c.setFillColorRGB(0.85, 0.88, 0.92)
+        c.setFont("Helvetica-Bold", 18)
+        c.drawCentredString(w / 2, h - 1.2 * inch, "FAX COVER SHEET")
+        divider_y = h - 1.5 * inch
+        fields_y = h - 2.0 * inch
 
     # Divider
     c.setFillColorRGB(0.117, 0.165, 0.271)
-    c.rect(inch, h - 1.9 * inch, w - 2 * inch, 0.015 * inch, fill=1, stroke=0)
+    c.rect(inch, divider_y, w - 2 * inch, 0.015 * inch, fill=1, stroke=0)
 
     # Cover fields
     label_x = inch
     value_x = 2.5 * inch
-    y = h - 2.4 * inch
+    y = fields_y
     line_h = 0.35 * inch
 
     fields = [
@@ -234,15 +241,15 @@ def make_cover_page_bytes(to_name="", fax_number="", from_name="", subject="", m
                 if y < 1.2 * inch:
                     break
 
-    # Footer
-    c.setFillColorRGB(0.117, 0.165, 0.271)
-    c.rect(inch, 0.9 * inch, w - 2 * inch, 0.015 * inch, fill=1, stroke=0)
-    c.setFillColorRGB(0.58, 0.635, 0.722)
-    c.setFont("Helvetica", 9)
-    c.drawCentredString(w / 2, 0.65 * inch,
-                        "Harbor Privacy LLC | HIPAA Conduit Exception | Operated under U.S. law")
-    c.drawCentredString(w / 2, 0.45 * inch,
-                        "No sender identity is stored. Document deleted on delivery.")
+    if branded:
+        c.setFillColorRGB(0.117, 0.165, 0.271)
+        c.rect(inch, 0.9 * inch, w - 2 * inch, 0.015 * inch, fill=1, stroke=0)
+        c.setFillColorRGB(0.58, 0.635, 0.722)
+        c.setFont("Helvetica", 9)
+        c.drawCentredString(w / 2, 0.65 * inch,
+                            "Harbor Privacy LLC | HIPAA Conduit Exception | Operated under U.S. law")
+        c.drawCentredString(w / 2, 0.45 * inch,
+                            "No sender identity is stored. Document deleted on delivery.")
 
     c.save()
     return buf.getvalue()
@@ -274,23 +281,22 @@ def build_fax_pdf(order_token, file_tokens_list, remove_branding, order=None):
     db = get_db()
     pdf_parts = []
 
-    if not remove_branding:
-        total_pages = 0
-        for ft in file_tokens_list:
-            row = db.execute("SELECT page_count FROM fax_files WHERE token=?", (ft,)).fetchone()
-            if row:
-                total_pages += row["page_count"] or 1
-        cover_kwargs = {}
-        if order:
-            cover_kwargs = dict(
-                to_name=order["to_name"] or "",
-                fax_number=order["fax_number"] or "",
-                from_name=order["from_name"] or "",
-                subject=order["subject"] or "",
-                message=order["message"] or "",
-                page_count=total_pages,
-            )
-        pdf_parts.append(make_cover_page_bytes(**cover_kwargs))
+    total_pages = 0
+    for ft in file_tokens_list:
+        row = db.execute("SELECT page_count FROM fax_files WHERE token=?", (ft,)).fetchone()
+        if row:
+            total_pages += row["page_count"] or 1
+    cover_kwargs = {}
+    if order:
+        cover_kwargs = dict(
+            to_name=order["to_name"] or "",
+            fax_number=order["fax_number"] or "",
+            from_name=order["from_name"] or "",
+            subject=order["subject"] or "",
+            message=order["message"] or "",
+            page_count=total_pages,
+        )
+    pdf_parts.append(make_cover_page_bytes(**cover_kwargs, branded=not remove_branding))
 
     for ft in file_tokens_list:
         row = db.execute("SELECT file_path, orig_name FROM fax_files WHERE token=?", (ft,)).fetchone()
