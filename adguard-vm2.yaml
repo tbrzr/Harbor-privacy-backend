@@ -2,13 +2,6 @@ http:
   pprof:
     port: 6060
     enabled: false
-  doh:
-    routes:
-      - GET /dns-query
-      - POST /dns-query
-      - GET /dns-query/{ClientID}
-      - POST /dns-query/{ClientID}
-    insecure_enabled: false
   address: 0.0.0.0:8080
   session_ttl: 720h
 users:
@@ -33,31 +26,22 @@ dns:
     - 127.0.0.1:5335
   upstream_dns_file: ""
   bootstrap_dns:
-    - 9.9.9.10
-    - 149.112.112.10
-  fallback_dns: []
-  upstream_mode: parallel
+    - 9.9.9.9
+  fallback_dns:
+    - 9.9.9.9
+  upstream_mode: load_balance
   fastest_timeout: 1s
   allowed_clients:
-    - 127.0.0.1
     - timothy9428
-    - harbor7066
-    - 2fa0468
-    - admintim1003
-    - harborc684
-    - frances9770
   disallowed_clients: []
-  blocked_hosts:
-    - version.bind
-    - id.server
-    - hostname.bind
+  blocked_hosts: []
   trusted_proxies:
     - 127.0.0.0/8
     - ::1/128
   cache_enabled: true
-  cache_size: 33554432
-  cache_ttl_min: 300
-  cache_ttl_max: 86400
+  cache_size: 4194304
+  cache_ttl_min: 0
+  cache_ttl_max: 0
   cache_optimistic: true
   cache_optimistic_answer_ttl: 30s
   cache_optimistic_max_age: 12h
@@ -73,7 +57,7 @@ dns:
   ipset: []
   ipset_file: ""
   bootstrap_prefer_ipv6: false
-  upstream_timeout: 3s
+  upstream_timeout: 10s
   private_networks: []
   use_private_ptr_resolvers: true
   local_ptr_upstreams: []
@@ -94,6 +78,7 @@ tls:
   port_dns_over_quic: 853
   port_dnscrypt: 0
   dnscrypt_config_file: ""
+  allow_unencrypted_doh: false
   certificate_chain: ""
   private_key: ""
   certificate_path: /etc/letsencrypt/live/doh.harborprivacy.com/fullchain.pem
@@ -180,7 +165,7 @@ filtering:
   parental_cache_size: 1048576
   cache_time: 30
   filters_update_interval: 1
-  blocked_response_ttl: 60
+  blocked_response_ttl: 10
   filtering_enabled: true
   rewrites_enabled: true
   parental_enabled: false
@@ -193,7 +178,147 @@ clients:
     rdns: true
     dhcp: true
     hosts: true
-  persistent: []
+  persistent:
+    - safe_search:
+        enabled: false
+        bing: false
+        duckduckgo: false
+        ecosia: false
+        google: false
+        pixabay: false
+        yandex: false
+        youtube: false
+      blocked_services:
+        schedule:
+          time_zone: Local
+        ids: []
+      name: Nofam Brazer (nofam9471)
+      ids:
+        - nofam9471
+      tags: []
+      upstreams: []
+      uid: 019d0bb5-40d8-700e-8550-506d7b82aff7
+      upstreams_cache_size: 0
+      upstreams_cache_enabled: false
+      use_global_settings: true
+      filtering_enabled: true
+      parental_enabled: false
+      safebrowsing_enabled: true
+      use_global_blocked_services: true
+      ignore_querylog: false
+      ignore_statistics: false
+    - safe_search:
+        enabled: false
+        bing: false
+        duckduckgo: false
+        ecosia: false
+        google: false
+        pixabay: false
+        yandex: false
+        youtube: false
+      blocked_services:
+        schedule:
+          time_zone: Local
+        ids: []
+      name: Tim_TEST Brazer (timtest1668)
+      ids:
+        - timtest1668
+      tags: []
+      upstreams: []
+      uid: 019d0b71-1918-7e18-aad8-16a63838ff54
+      upstreams_cache_size: 0
+      upstreams_cache_enabled: false
+      use_global_settings: true
+      filtering_enabled: true
+      parental_enabled: false
+      safebrowsing_enabled: true
+      use_global_blocked_services: true
+      ignore_querylog: false
+      ignore_statistics: false
+    - safe_search:
+        enabled: true
+        bing: true
+        duckduckgo: true
+        ecosia: true
+        google: true
+        pixabay: true
+        yandex: true
+        youtube: true
+      blocked_services:
+        schedule:
+          time_zone: Local
+        ids: []
+      name: Timothy Brazer (timothy7546)
+      ids:
+        - timothy7546
+      tags: []
+      upstreams: []
+      uid: 019cf9c2-e6c8-72eb-a3e1-6b8d3d1b7bf9
+      upstreams_cache_size: 0
+      upstreams_cache_enabled: false
+      use_global_settings: false
+      filtering_enabled: true
+      parental_enabled: true
+      safebrowsing_enabled: true
+      use_global_blocked_services: false
+      ignore_querylog: false
+      ignore_statistics: false
+    - safe_search:
+        enabled: false
+        bing: false
+        duckduckgo: false
+        ecosia: false
+        google: false
+        pixabay: false
+        yandex: false
+        youtube: false
+      blocked_services:
+        schedule:
+          time_zone: Local
+        ids: []
+      name: Timothy Brazer (timothy8702)
+      ids:
+        - timothy8702
+      tags: []
+      upstreams: []
+      uid: 019d0afd-9efe-7c00-964a-5c0c7680150c
+      upstreams_cache_size: 0
+      upstreams_cache_enabled: false
+      use_global_settings: false
+      filtering_enabled: true
+      parental_enabled: false
+      safebrowsing_enabled: true
+      use_global_blocked_services: false
+      ignore_querylog: false
+      ignore_statistics: false
+    - safe_search:
+        enabled: false
+        bing: false
+        duckduckgo: false
+        ecosia: false
+        google: false
+        pixabay: false
+        yandex: false
+        youtube: false
+      blocked_services:
+        schedule:
+          time_zone: Local
+        ids: []
+      name: Timtest-nofam (timtestnofam3225)
+      ids:
+        - timtestnofam3225
+      tags: []
+      upstreams: []
+      uid: 019d0ba5-e4d0-714e-8f46-95898b725b54
+      upstreams_cache_size: 0
+      upstreams_cache_enabled: false
+      use_global_settings: true
+      filtering_enabled: true
+      parental_enabled: false
+      safebrowsing_enabled: true
+      use_global_blocked_services: true
+      ignore_querylog: false
+      ignore_statistics: false
 log:
   enabled: true
   file: ""
@@ -207,4 +332,4 @@ os:
   group: ""
   user: ""
   rlimit_nofile: 0
-schema_version: 34
+schema_version: 33

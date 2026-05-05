@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harbor Privacy Fax | Send a Fax Anonymously - No Account Needed</title>
+<meta name="description" content="Send a fax securely and anonymously. No account required, no stored documents, no identity tied to it. HIPAA conduit exception. $2.99 per fax up to 10 pages. Deleted on delivery.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://fax.harborprivacy.com">
+<meta property="og:title" content="Harbor Privacy Fax | Send a Fax Anonymously">
+<meta property="og:description" content="No account. No stored documents. Your fax is permanently deleted the moment it delivers. $2.99 for up to 10 pages.">
+<meta property="og:url" content="https://fax.harborprivacy.com">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://fax.harborprivacy.com/fax-og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Harbor Privacy Fax | Send a Fax Anonymously">
+<meta name="twitter:description" content="No account. No stored documents. Your fax is permanently deleted the moment it delivers. $2.99 for up to 10 pages.">
+<meta name="twitter:image" content="https://fax.harborprivacy.com/fax-og.png">
+<meta property="og:site_name" content="Harbor Privacy">
+<meta name="keywords" content="anonymous fax, secure fax online, send fax without account, HIPAA fax, private fax service, no log fax, send fax online">
+<link rel="manifest" href="/fax-manifest.json">
+<meta name="theme-color" content="#00d4ff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="HP Fax">
+<link rel="icon" type="image/svg+xml" href="/fax-favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/fax-icon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/fax-icon-16.png">
+<link rel="apple-touch-icon" href="/fax-icon-192.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Service",
+      "@id": "https://fax.harborprivacy.com/#service",
+      "name": "Harbor Privacy Fax",
+      "description": "Send a fax anonymously with no account required. Documents are permanently deleted on delivery. Operates under the HIPAA conduit exception. $2.99 per fax up to 10 pages.",
+      "url": "https://fax.harborprivacy.com",
+      "provider": {
+        "@type": "Organization",
+        "name": "Harbor Privacy",
+        "url": "https://harborprivacy.com"
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "2.99",
+        "priceCurrency": "USD",
+        "description": "Send a fax anonymously, up to 10 pages. No account required."
+      },
+      "serviceType": "Anonymous Fax Service",
+      "areaServed": "Worldwide"
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Do I need an account to send a fax?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. Harbor Privacy Fax requires no account, no login, and no personal information. Just upload your document, enter the fax number, and pay."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What happens to my document after it is sent?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Your document is permanently and irreversibly deleted the moment delivery is confirmed. Nothing is stored on Harbor Privacy servers."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is this service HIPAA compliant?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Harbor Privacy Fax operates under the HIPAA conduit exception — like a postal carrier, we transmit without storing. No business associate agreement is required."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How much does it cost to send a fax?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "$2.99 per fax for up to 10 pages. An optional unbranded cover page is available for an additional $2.00."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What file types can I fax?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "You can upload PDF, JPG, PNG, and DOCX files. Maximum 10 pages and 20MB per fax."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I send a fax from my phone?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Harbor Privacy Fax works from any phone or computer with no app download required. You can also install it as a web app for quick access from your home screen."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I send medical records by fax anonymously?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Harbor Privacy Fax is commonly used to send medical records, insurance forms, and legal documents. No account is needed and your document is deleted immediately after delivery."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+<script src="https://js.stripe.com/v3/"></script>
+<script defer src="https://stats.harborprivacy.com/script.js" data-website-id="193a298d-8981-45a6-b9aa-301d12bc2217"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0f1e;color:#e2e8f0;font-family:'Segoe UI',sans-serif;min-height:100vh}
+nav{background:#0a0f1e;border-bottom:1px solid #1e2a45;padding:16px 32px;display:flex;align-items:center;justify-content:space-between}
+.nav-brand{color:#00d4ff;font-size:1.3rem;font-weight:700;text-decoration:none}
+.nav-links a{color:#94a3b8;text-decoration:none;margin-left:24px;font-size:.9rem}
+.nav-links a:hover{color:#00d4ff}
+.hero{text-align:center;padding:60px 20px 40px}
+.hero h1{font-size:2.2rem;font-weight:700;color:#fff;margin-bottom:12px}
+.hero h1 span{color:#00d4ff}
+.hero p{color:#94a3b8;font-size:1.05rem;max-width:540px;margin:0 auto 10px}
+.trust-pills{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:20px 0}
+.pill{background:#1e2a45;color:#00d4ff;padding:6px 14px;border-radius:20px;font-size:.8rem}
+.main{max-width:620px;margin:0 auto;padding:0 20px 60px}
+.card{background:#111827;border:1px solid #1e2a45;border-radius:12px;padding:28px;margin-bottom:20px}
+.card h2{font-size:1rem;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:18px}
+label{display:block;font-size:.85rem;color:#94a3b8;margin-bottom:6px;margin-top:14px}
+label:first-of-type{margin-top:0}
+input,textarea{width:100%;background:#0a0f1e;border:1px solid #1e2a45;border-radius:8px;padding:10px 14px;color:#e2e8f0;font-size:.95rem;outline:none}
+input:focus,textarea:focus{border-color:#00d4ff}
+textarea{resize:vertical;min-height:80px}
+.upload-area{border:2px dashed #1e2a45;border-radius:8px;padding:30px;text-align:center;cursor:pointer;transition:border-color .2s;margin-top:14px}
+.upload-area:hover,.upload-area.dragover{border-color:#00d4ff}
+.upload-area p{color:#64748b;font-size:.9rem}
+.upload-icon{font-size:2rem;margin-bottom:8px}
+.file-types{font-size:.78rem;color:#475569;margin-top:6px}
+.file-selected{color:#00d4ff;font-size:.9rem;margin-top:8px}
+.page-count{color:#94a3b8;font-size:.82rem;margin-top:4px}
+.branding-toggle{display:flex;align-items:flex-start;gap:12px;margin-top:16px;background:#0a0f1e;border:1px solid #1e2a45;border-radius:8px;padding:14px;cursor:pointer}
+.branding-toggle input[type=checkbox]{width:18px;height:18px;accent-color:#00d4ff;flex-shrink:0;margin-top:2px;cursor:pointer}
+.branding-toggle .toggle-text{font-size:.88rem;color:#94a3b8}
+.branding-toggle .toggle-text strong{color:#e2e8f0;display:block;margin-bottom:2px}
+.price-summary{background:#0a0f1e;border:1px solid #1e2a45;border-radius:8px;padding:16px;margin-top:20px}
+.price-row{display:flex;justify-content:space-between;font-size:.9rem;color:#94a3b8;margin-bottom:8px}
+.price-row.total{color:#e2e8f0;font-weight:700;font-size:1rem;border-top:1px solid #1e2a45;padding-top:10px;margin-top:4px}
+.price-row span:last-child{color:#00d4ff}
+.btn{width:100%;padding:14px;background:#00d4ff;color:#0a0f1e;border:none;border-radius:8px;font-size:1rem;font-weight:700;cursor:pointer;margin-top:20px;transition:opacity .2s}
+.btn:hover{opacity:.88}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.error-msg{color:#f87171;font-size:.85rem;margin-top:10px;display:none}
+.privacy-note{text-align:center;color:#475569;font-size:.8rem;margin-top:16px}
+.privacy-note a{color:#00d4ff;text-decoration:none}
+footer{text-align:center;padding:30px;color:#334155;font-size:.8rem;border-top:1px solid #1e2a45}
+footer a{color:#475569;text-decoration:none}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.active{display:flex}
+.modal{background:#111827;border:1px solid #1e2a45;border-radius:14px;padding:32px;width:100%;max-width:480px;position:relative;max-height:90vh;overflow-y:auto}
+.modal-close{position:absolute;top:16px;right:20px;background:none;border:none;color:#64748b;font-size:1.4rem;cursor:pointer;line-height:1}
+.modal-close:hover{color:#e2e8f0}
+.modal h2{color:#fff;font-size:1.2rem;margin-bottom:20px}
+.summary-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1e2a45;font-size:.9rem}
+.summary-row span:first-child{color:#64748b}
+.summary-row span:last-child{color:#e2e8f0;font-weight:500}
+.summary-total{display:flex;justify-content:space-between;padding:12px 0 0;font-size:1.05rem;font-weight:700;margin-top:4px}
+.summary-total span:last-child{color:#00d4ff}
+.divider{border:none;border-top:1px solid #1e2a45;margin:20px 0}
+.stripe-label{font-size:.82rem;color:#64748b;margin-bottom:8px}
+#card-element{background:#0a0f1e;border:1px solid #1e2a45;border-radius:8px;padding:12px 14px}
+#card-element.focused{border-color:#00d4ff}
+#card-errors{color:#f87171;font-size:.83rem;margin-top:8px;min-height:20px}
+.stripe-badge{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:14px;color:#475569;font-size:.78rem}
+.blocker-warning{background:#1e2a45;border:1px solid #f87171;border-radius:8px;padding:14px;color:#f87171;font-size:.88rem;margin-top:16px;display:none;text-align:center}
+.install-bar{display:none;background:#111827;border-bottom:1px solid #1e2a45;padding:10px 20px;align-items:center;justify-content:space-between;gap:12px;font-size:0.82rem;color:#94a3b8;position:sticky;top:0;z-index:500}
+.install-bar.show{display:flex}
+.install-bar .install-icon{font-size:1.1rem;flex-shrink:0}
+.install-bar .install-text{flex:1;line-height:1.4}
+.install-bar .install-text strong{color:#00d4ff;display:block;font-size:0.8rem;margin-bottom:2px}
+.install-bar .install-dismiss{background:none;border:none;color:#475569;cursor:pointer;font-size:1.1rem;padding:0 4px;flex-shrink:0}
+.install-bar .install-dismiss:hover{color:#94a3b8}
+.file-item{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#0a0f1e;border:1px solid #1e2a45;border-radius:6px;margin-bottom:6px}
+.file-item-name{flex:1;font-size:.88rem;color:#00d4ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-item-pages{font-size:.8rem;color:#64748b;white-space:nowrap;flex-shrink:0}
+.file-item-remove{background:none;border:none;color:#475569;cursor:pointer;font-size:1rem;padding:0 2px;line-height:1;flex-shrink:0}
+.file-item-remove:hover{color:#f87171}
+@media(max-width:500px){.hero h1{font-size:1.7rem}nav{padding:14px 18px}.modal{padding:24px 18px}}
+</style>
+</head>
+<body>
+<nav>
+  <a class="nav-brand" href="https://harborprivacy.com">Harbor Privacy</a>
+  <div class="nav-links">
+    <a href="https://harborprivacy.com">Home</a>
+    <a href="https://harborprivacy.com/free-trial">Free Trial</a>
+  </div>
+</nav>
+<div class="hero">
+  <h1>Send a Fax. <span>Leave No Trace.</span></h1>
+  <p>Your file is permanently deleted the moment delivery is confirmed. No account. No stored documents. Nothing linked back to you.</p>
+  <div class="trust-pills">
+    <span class="pill">No account required</span>
+    <span class="pill">No logs. Zero retention.</span>
+    <span class="pill">Deleted on delivery</span>
+    <span class="pill">Up to 10 pages</span>
+  </div>
+</div>
+<div class="main">
+  <div class="card">
+    <h2>Fax Details</h2>
+    <label>Fax Number (US only)</label>
+    <input type="tel" id="fax_number" placeholder="555-867-5309" inputmode="numeric" maxlength="12" autocomplete="tel-national">
+    <label>To</label>
+    <input type="text" id="to_name" placeholder="Recipient name or department">
+    <label>From</label>
+    <input type="text" id="from_name" placeholder="Your name or alias">
+    <label>Subject</label>
+    <input type="text" id="subject" placeholder="Re: Medical Records Request">
+    <label>Message (optional)</label>
+    <textarea id="message" placeholder="Include any notes for the recipient..."></textarea>
+  </div>
+  <div class="card">
+    <h2>Your Documents</h2>
+    <div class="upload-area" id="upload_area">
+      <div class="upload-icon">📄</div>
+      <p>Drop your file here or click to upload</p>
+      <div class="file-types">PDF, JPG, PNG, DOCX &nbsp;|&nbsp; Max 10 pages &nbsp;|&nbsp; Max 20MB</div>
+    </div>
+    <input type="file" id="file_input" accept=".pdf,.jpg,.jpeg,.png,.docx" style="display:none">
+    <div id="file_list" style="display:none;margin-top:10px"></div>
+    <div id="page_summary" style="color:#94a3b8;font-size:.82rem;margin-top:6px;display:none"></div>
+    <button type="button" id="add_file_btn" style="display:none;margin-top:10px;background:none;border:1px solid #1e2a45;border-radius:6px;color:#00d4ff;font-size:.82rem;padding:6px 14px;cursor:pointer">+ Add another file</button>
+  </div>
+  <div class="card">
+    <h2>Options</h2>
+    <label class="branding-toggle" for="extra_pages">
+      <input type="checkbox" id="extra_pages">
+      <div class="toggle-text">
+        <strong>Extra pages &mdash; up to 30 total (+$1.99)</strong>
+        Need to send more than 10 pages? Add this to send up to 30.
+      </div>
+    </label>
+    <label class="branding-toggle" for="remove_branding">
+      <input type="checkbox" id="remove_branding">
+      <div class="toggle-text">
+        <strong>Remove Harbor Privacy branding (+$0.99)</strong>
+        Send a clean, unbranded cover page with just your To/From/Subject/Message.
+      </div>
+    </label>
+    <div class="price-summary">
+      <div class="price-row"><span>Fax (up to 10 pages)</span><span>$2.99</span></div>
+      <div class="price-row" id="extra_pages_row" style="display:none"><span>Extra pages (up to 30)</span><span>$1.99</span></div>
+      <div class="price-row" id="branding_row" style="display:none"><span>Remove branding</span><span>$0.99</span></div>
+      <div class="price-row total"><span>Total</span><span id="total_price">$2.99</span></div>
+    </div>
+    <div class="blocker-warning" id="blocker_warning">
+      Your content blocker is preventing the payment form from loading.<br>
+      Please disable it for this page and reload, or use a different browser.
+    </div>
+    <div class="error-msg" id="error_msg"></div>
+    <button class="btn" id="checkout_btn" disabled>Upload a document to continue</button>
+    <div class="privacy-note">
+      Secured by Stripe. We never store payment info or your documents.<br>
+      <a href="https://harborprivacy.com/privacy">Privacy Policy</a> &nbsp;|&nbsp; <a href="https://harborprivacy.com/no-logs">No-Logs Policy</a>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal_overlay">
+  <div class="modal">
+    <button class="modal-close" id="modal_close">&times;</button>
+    <h2>Review &amp; Pay</h2>
+    <div class="summary-row"><span>To</span><span id="s_to"></span></div>
+    <div class="summary-row"><span>Fax Number</span><span id="s_fax"></span></div>
+    <div class="summary-row"><span>Subject</span><span id="s_subject"></span></div>
+    <div class="summary-row"><span>Pages</span><span id="s_pages"></span></div>
+    <div class="summary-row"><span>Cover Page</span><span id="s_branding"></span></div>
+    <div class="summary-row" id="s_extra_pages_row" style="display:none"><span>Extra Pages</span><span>$1.99</span></div>
+    <div class="summary-total"><span>Total</span><span id="s_total"></span></div>
+    <hr class="divider">
+    <div class="stripe-label">Email for delivery confirmation (optional)</div>
+    <input type="email" id="pay_email" placeholder="you@example.com" style="margin-bottom:12px">
+    <hr class="divider">
+    <div class="stripe-label">Promo Code (optional)</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input type="text" id="promo_input" placeholder="Enter code" style="flex:1;text-transform:uppercase">
+      <button type="button" id="promo_btn" style="padding:10px 16px;background:#1e2a45;color:#00d4ff;border:1px solid #00d4ff;border-radius:8px;cursor:pointer;font-size:.88rem;white-space:nowrap">Apply</button>
+    </div>
+    <div id="promo_result" style="font-size:.83rem;margin-bottom:8px;min-height:18px"></div>
+    <div id="card_section">
+      <div class="stripe-label">Card Details</div>
+      <div id="card-element"></div>
+      <div id="card-errors"></div>
+    </div>
+    <button class="btn" id="pay_btn">Pay Now</button>
+    <div class="stripe-badge" id="stripe_badge">Powered by Stripe &mdash; Your card is never stored</div>
+  </div>
+</div>
+
+<section style="max-width:620px;margin:0 auto;padding:0 20px 40px">
+  <div style="background:#111827;border:1px solid #1e2a45;border-radius:12px;padding:24px">
+    <h2 style="font-size:1rem;color:#00d4ff;text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px">HIPAA &amp; Privacy</h2>
+    <p style="color:#94a3b8;font-size:.88rem;line-height:1.7;margin-bottom:12px">Harbor Privacy Fax operates under the <strong style="color:#e2e8f0">HIPAA conduit exception</strong> (45 CFR &sect;164.500(b)). That is the same legal category as a telephone company or postal carrier. We transmit your fax and then it is gone. We do not open it, store it, or retain any copy.</p>
+    <p style="color:#94a3b8;font-size:.88rem;line-height:1.7;margin-bottom:12px">What that means practically: if you are sending medical records, insurance forms, or other health information, no Business Associate Agreement is required because we never hold the data. It passes through and is deleted on delivery.</p>
+    <p style="color:#94a3b8;font-size:.88rem;line-height:1.7">This is not a subscription fax service. There is no account, no inbox, and no record of your transaction stored on our servers. It is a one-time send, built for people who need to fax something sensitive without leaving a trail.</p>
+  </div>
+</section>
+<section style="max-width:620px;margin:0 auto;padding:0 20px 60px">
+  <h2 style="font-size:1.15rem;color:#e2e8f0;margin-bottom:20px">Frequently Asked Questions</h2>
+  <div style="border:1px solid #1e2a45;border-radius:12px;overflow:hidden">
+    <details style="border-bottom:1px solid #1e2a45;padding:16px 20px">
+      <summary style="color:#e2e8f0;cursor:pointer;font-size:.95rem;font-weight:600;list-style:none">Do I need an account to send a fax?</summary>
+      <p style="color:#94a3b8;font-size:.88rem;margin-top:10px;line-height:1.6">No. Harbor Privacy Fax requires no account, no login, and no personal information. Just upload your document, enter the fax number, and pay.</p>
+    </details>
+    <details style="border-bottom:1px solid #1e2a45;padding:16px 20px">
+      <summary style="color:#e2e8f0;cursor:pointer;font-size:.95rem;font-weight:600;list-style:none">What happens to my document after it's sent?</summary>
+      <p style="color:#94a3b8;font-size:.88rem;margin-top:10px;line-height:1.6">Your document is permanently and irreversibly deleted the moment delivery is confirmed. Nothing is stored on Harbor Privacy servers — not your file, not the fax number, not the cover page.</p>
+    </details>
+    <details style="border-bottom:1px solid #1e2a45;padding:16px 20px">
+      <summary style="color:#e2e8f0;cursor:pointer;font-size:.95rem;font-weight:600;list-style:none">Is this HIPAA compliant?</summary>
+      <p style="color:#94a3b8;font-size:.88rem;margin-top:10px;line-height:1.6">Yes. Harbor Privacy Fax qualifies under the HIPAA conduit exception (45 CFR &sect;164.500(b)) -- the same rule that covers telephone companies and postal carriers. We transmit your fax without storing or accessing it. No Business Associate Agreement is required. Your document is deleted the moment delivery is confirmed.</p>
+    </details>
+    <details style="border-bottom:1px solid #1e2a45;padding:16px 20px">
+      <summary style="color:#e2e8f0;cursor:pointer;font-size:.95rem;font-weight:600;list-style:none">How much does it cost?</summary>
+      <p style="color:#94a3b8;font-size:.88rem;margin-top:10px;line-height:1.6">$2.99 per fax for up to 10 pages. Need to send more? Add the extra pages option (+$1.99) to send up to 30 pages. An optional unbranded cover page is available for an additional $0.99.</p>
+    </details>
+    <details style="border-bottom:1px solid #1e2a45;padding:16px 20px">
+      <summary style="color:#e2e8f0;cursor:pointer;font-size:.95rem;font-weight:600;list-style:none">What file types can I send?</summary>
+      <p style="color:#94a3b8;font-size:.88rem;margin-top:10px;line-height:1.6">PDF, JPG, PNG, and DOCX are all supported. Maximum 10 pages and 20MB per fax.</p>
+    </details>
+    <details style="border-bottom:1px solid #1e2a45;padding:16px 20px">
+      <summary style="color:#e2e8f0;cursor:pointer;font-size:.95rem;font-weight:600;list-style:none">Can I send a fax from my phone?</summary>
+      <p style="color:#94a3b8;font-size:.88rem;margin-top:10px;line-height:1.6">Yes. It works from any phone or computer — no app download required. You can also install it as a web app from your browser for quick home screen access.</p>
+    </details>
+    <details style="padding:16px 20px">
+      <summary style="color:#e2e8f0;cursor:pointer;font-size:.95rem;font-weight:600;list-style:none">Can I send medical records or legal documents?</summary>
+      <p style="color:#94a3b8;font-size:.88rem;margin-top:10px;line-height:1.6">Yes. Harbor Privacy Fax is regularly used for medical record requests, insurance forms, legal filings, and other sensitive documents. No account means nothing to link back to you, and your document is gone the moment it arrives.</p>
+    </details>
+  </div>
+</section>
+<footer>&copy; 2026 Harbor Privacy &nbsp;|&nbsp; <a href="https://harborprivacy.com">harborprivacy.com</a></footer>
+
+<script>
+(function() {
+  if (typeof Stripe === 'undefined') {
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('checkout_btn');
+      var warn = document.getElementById('blocker_warning');
+      btn.disabled = true;
+      btn.textContent = 'Payment unavailable — see below';
+      btn.style.background = '#334155';
+      btn.style.color = '#94a3b8';
+      warn.style.display = 'block';
+    });
+    return;
+  }
+
+  var stripe = Stripe('pk_live_51TAwkRCOrGNrBgIf4X9MQM6KM1rICP31Kmvj7XKhtNyIf1uA3yoHkhczZ8OLkzXxvky9338N9qHhGmwZWuWh6aTv00gELd2e7s');
+  var elements = stripe.elements();
+  var cardElement = elements.create('card', {
+    style: {
+      base: { color: '#e2e8f0', fontFamily: "'Segoe UI', sans-serif", fontSize: '15px', '::placeholder': { color: '#475569' }, iconColor: '#00d4ff' },
+      invalid: { color: '#f87171' }
+    }
+  });
+
+  var fileList = [];
+  var stripeReady = false;
+
+  function getTotalPages() {
+    return fileList.reduce(function(s, f) { return s + f.pages; }, 0);
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    cardElement.mount('#card-element');
+    stripeReady = true;
+
+    cardElement.on('focus', function() { document.getElementById('card-element').classList.add('focused'); });
+    cardElement.on('blur', function() { document.getElementById('card-element').classList.remove('focused'); });
+    cardElement.on('change', function(e) { document.getElementById('card-errors').textContent = e.error ? e.error.message : ''; });
+
+    var uploadArea = document.getElementById('upload_area');
+    var fileInput = document.getElementById('file_input');
+    var fileListEl = document.getElementById('file_list');
+    var pageSummaryEl = document.getElementById('page_summary');
+    var addFileBtn = document.getElementById('add_file_btn');
+    var checkoutBtn = document.getElementById('checkout_btn');
+    var removeBranding = document.getElementById('remove_branding');
+    var extraPages = document.getElementById('extra_pages');
+    var brandingRow = document.getElementById('branding_row');
+    var extraPagesRow = document.getElementById('extra_pages_row');
+    var totalPrice = document.getElementById('total_price');
+    var errorMsg = document.getElementById('error_msg');
+    var modalOverlay = document.getElementById('modal_overlay');
+    var modalClose = document.getElementById('modal_close');
+    var payBtn = document.getElementById('pay_btn');
+
+    uploadArea.addEventListener('click', function() { fileInput.click(); });
+    uploadArea.addEventListener('dragover', function(e) { e.preventDefault(); uploadArea.classList.add('dragover'); });
+    uploadArea.addEventListener('dragleave', function() { uploadArea.classList.remove('dragover'); });
+    uploadArea.addEventListener('drop', function(e) { e.preventDefault(); uploadArea.classList.remove('dragover'); if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+    fileInput.addEventListener('change', function() { if (fileInput.files[0]) { handleFile(fileInput.files[0]); fileInput.value = ''; } });
+    addFileBtn.addEventListener('click', function() { fileInput.click(); });
+
+    document.getElementById('fax_number').addEventListener('input', function() {
+      var digits = this.value.replace(/[^\d\-]/g, '');
+      var digitsOnly = digits.replace(/\D/g, '');
+      if (digitsOnly.length > 10) {
+        digits = digits.slice(0, digits.length - (digitsOnly.length - 10));
+      }
+      this.value = digits;
+    });
+
+    function updatePrice() {
+      var xp = extraPages.checked;
+      var nb = removeBranding.checked;
+      var total = 299 + (xp ? 199 : 0) + (nb ? 99 : 0);
+      extraPagesRow.style.display = xp ? 'flex' : 'none';
+      brandingRow.style.display = nb ? 'flex' : 'none';
+      totalPrice.textContent = '$' + (total / 100).toFixed(2);
+      if (typeof renderFileList === 'function') renderFileList();
+    }
+    extraPages.addEventListener('change', updatePrice);
+    removeBranding.addEventListener('change', updatePrice);
+
+    function renderFileList() {
+      var total = getTotalPages();
+      if (fileList.length === 0) {
+        fileListEl.style.display = 'none';
+        pageSummaryEl.style.display = 'none';
+        addFileBtn.style.display = 'none';
+        checkoutBtn.disabled = true;
+        checkoutBtn.textContent = 'Upload a document to continue';
+        return;
+      }
+      fileListEl.style.display = 'block';
+      fileListEl.innerHTML = fileList.map(function(f, i) {
+        return '<div class="file-item"><span class="file-item-name">' + f.name + '</span><span class="file-item-pages">' + f.pages + ' page' + (f.pages !== 1 ? 's' : '') + '</span><button class="file-item-remove" data-idx="' + i + '">&times;</button></div>';
+      }).join('');
+      pageSummaryEl.textContent = 'Total: ' + total + ' page' + (total !== 1 ? 's' : '');
+      pageSummaryEl.style.display = 'block';
+      addFileBtn.style.display = 'block';
+      fileListEl.querySelectorAll('.file-item-remove').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          fileList.splice(parseInt(this.getAttribute('data-idx')), 1);
+          renderFileList();
+        });
+      });
+    }
+
+    async function handleFile(file) {
+      errorMsg.style.display = 'none';
+      checkoutBtn.disabled = true;
+      checkoutBtn.textContent = 'Uploading...';
+      var formData = new FormData();
+      formData.append('file', file);
+      try {
+        var resp = await fetch('/fax/upload', { method: 'POST', body: formData });
+        var data = await resp.json();
+        if (data.error) {
+          showError(data.error);
+          checkoutBtn.textContent = fileList.length ? 'Continue to Payment →' : 'Upload a document to continue';
+          checkoutBtn.disabled = !fileList.length;
+          return;
+        }
+        fileList.push({ name: file.name, token: data.file_token, pages: data.page_count });
+        renderFileList();
+        if (getTotalPages() > 10) { extraPages.checked = true; updatePrice(); }
+        checkoutBtn.disabled = false;
+        checkoutBtn.textContent = 'Continue to Payment →';
+      } catch(e) {
+        showError('Upload failed. Please try again.');
+        checkoutBtn.textContent = fileList.length ? 'Continue to Payment →' : 'Upload a document to continue';
+        checkoutBtn.disabled = !fileList.length;
+      }
+    }
+
+    checkoutBtn.addEventListener('click', function() {
+      var fax = document.getElementById('fax_number').value.trim();
+      var to = document.getElementById('to_name').value.trim();
+      var from = document.getElementById('from_name').value.trim();
+      var subj = document.getElementById('subject').value.trim();
+      var faxDigits = fax.replace(/\D/g, '');
+      if (faxDigits.length !== 10) { showError('Please enter a valid 10-digit US fax number (e.g. 555-867-5309).'); return; }
+      var normalizedFax = '+1' + faxDigits;
+      if (!to || !from || !fileList.length) { showError('Please fill in the To and From fields and upload a document.'); return; }
+      var totalPg = getTotalPages();
+      var pgLimit = extraPages.checked ? 30 : 10;
+      if (totalPg > pgLimit) { showError('Your documents total ' + totalPg + ' pages, which exceeds the ' + pgLimit + '-page limit.'); return; }
+      errorMsg.style.display = 'none';
+      var nobrand = removeBranding.checked;
+      var xpages = extraPages.checked;
+      var sumTotal = 299 + (nobrand ? 99 : 0) + (xpages ? 199 : 0);
+      document.getElementById('s_to').textContent = to;
+      document.getElementById('s_fax').textContent = normalizedFax;
+      document.getElementById('s_subject').textContent = subj || '--';
+      document.getElementById('s_pages').textContent = totalPg + ' page' + (totalPg !== 1 ? 's' : '') + (fileList.length > 1 ? ' across ' + fileList.length + ' files' : '');
+      document.getElementById('s_branding').textContent = nobrand ? 'Unbranded (+$0.99)' : 'Harbor Privacy branded';
+      var sEPRow = document.getElementById('s_extra_pages_row');
+      if (sEPRow) sEPRow.style.display = xpages ? 'flex' : 'none';
+      document.getElementById('s_total').textContent = '$' + (sumTotal / 100).toFixed(2);
+      modalOverlay.classList.add('active');
+    });
+
+    modalClose.addEventListener('click', function() { modalOverlay.classList.remove('active'); });
+    modalOverlay.addEventListener('click', function(e) { if (e.target === modalOverlay) modalOverlay.classList.remove('active'); });
+
+    var promoId = null;
+    var promoDiscount = 0;
+    var isFree = false;
+
+    document.getElementById('promo_btn').addEventListener('click', async function() {
+      var code = document.getElementById('promo_input').value.trim();
+      var resultEl = document.getElementById('promo_result');
+      if (!code) return;
+      var nobrand = removeBranding.checked;
+      var xpages = extraPages.checked;
+      var baseAmount = 299 + (nobrand ? 99 : 0) + (xpages ? 199 : 0);
+      try {
+        var resp = await fetch('/fax/validate-promo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: code, amount: baseAmount }) });
+        var data = await resp.json();
+        if (data.error) { resultEl.style.color = '#f87171'; resultEl.textContent = data.error; promoId = null; promoDiscount = 0; return; }
+        promoId = data.promo_id;
+        promoDiscount = data.discount;
+        isFree = data.final === 0;
+        resultEl.style.color = '#4ade80';
+        resultEl.textContent = '✓ ' + data.description + ' applied — New total: $' + (data.final/100).toFixed(2);
+        document.getElementById('s_total').textContent = '$' + (data.final/100).toFixed(2);
+        document.getElementById('card_section').style.display = isFree ? 'none' : 'block';
+        document.getElementById('stripe_badge').style.display = isFree ? 'none' : 'flex';
+        payBtn.textContent = isFree ? 'Send for Free' : 'Pay Now';
+      } catch(e) { resultEl.style.color = '#f87171'; resultEl.textContent = 'Could not validate code.'; }
+    });
+
+    payBtn.addEventListener('click', async function() {
+      payBtn.disabled = true;
+      payBtn.textContent = 'Processing...';
+      document.getElementById('card-errors').textContent = '';
+      var faxRaw = document.getElementById('fax_number').value.trim();
+      var fax = '+1' + faxRaw.replace(/\D/g, '');
+      var to = document.getElementById('to_name').value.trim();
+      var from = document.getElementById('from_name').value.trim();
+      var subj = document.getElementById('subject').value.trim();
+      var msg = document.getElementById('message').value.trim();
+      var nobrand = removeBranding.checked;
+      var xpages = extraPages.checked;
+      var tokens = fileList.map(function(f) { return f.token; });
+      var primaryToken = tokens[0];
+      var email = document.getElementById('pay_email').value.trim();
+      var payload = { fax_number: fax, to_name: to, from_name: from, subject: subj, message: msg, remove_branding: nobrand, extra_pages: xpages, file_token: primaryToken, file_tokens: tokens, promo_id: promoId, discount: promoDiscount, email: email };
+      try {
+        if (isFree) {
+          var resp = await fetch('/fax/send-free', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          var data = await resp.json();
+          if (data.error) { document.getElementById('card-errors').textContent = data.error; payBtn.disabled = false; payBtn.textContent = 'Send for Free'; return; }
+          modalOverlay.classList.remove('active');
+          window.location.href = '/fax/status-page?token=' + primaryToken;
+          return;
+        }
+        var resp = await fetch('/fax/create-payment-intent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        var data = await resp.json();
+        if (data.error) { document.getElementById('card-errors').textContent = data.error; payBtn.disabled = false; payBtn.textContent = 'Pay Now'; return; }
+        var result = await stripe.confirmCardPayment(data.client_secret, { payment_method: { card: cardElement } });
+        if (result.error) {
+          document.getElementById('card-errors').textContent = result.error.message;
+          payBtn.disabled = false;
+          payBtn.textContent = 'Pay Now';
+        } else if (result.paymentIntent.status === 'succeeded') {
+          modalOverlay.classList.remove('active');
+          window.location.href = '/fax/status-page?token=' + primaryToken;
+        }
+      } catch(e) {
+        document.getElementById('card-errors').textContent = 'Something went wrong. Please try again.';
+        payBtn.disabled = false;
+        payBtn.textContent = isFree ? 'Send for Free' : 'Pay Now';
+      }
+    });
+
+    function showError(msg) { errorMsg.textContent = msg; errorMsg.style.display = 'block'; }
+  });
+})();
+</script>
+<div class="install-bar" id="install_banner">
+  <span class="install-icon" id="install_icon">📲</span>
+  <div class="install-text">
+    <strong id="install_title">Install Harbor Privacy Fax</strong>
+    <span id="install_msg">Add to your home screen for quick access</span>
+  </div>
+  <button id="install_action_btn" style="background:#00d4ff;color:#0a0f1e;border:none;border-radius:6px;padding:6px 14px;font-weight:700;cursor:pointer;font-size:0.78rem;white-space:nowrap;display:none">Install</button>
+  <button class="install-dismiss" onclick="dismissInstall()">&times;</button>
+</div>
+<script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/fax-sw.js").catch(console.error);
+}
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+const isStandalone = window.navigator.standalone === true;
+const isBrowser = !isStandalone;
+
+if (isIOS && isBrowser) {
+  const banner = document.getElementById("install_banner");
+  const span = banner.querySelector("span");
+  const btn = banner.querySelector("button");
+  span.textContent = "Add to home screen: tap the Share button below, then "Add to Home Screen"";
+  btn.textContent = "Got it";
+  btn.onclick = () => banner.style.display = "none";
+  banner.style.display = "flex";
+}
+
+let deferredPrompt;
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById("install_banner").style.display = "flex";
+});
+function installApp() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => {
+      deferredPrompt = null;
+      document.getElementById("install_banner").style.display = "none";
+    });
+  }
+}
+window.addEventListener("appinstalled", () => {
+  document.getElementById("install_banner").style.display = "none";
+});
+</script>
+</body>
+</html>

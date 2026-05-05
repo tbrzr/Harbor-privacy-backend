@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documentation | Harbor Privacy</title>
+<meta name="description" content="Harbor Privacy documentation — setup guides for DNS filtering on iPhone, Android, Mac, Windows, parental controls, troubleshooting, and support.">
+<meta name="keywords" content="harbor privacy docs, DNS filtering setup guide, private DNS iPhone, DNS parental controls, how to set up DNS filter, harbor privacy help">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/7.0.0/fuse.min.js"></script>
+<style>
+:root{--bg:#0a0e0f;--surface:#111618;--border:#1e2a2d;--accent:#00e5c0;--text:#e8f0ef;--muted:#6b8a87;}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.6;overflow-x:hidden;}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:0.4;pointer-events:none;z-index:0;}
+nav{padding:24px 0;border-bottom:1px solid var(--border);position:relative;z-index:10;}
+.nav-inner{max-width:900px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;}
+.logo{font-family:'DM Mono',monospace;font-size:14px;color:var(--accent);letter-spacing:0.1em;text-decoration:none;}
+.logo span{color:var(--muted);}
+.cta-nav{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);text-decoration:none;border:1px solid var(--accent);padding:8px 18px;letter-spacing:0.08em;transition:all 0.2s;}
+.cta-nav:hover{background:var(--accent);color:var(--bg);}
+.layout{max-width:900px;margin:0 auto;padding:60px 24px 100px;position:relative;z-index:1;display:grid;grid-template-columns:220px 1fr;gap:60px;}
+.sidebar{position:sticky;top:40px;height:fit-content;}
+.sidebar-section{margin-bottom:32px;}
+.sidebar-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:12px;}
+.sidebar a{display:block;font-size:13px;color:var(--muted);text-decoration:none;padding:6px 0;border-left:2px solid var(--border);padding-left:12px;transition:all 0.2s;}
+.sidebar a:hover,.sidebar a.active{color:var(--accent);border-left-color:var(--accent);}
+.content h1{font-family:'DM Serif Display',serif;font-size:clamp(32px,5vw,48px);font-weight:400;margin-bottom:16px;line-height:1.1;}
+.content h1 em{font-style:italic;color:var(--accent);}
+.lead{font-size:16px;color:var(--muted);margin-bottom:60px;max-width:560px;}
+.doc-section{margin-bottom:72px;scroll-margin-top:40px;}
+.section-tag{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:12px;}
+h2{font-family:'DM Serif Display',serif;font-size:clamp(24px,3vw,32px);font-weight:400;margin-bottom:24px;line-height:1.2;}
+h3{font-size:16px;font-weight:500;margin-bottom:12px;color:var(--text);margin-top:28px;}
+p{font-size:15px;color:var(--muted);margin-bottom:16px;line-height:1.7;}
+ul,ol{padding-left:20px;margin-bottom:16px;}
+li{font-size:15px;color:var(--muted);margin-bottom:8px;line-height:1.6;}
+li strong{color:var(--text);font-weight:500;}
+.card{border:1px solid var(--border);padding:24px 28px;background:var(--surface);margin-bottom:16px;}
+.card-title{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);letter-spacing:0.05em;margin-bottom:10px;}
+.card p{margin-bottom:0;}
+.steps-list{display:flex;flex-direction:column;gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:24px;}
+.step-item{background:var(--bg);padding:20px 24px;display:grid;grid-template-columns:32px 1fr;gap:16px;}
+.step-item:hover{background:var(--surface);}
+.step-num{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);padding-top:2px;}
+.step-content strong{display:block;font-size:14px;font-weight:500;color:var(--text);margin-bottom:4px;}
+.step-content span{font-size:13px;color:var(--muted);}
+.faq-item{border-bottom:1px solid var(--border);padding:20px 0;}
+.faq-item:first-child{border-top:1px solid var(--border);}
+.faq-q{font-size:15px;font-weight:500;color:var(--text);margin-bottom:10px;cursor:pointer;display:flex;justify-content:space-between;align-items:start;gap:16px;}
+.faq-q::after{content:'+';font-family:'DM Mono',monospace;color:var(--accent);font-size:18px;flex-shrink:0;}
+.faq-q.open::after{content:'−';}
+.faq-a{font-size:14px;color:var(--muted);line-height:1.7;display:none;}
+.faq-a.open{display:block;}
+.alert{border:1px solid var(--accent);background:#00e5c008;padding:16px 20px;margin-bottom:24px;}
+.alert-title{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:0.1em;margin-bottom:6px;}
+.alert p{margin-bottom:0;font-size:14px;}
+.device-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;}
+.device-card{border:1px solid var(--border);padding:20px;background:var(--surface);}
+.device-icon{font-size:24px;margin-bottom:10px;}
+.device-name{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);margin-bottom:8px;}
+.device-steps{font-size:13px;color:var(--muted);line-height:1.7;}
+.kids-badge{display:inline-block;font-family:'DM Mono',monospace;font-size:10px;color:var(--bg);background:var(--accent);padding:3px 8px;letter-spacing:0.1em;margin-left:10px;vertical-align:middle;position:relative;top:-2px;}
+.doc-cards{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:40px;}
+.doc-card{border:1px solid var(--border);padding:28px;background:var(--surface);text-decoration:none;display:block;transition:background 0.2s;}
+.doc-card:hover{background:#151c1e;}
+.doc-card-tag{font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:10px;}
+.doc-card-title{font-family:'DM Serif Display',serif;font-size:22px;font-weight:400;color:var(--text);margin-bottom:8px;}
+.doc-card-desc{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:16px;}
+.doc-card-arrow{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);}
+.search-wrap{margin-bottom:48px;position:relative;}
+.search-wrap input{width:100%;background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:'DM Mono',monospace;font-size:13px;padding:14px 16px 14px 40px;outline:none;transition:border 0.2s;letter-spacing:0.04em;}
+.search-wrap input::placeholder{color:var(--muted);}
+.search-wrap input:focus{border-color:var(--accent);}
+.search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--muted);pointer-events:none;}
+.search-results{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border);z-index:100;display:none;max-height:320px;overflow-y:auto;}
+.search-results.open{display:block;}
+.search-result-item{padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.15s;text-decoration:none;display:block;}
+.search-result-item:last-child{border-bottom:none;}
+.search-result-item:hover{background:var(--bg);}
+.search-result-title{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:0.06em;margin-bottom:3px;}
+.search-result-page{font-size:11px;color:var(--muted);margin-bottom:3px;font-family:'DM Mono',monospace;}
+.search-result-preview{font-size:12px;color:var(--muted);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.search-no-results{padding:16px;font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;}
+.contact-cta{border:1px solid var(--border);padding:32px;text-align:center;background:var(--surface);}
+.contact-cta h3{font-family:'DM Serif Display',serif;font-size:24px;font-weight:400;margin-bottom:12px;color:var(--text);}
+.contact-cta p{margin-bottom:24px;}
+footer{border-top:1px solid var(--border);padding:32px 0;margin-top:60px;position:relative;z-index:1;}
+.footer-inner{max-width:900px;margin:0 auto;padding:0 24px;display:flex;justify-content:space-between;align-items:center;}
+.footer-copy{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.08em;}
+@media(max-width:700px){.layout{grid-template-columns:1fr;}.sidebar{display:none;}.device-grid{grid-template-columns:1fr;}.doc-cards{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="logo">harbor<span>/</span>privacy</a>
+    <a href="/" class="cta-nav">← Back</a>
+  </div>
+</nav>
+<div class="layout">
+  <aside class="sidebar"></aside>
+  <main class="content">
+<h1>Documentation<br><em>&amp; Support</em></h1>
+<p class="lead">Find answers about your Harbor Privacy setup, manage your network, and get help when something isn't working.</p>
+<div class="search-wrap">
+  <span class="search-icon">⌕</span>
+  <input type="text" id="docsSearch" placeholder="Search all docs..." autocomplete="off" />
+  <div class="search-results" id="searchResults"></div>
+</div>
+<div class="doc-cards">
+  <a href="/docs/getting-started" class="doc-card">
+    <div class="doc-card-tag">Getting Started</div>
+    <div class="doc-card-title">How It Works</div>
+    <div class="doc-card-desc">Understand your Harbor Privacy setup, access your dashboard, and get your devices connected.</div>
+    <div class="doc-card-arrow">Read more →</div>
+  </a>
+  <a href="/docs/managing" class="doc-card">
+    <div class="doc-card-tag">Managing Your Network</div>
+    <div class="doc-card-title">Blocking &amp; Filters</div>
+    <div class="doc-card-desc">What gets blocked, how to unblock a site, and how to read your query logs.</div>
+    <div class="doc-card-arrow">Read more →</div>
+  </a>
+  <a href="/docs/harbor-kids" class="doc-card">
+    <div class="doc-card-tag">Add-On</div>
+    <div class="doc-card-title">Harbor Kids</div>
+    <div class="doc-card-desc">Set up family-safe filtering on your child's devices. Managed entirely by you.</div>
+    <div class="doc-card-arrow">Read more →</div>
+  </a>
+  <a href="/docs/troubleshooting" class="doc-card">
+    <div class="doc-card-tag">Help</div>
+    <div class="doc-card-title">Troubleshooting &amp; FAQ</div>
+    <div class="doc-card-desc">Something not loading? Internet feels slow? Common fixes and answers here.</div>
+    <div class="doc-card-arrow">Read more →</div>
+  </a>
+  <a href="/docs/account" class="doc-card">
+    <div class="doc-card-tag">Account</div>
+    <div class="doc-card-title">Billing &amp; Cancellation</div>
+    <div class="doc-card-desc">Manage your subscription, cancel anytime, and remove Harbor Privacy from your devices.</div>
+    <div class="doc-card-arrow">Read more →</div>
+  </a>
+</div>
+</main>
+</div>
+<footer>
+  <div class="footer-inner">
+    <span class="footer-copy">© 2025 Harbor Privacy · Pembroke, MA</span>
+    <a href="/nologs" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.08em;">Privacy Policy</a>
+  </div>
+</footer>
+
+<script>
+document.querySelectorAll('.faq-q').forEach(q => {
+  q.addEventListener('click', () => {
+    q.classList.toggle('open');
+    q.nextElementSibling.classList.toggle('open');
+  });
+});
+const secs = document.querySelectorAll('.doc-section');
+const links = document.querySelectorAll('.sidebar a');
+window.addEventListener('scroll', () => {
+  let cur = '';
+  secs.forEach(s => { if (window.scrollY >= s.offsetTop - 80) cur = s.id; });
+  links.forEach(a => { a.classList.remove('active'); if (a.getAttribute('href') === '#' + cur) a.classList.add('active'); });
+});
+</script>
+
+
+<script>
+const DOCS_INDEX = [
+  {title:'How Your Network Works',page:'/docs/getting-started',anchor:'#overview',content:'DNS queries ISP encrypted private Raspberry Pi phone book internet browsing data Comcast Verizon ads trackers malware phishing 20 milliseconds how it works what is harbor privacy setup overview'},
+  {title:'Your Dashboard',page:'/docs/getting-started',anchor:'#dashboard',content:'dashboard login DNS queries blocked filters query log percentage access username password manage settings access portal'},
+  {title:'Device Setup',page:'/docs/getting-started',anchor:'#devices',content:'iPhone iPad iOS Android Windows Mac smart TV Xfinity router DNS profile setup VPN device management private DNS mobile phone tablet computer install configure'},
+  {title:'What Gets Blocked',page:'/docs/managing',anchor:'#blocking',content:'ads trackers malware phishing telemetry blocked domains smart device phone home manufacturers what is blocked filtering lists'},
+  {title:'Unblocking a Site',page:'/docs/managing',anchor:'#whitelist',content:'whitelist unblock site allowlist domain not loading blocked red query log green checkmark website broken not working fix allow'},
+  {title:'Query Logs',page:'/docs/managing',anchor:'#querylogs',content:'query log DNS requests real time green allowed red blocked background app activity privacy local stored logs history traffic'},
+  {title:'How Harbor Kids Works',page:'/docs/harbor-kids',anchor:'#kids-overview',content:'Harbor Kids children family protection adult content DNS filtering sub-profile add-on 2.49 monthly parental kids child family safe parental controls'},
+  {title:'Harbor Kids Device Setup',page:'/docs/harbor-kids',anchor:'#kids-setup',content:'Harbor Kids iPhone iPad iOS Mac Windows Android setup profile install Screen Time passcode lock remove tamper DNS family adguard child device install configure mobile tablet'},
+  {title:'Harbor Kids Client ID',page:'/docs/harbor-kids',anchor:'#kids-clientid',content:'client ID kid1 kid2 sub-profile dashboard child account separate traffic troubleshoot identifier profile name'},
+  {title:'Harbor Kids FAQ',page:'/docs/harbor-kids',anchor:'#kids-faq',content:'Harbor Kids remove bypass factory reset YouTube educational sites browsing surveillance away from home multiple children cancel questions answers faq'},
+  {title:'Troubleshooting',page:'/docs/troubleshooting',anchor:'#troubleshooting',content:'website stopped working slow internet Pi offline power router changed ISP cache restart whitelist fix broken not loading problem issue error'},
+  {title:'Frequently Asked Questions',page:'/docs/troubleshooting',anchor:'#faq',content:'slow internet Netflix YouTube streaming Pi offline family browsing phone away from home maintain router move privacy data collected support questions answers common faq help'},
+  {title:'Cancelling Your Subscription',page:'/docs/account',anchor:'#cancel',content:'cancel subscription customer portal remove profile iPhone iOS Android router Xfinity DNS default billing stop service unsubscribe'},
+  {title:'Contact & Support',page:'/docs/account',anchor:'#contact',content:'help support email contact 24 hours Pembroke South Shore support harborprivacy get in touch reach out'},
+];
+window.addEventListener('load', function() { const fuse = new Fuse(DOCS_INDEX, {keys:['title','content'],threshold:0.35,includeScore:true,minMatchCharLength:2});
+const inp = document.getElementById('docsSearch');
+const res = document.getElementById('searchResults');
+inp.addEventListener('input', () => {
+  const q = inp.value.trim();
+  if (q.length < 2) { res.classList.remove('open'); return; }
+  const hits = fuse.search(q).slice(0, 7);
+  if (!hits.length) { res.innerHTML = '<div class="search-no-results">No results found</div>'; }
+  else { res.innerHTML = hits.map(r => `<a class="search-result-item" href="${r.item.page}${r.item.anchor}"><div class="search-result-title">${r.item.title}</div><div class="search-result-page">${r.item.page.replace('/docs/','').replace('-',' ')}</div><div class="search-result-preview">${r.item.content.substring(0,70)}...</div></a>`).join(''); }
+  res.classList.add('open');
+});
+document.addEventListener('click', e => { if (!e.target.closest('.search-wrap')) res.classList.remove('open'); }); }); 
+</script>
+
+</body>
+</html>

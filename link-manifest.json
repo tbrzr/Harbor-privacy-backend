@@ -1,0 +1,12 @@
+{
+  "name": "Harbor Privacy Links",
+  "short_name": "Harbor",
+  "start_url": "https://link.harborprivacy.com",
+  "display": "standalone",
+  "background_color": "#0a0e0f",
+  "theme_color": "#00e5c0",
+  "icons": [
+    {"src": "https://harborprivacy.com/favicon-32.png", "sizes": "32x32", "type": "image/png"},
+    {"src": "https://harborprivacy.com/favicon-180.png", "sizes": "180x180", "type": "image/png"}
+  ]
+}

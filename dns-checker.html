@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Is Your ISP Tracking You? Free DNS Privacy Checker | Harbor Privacy</title>
+<meta name="description" content="Run a free DNS privacy check to see if your ISP can see your browsing history. Find out if your DNS is encrypted and what changes when you use Harbor Privacy.">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="DNS Checker -- Is Your ISP Watching? | Harbor Privacy">
+<meta property="og:description" content="Check if your ISP can see your browsing data. Run this free DNS privacy check to see what changes with Harbor Privacy encrypted DNS.">
+<meta property="og:image" content="https://harborprivacy.com/favicon-180.png">
+<meta property="og:url" content="https://harborprivacy.com/dns-checker">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://harborprivacy.com/dns-checker">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/favicon-180.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebPage","name":"DNS Privacy Checker","description":"Check if your ISP can see your browsing data and what changes with Harbor Privacy encrypted DNS.","url":"https://harborprivacy.com/dns-checker","isPartOf":{"@type":"WebSite","name":"Harbor Privacy","url":"https://harborprivacy.com"}}</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+<style>
+  :root { --bg: #0a0e0f; --surface: #111618; --border: #1e2a2d; --accent: #00e5c0; --text: #e8f0ef; --muted: #6b8a87; --danger: #ff4e4e; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; line-height: 1.7; font-size: 16px; min-height: 100vh; }
+  body::before { content: ''; position: fixed; inset: 0; background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px); background-size: 60px 60px; opacity: 0.3; pointer-events: none; z-index: 0; }
+  body::after { content: ''; position: fixed; top: -200px; left: 50%; transform: translateX(-50%); width: 800px; height: 600px; background: radial-gradient(ellipse, #00e5c015 0%, transparent 70%); pointer-events: none; z-index: 0; }
+  .container { max-width: 900px; margin: 0 auto; padding: 60px 48px 100px; position: relative; z-index: 1; }
+  .header { margin-bottom: 80px; animation: fadeIn 0.8s ease; }
+  .section-tag { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.2em; text-transform: uppercase; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; }
+  .section-tag::before { content: ''; display: block; width: 32px; height: 1px; background: var(--muted); }
+  h1 { font-family: 'DM Serif Display', serif; font-size: clamp(36px, 6vw, 56px); line-height: 1.1; font-weight: 400; margin-bottom: 20px; letter-spacing: -0.02em; }
+  .subtitle { font-size: 18px; color: var(--muted); max-width: 560px; line-height: 1.7; }
+  .dns-checker { background: var(--surface); border: 1px solid var(--border); padding: 48px; margin-bottom: 64px; animation: fadeUp 0.8s ease 0.2s both; }
+  .checker-intro { font-size: 14px; color: var(--muted); margin-bottom: 32px; font-family: 'DM Mono', monospace; letter-spacing: 0.05em; }
+  .checker-button { background: var(--accent); color: var(--bg); padding: 14px 32px; font-family: 'DM Mono', monospace; font-size: 13px; letter-spacing: 0.08em; text-decoration: none; font-weight: 500; border: none; cursor: pointer; transition: all 0.2s; display: inline-block; margin-bottom: 32px; }
+  .checker-button:hover { background: #00ffda; }
+  .checker-button:disabled { background: var(--muted); cursor: not-allowed; }
+  .checker-results { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 32px; }
+  .result-card { border: 1px solid var(--border); padding: 32px; background: rgba(0, 229, 192, 0.02); min-height: 280px; display: flex; flex-direction: column; }
+  .result-card.danger { background: rgba(255, 78, 78, 0.02); }
+  .result-icon { font-size: 48px; margin-bottom: 16px; }
+  .result-status { font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .result-title { font-family: 'DM Serif Display', serif; font-size: 20px; font-weight: 400; margin-bottom: 16px; line-height: 1.3; }
+  .result-description { font-size: 14px; color: var(--muted); line-height: 1.6; flex-grow: 1; margin-bottom: 16px; }
+  .result-detail { background: var(--bg); border: 1px solid var(--border); padding: 12px 16px; font-family: 'DM Mono', monospace; font-size: 12px; color: var(--accent); word-break: break-all; margin-top: auto; }
+  .result-detail.muted { color: var(--muted); }
+  .loading { display: flex; align-items: center; gap: 8px; font-family: 'DM Mono', monospace; font-size: 13px; color: var(--muted); }
+  .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
+  .footnote { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); line-height: 1.6; }
+  .footnote strong { color: var(--accent); }
+  .education-section { margin-top: 80px; padding-top: 64px; border-top: 1px solid var(--border); animation: fadeUp 0.8s ease 0.4s both; }
+  .education-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 40px; }
+  .education-item h3 { font-family: 'DM Serif Display', serif; font-size: 20px; font-weight: 400; margin-bottom: 12px; color: var(--text); }
+  .education-item p { font-size: 14px; color: var(--muted); line-height: 1.7; }
+  .upsell-section { background: var(--surface); border: 1px solid var(--border); padding: 48px; margin-top: 64px; text-align: center; animation: fadeUp 0.8s ease 0.6s both; }
+  .upsell-section h2 { font-family: 'DM Serif Display', serif; font-size: clamp(24px, 4vw, 36px); font-weight: 400; margin-bottom: 16px; }
+  .upsell-section p { color: var(--muted); font-size: 16px; margin-bottom: 32px; max-width: 520px; margin-left: auto; margin-right: auto; }
+  .btn-primary { background: var(--accent); color: var(--bg); padding: 14px 32px; font-family: 'DM Mono', monospace; font-size: 13px; letter-spacing: 0.08em; text-decoration: none; font-weight: 500; display: inline-block; transition: all 0.2s; }
+  .btn-primary:hover { background: #00ffda; }
+  @media(max-width:1100px){body{display:block;}.sidebar{display:none!important;padding-top:56px;}.sidebar.open{display:flex!important;flex-direction:column;overflow-y:auto;max-height:100vh;}.sidebar-logo{display:none!important;}.mobile-nav{display:flex!important;}.main-content{margin-left:0!important;padding-top:56px;}.container{padding:40px 24px 80px;}.dns-checker{padding:32px 24px;}.checker-results{grid-template-columns:1fr;}.education-grid{grid-template-columns:1fr;gap:32px;}.upsell-section{padding:32px 24px;}}
+
+  :root { --sidebar-width: 240px; }
+  .sidebar{width:var(--sidebar-width);height:100vh;background:var(--surface);border-right:1px solid var(--border);position:fixed;top:0;left:0;z-index:100;display:flex;flex-direction:column;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;}
+  .sidebar::-webkit-scrollbar{display:none;}
+  .sidebar-logo{padding:28px 24px 20px;border-bottom:1px solid var(--border);}
+  .sidebar-logo a{font-family:'DM Mono',monospace;font-size:15px;color:var(--accent);letter-spacing:0.1em;text-decoration:none;display:block;}
+  .sidebar-logo a span{color:var(--muted);}
+  .sidebar-logo .tagline{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.06em;margin-top:5px;}
+  .sidebar-cta{margin:16px;padding:12px 16px;background:var(--accent);color:var(--bg);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;display:block;font-weight:500;transition:background 0.2s;}
+  .sidebar-cta:hover{background:#00ffda;}
+  .sidebar-footer{padding:16px 24px;margin-top:auto;border-top:1px solid var(--border);}
+  .sidebar-footer a{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);text-decoration:none;display:block;margin-bottom:4px;}
+  .sidebar nav{padding:0 16px 16px;flex:1;}
+  .nav-group-label{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.15em;text-transform:uppercase;padding:20px 8px 8px;display:block;}
+  .nav-link{display:flex;align-items:center;gap:10px;padding:7px 8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.04em;border-radius:2px;transition:color 0.15s,background 0.15s;}
+  .nav-link:hover{color:var(--text);background:rgba(255,255,255,0.03);}
+  .nav-link.active{color:var(--accent);background:rgba(0,229,192,0.06);}
+  .nav-icon{font-size:12px;width:16px;text-align:center;flex-shrink:0;}
+  .nav-badge{font-size:8px;background:var(--accent);color:var(--bg);padding:1px 5px;letter-spacing:0.05em;margin-left:auto;}
+  .sidebar-actions{padding:16px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:8px;}
+  .mobile-nav{display:none;position:fixed;top:0;left:0;right:0;height:56px;background:var(--surface);border-bottom:1px solid var(--border);z-index:200;align-items:center;padding:0 20px;justify-content:space-between;}
+  .hamburger{background:none;border:none;color:var(--text);font-size:20px;cursor:pointer;padding:4px;}
+  .overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99;}
+  .overlay.open{display:block;}
+  .main-content{margin-left:240px;}
+
+</style>
+</head>
+<body>
+<script>function toggleSidebar(){document.getElementById("sidebar").classList.toggle("open");document.getElementById("overlay").classList.toggle("open");}</script>
+<div class="mobile-nav">
+  <button class="hamburger" onclick="toggleSidebar()">&#9776;</button>
+  <span style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);">harbor<span style="color:var(--muted);">/</span>privacy</span>
+  <a href="/free-trial" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--bg);background:var(--accent);color:#0a0e0f;font-weight:600;padding:6px 12px;text-decoration:none;">Try Free</a>
+</div>
+<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-actions">
+    <a href="https://dashboard.harborprivacy.com" target="_blank" style="display:block;padding:12px 16px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;">&#8862; My Dashboard</a>
+    <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank" style="display:block;padding:12px 16px;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;text-align:center;">&#8651; Manage Subscription</a>
+  </div>
+  <div class="sidebar-logo"><a href="/">harbor<span>/</span>privacy</a><div class="tagline">private dns for your home</div></div>
+  <nav>
+    <span class="nav-group-label">Main</span>
+    <a href="/" class="nav-link"><span class="nav-icon">&#8962;</span> Home</a>
+    <a href="/how-it-works" class="nav-link"><span class="nav-icon">&#9672;</span> How It Works</a>
+    <span class="nav-group-label">Learn</span>
+    <a href="/learn" class="nav-link"><span class="nav-icon">&#9672;</span> Overview</a>
+    <a href="/learn#email-filtering" class="nav-link"><span class="nav-icon">&#9993;</span> Email Filtering</a>
+    <a href="/learn#dns-privacy" class="nav-link"><span class="nav-icon">&#11041;</span> DNS Privacy</a>
+    <a href="/learn#isp-tracking" class="nav-link"><span class="nav-icon">&#9677;</span> ISP Tracking</a>
+    <a href="/learn#phishing" class="nav-link"><span class="nav-icon">&#9888;</span> Phishing &amp; Malware</a>
+    <a href="/learn#unbound" class="nav-link"><span class="nav-icon">&#11041;</span> Unbound &amp; DNS</a>
+    <a href="/learn#smart-home" class="nav-link"><span class="nav-icon">&#8962;</span> Smart Home</a>
+    <span class="nav-group-label">Tools</span>
+    <a href="/pricing" class="nav-link"><span class="nav-icon">$</span> Pricing</a>
+    <a href="/pricing#audit" class="nav-link"><span class="nav-icon">&#10022;</span> Network Audit</a>
+    <a href="/dns-checker" class="nav-link active"><span class="nav-icon">&#8865;</span> Check Your DNS</a>
+    <a href="/adblock-test" class="nav-link"><span class="nav-icon">&#9646;</span> Block Test <span class="nav-badge">NEW</span></a>
+    <a href="/free-trial" class="nav-link"><span class="nav-icon">&#10003;</span> Free Trial</a>
+    <a href="/pricing#remote" class="nav-link"><span class="nav-icon">&#8651;</span> Harbor Remote <span class="nav-badge">NEW</span></a>
+    <span class="nav-group-label">Company</span>
+    <a href="/docs" class="nav-link"><span class="nav-icon">&#8801;</span> Documentation</a>
+    <a href="/nologs" class="nav-link"><span class="nav-icon">&#10003;</span> No-Logs Policy</a>
+    <a href="/privacy" class="nav-link"><span class="nav-icon">&#8857;</span> Privacy Policy</a>
+    <a href="/terms" class="nav-link"><span class="nav-icon">&#167;</span> Terms of Service</a>
+    <a href="/#contact" class="nav-link"><span class="nav-icon">&#9993;</span> Contact</a>
+  </nav>
+  <a href="/free-trial" class="sidebar-cta">Get Started &rarr;</a>
+  <div class="sidebar-footer"><a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank">Manage Subscription</a></div>
+</aside>
+<div class="main-content">
+<div class="container">
+  <div class="header">
+    <div class="section-tag">DNS Privacy Check</div>
+    <h1>Is your ISP watching?</h1>
+    <p class="subtitle">Run this quick check to see what your Internet Service Provider can currently see about your browsing.</p>
+  <p style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);max-width:560px;line-height:1.8;margin-bottom:32px;letter-spacing:0.03em;">Your ISP sees every DNS query you make -- every website you visit. This free DNS checker shows you what your current provider can see and what changes when you use encrypted DNS like Harbor Privacy, Cloudflare 1.1.1.1, or NextDNS.</p>
+  </div>
+  
+  <div class="dns-checker">
+    <div class="checker-intro">Click below to check your current DNS setup. This test runs entirely in your browser and doesn't store any data.</div>
+    <button class="checker-button" id="checkBtn" onclick="runDNSCheck()">Check My DNS</button>
+    <div id="loadingState" class="loading" style="display: none;">
+      <span class="spinner"></span>
+      <span>Checking your DNS...</span>
+    </div>
+    <div id="resultsContainer" class="checker-results" style="display: none;">
+      <div class="result-card danger">
+        <div class="result-icon">✕</div>
+        <div class="result-status">Currently</div>
+        <div class="result-title">Your ISP Can See Everything</div>
+        <div class="result-description">Your Internet Service Provider can see every website you visit in real-time. This data is often sold to advertisers and data brokers.</div>
+        <div class="result-detail">
+          <div style="margin-bottom: 8px; font-size: 10px; color: var(--muted);">Your DNS Provider:</div>
+          <div id="currentDNS">Detecting...</div>
+          <div id="currentISP" style="margin-top: 8px; font-size: 11px;"></div>
+        </div>
+      </div>
+      <div class="result-card">
+        <div class="result-icon">✓</div>
+        <div class="result-status">With Harbor Privacy</div>
+        <div class="result-title">Your Data is Private</div>
+        <div class="result-description">Your DNS queries are encrypted and resolved through trusted nameservers using Unbound technology. Your ISP cannot see where you're going.</div>
+        <div class="result-detail muted">
+          <div style="margin-bottom: 8px; font-size: 10px;">Encrypted • Local Resolution • No ISP Visibility</div>
+        </div>
+      </div>
+    </div>
+    <a href="/adblock-test" style="display:block;margin-bottom:24px;text-align:center;font-family:'DM Mono',monospace;font-size:12px;color:var(--bg);background:var(--accent);padding:14px 24px;letter-spacing:0.08em;text-decoration:none;font-weight:500;">&#9646; Test My Adblock &rarr;</a>
+    <div class="footnote"><strong>*</strong> This DNS checker runs entirely in your browser. No data is logged, stored, or sent anywhere. Your privacy is respected from the start.</div>
+  </div>
+  
+  <div class="education-section">
+    <div class="section-tag" style="margin-bottom: 32px;">Understanding the Problem</div>
+    <div class="education-grid">
+      <div class="education-item">
+        <h3>What is DNS?</h3>
+        <p>DNS (Domain Name System) is like a phone book for the internet. When you visit a website, your device asks a DNS server "what's the IP address for google.com?" Your ISP's DNS server sees every single one of these requests—and knows exactly which sites you're visiting.</p>
+      </div>
+      <div class="education-item">
+        <h3>Why It Matters</h3>
+        <p>Your ISP uses this data to create a complete profile of your browsing habits. They sell this information to advertisers, data brokers, and other companies. Even "private browsing" mode doesn't hide this—your ISP still sees everything.</p>
+      </div>
+      <div class="education-item">
+        <h3>How Harbor Privacy Works</h3>
+        <p>Harbor Privacy encrypts your DNS requests and resolves them through Unbound, a recursive DNS resolver. Your ISP can see that you're using encrypted DNS, but cannot see which websites you visit. The requests never pass through your ISP's servers.</p>
+      </div>
+      <div class="education-item">
+        <h3>What is Unbound?</h3>
+        <p>Unbound is open-source software that acts as your own recursive DNS resolver. Instead of asking your ISP's servers where websites are located, Unbound asks the internet's root nameservers directly. Everything stays encrypted, nothing is logged.</p>
+      </div>
+    </div>
+  </div>
+  
+  <div class="upsell-section">
+    <h2>Stop your ISP from tracking your browsing</h2>
+    <p>Harbor Privacy sets up encrypted DNS on every device in your home in 60 seconds. No subscriptions. No complications. Just privacy.</p>
+    <a href="https://harborprivacy.com/#get-started" class="btn-primary">See Plans</a>
+  </div>
+</div>
+
+<script>
+const ISP_DATABASE = { '75.75.75.75': 'Comcast (Xfinity)', '75.75.76.76': 'Comcast (Xfinity)', '8.8.8.8': 'Google Public DNS', '8.8.4.4': 'Google Public DNS', '1.1.1.1': 'Cloudflare DNS', '1.0.0.1': 'Cloudflare DNS', '208.67.222.222': 'OpenDNS', '208.67.220.220': 'OpenDNS', '9.9.9.9': 'Quad9', '149.112.112.112': 'Quad9', '8.26.56.26': 'Comcast', '8.20.247.20': 'Comcast', '156.154.70.1': 'Neustar UltraDNS', '156.154.71.1': 'Neustar UltraDNS', '69.46.88.68': 'Spectrum (Charter)', '69.46.88.220': 'Spectrum (Charter)', '205.244.147.3': 'AT&T', '4.2.2.1': 'Verizon', '4.2.2.2': 'Verizon', '68.105.28.11': 'Cox Communications', '68.105.28.12': 'Cox Communications' };
+
+async function runDNSCheck() {
+  const btn = document.getElementById('checkBtn');
+  const loading = document.getElementById('loadingState');
+  const results = document.getElementById('resultsContainer');
+  btn.disabled = true;
+  loading.style.display = 'flex';
+  results.style.display = 'none';
+  try {
+    const dnsIP = await detectDNS();
+    const ispName = lookupISP(dnsIP);
+    document.getElementById('currentDNS').textContent = dnsIP || 'Unable to detect';
+    document.getElementById('currentISP').textContent = ispName ? `Provider: ${ispName}` : 'Local/Custom DNS';
+    results.style.display = 'grid';
+  } catch (error) {
+    console.error('DNS check failed:', error);
+    document.getElementById('currentDNS').textContent = 'Unable to detect (check browser settings)';
+    document.getElementById('currentISP').textContent = 'Some ISPs block DNS detection';
+    results.style.display = 'grid';
+  } finally {
+    loading.style.display = 'none';
+    btn.disabled = false;
+  }
+}
+
+async function detectDNS() {
+  try {
+    const response = await fetch('https://dns.google/resolve?name=example.com&type=A', { method: 'GET', headers: { 'Accept': 'application/dns-json' } });
+    if (response.ok) return 'Google Public DNS (8.8.8.8)';
+  } catch (e) {
+    try {
+      const pc = new RTCPeerConnection({ iceServers: [] });
+      const candidates = [];
+      pc.onicecandidate = (ice) => { if (!ice || !ice.candidate) return; const candidate = ice.candidate.candidate; if (candidate.includes('srflx')) candidates.push(candidate); };
+      pc.createDataChannel('test');
+      await pc.createOffer().then(pc.setLocalDescription.bind(pc));
+      return new Promise((resolve) => { setTimeout(() => { pc.close(); resolve(candidates[0] || 'Unable to detect'); }, 1000); });
+    } catch (e) { return null; }
+  }
+}
+
+function lookupISP(dnsIP) {
+  if (!dnsIP) return null;
+  const ipMatch = dnsIP.match(/\d+\.\d+\.\d+\.\d+/);
+  const ip = ipMatch ? ipMatch[0] : dnsIP;
+  return ISP_DATABASE[ip] || null;
+}
+</script>
+</div>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='UTF-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1.0'>
+<title>Live Logs — Harbor Privacy</title>
+<script defer src='https://cloud.umami.is/script.js' data-website-id='2d16b46c-899b-444b-9767-0e2d21feedf9'></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0a0e0f;color:#e8f0ef;font-family:'DM Mono',monospace;font-size:12px;}
+nav{padding:16px 24px;border-bottom:1px solid #1e2a2d;display:flex;justify-content:space-between;align-items:center;}
+.logo{font-size:13px;color:#00e5c0;text-decoration:none;}
+.logo span{color:#6b8a87;}
+.back{font-size:11px;color:#6b8a87;text-decoration:none;}
+.wrap{padding:24px;}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.filter-btn{background:transparent;border:1px solid #1e2a2d;color:#6b8a87;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.15em;padding:6px 14px;cursor:pointer;}
+.filter-btn.active{border-color:#00e5c0;color:#00e5c0;}
+#log-box{background:#0d1214;border:1px solid #1e2a2d;padding:16px;height:calc(100vh - 200px);overflow-y:auto;white-space:pre-wrap;word-break:break-all;line-height:1.6;}
+.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+</style>
+</head>
+<body>
+<nav>
+  <a href='/' class='logo'>harbor<span>/</span>privacy</a>
+  <a href='/admin' class='back'>← Admin</a>
+</nav>
+<div class='wrap'>
+  <div class='filters'>
+    <a class='filter-btn active' href='#' onclick='setFilter("",this);return false;'>ALL</a>
+    <a class='filter-btn' href='#' onclick='setFilter("ERROR",this);return false;'>ERRORS</a>
+    <a class='filter-btn' href='#' onclick='setFilter("reprovision",this);return false;'>REPROVISION</a>
+    <a class='filter-btn' href='#' onclick='setFilter("email|welcome",this);return false;'>EMAIL</a>
+    <a class='filter-btn' href='#' onclick='setFilter("adguard|agh|dns",this);return false;'>AGH/DNS</a>
+    <a class='filter-btn' href='#' onclick='setFilter("stripe|webhook",this);return false;'>STRIPE</a>
+    <a class='filter-btn' href='#' onclick='setFilter("login|auth|code",this);return false;'>AUTH</a>
+  </div>
+  <div class='toolbar'>
+    <div style='display:flex;gap:8px;align-items:center;'>
+      <input type='date' id='date-filter' onchange='setDate()' style='background:#111618;border:1px solid #1e2a2d;color:#a8c5c1;font-family:DM Mono,monospace;font-size:11px;padding:6px 10px;'>
+      <button onclick='clearDate()' style='background:transparent;border:1px solid #1e2a2d;color:#6b8a87;font-family:DM Mono,monospace;font-size:10px;padding:6px 12px;cursor:pointer;'>CLEAR</button>
+    </div>
+    <a href='/admin/logs' style='color:#6b8a87;text-decoration:none;font-size:10px;'>↻ Refresh</a>
+  </div>
+  <div id='log-box'>LOG_CONTENT_PLACEHOLDER</div>
+</div>
+<script>
+const allLines = document.getElementById('log-box').innerHTML.split('\n').filter(l => l.trim().length > 0);
+let currentFilter = '';
+let currentDate = '';
+
+function applyFilters() {
+  const box = document.getElementById('log-box');
+  let filtered = allLines;
+  if (currentFilter) {
+    const re = new RegExp(currentFilter, 'i');
+    filtered = filtered.filter(l => re.test(l));
+  }
+  if (currentDate) {
+    filtered = filtered.filter(l => l.includes(currentDate));
+  }
+  box.innerHTML = filtered.join('\n') || '<span style="color:#6b8a87">No matching logs</span>';
+}
+
+function setFilter(f, el) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  applyFilters();
+}
+
+function setDate() {
+  currentDate = document.getElementById('date-filter').value.replace(/-/g, '/').substring(5);
+  applyFilters();
+}
+
+function clearDate() {
+  currentDate = '';
+  document.getElementById('date-filter').value = '';
+  applyFilters();
+}
+</script>
+</body>
+</html>

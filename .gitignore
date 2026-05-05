@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.bak
+*.bak.*
+harbor-customers.json
+harbor-customers.json.bak
+harbor-dashboard-users.json.bak
+harbor-dns-analytics.json.bak
+links.json.bak
+*.db
