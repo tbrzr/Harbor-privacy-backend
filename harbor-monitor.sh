@@ -17,8 +17,10 @@ check_http() {
   local url=$2
   local expected=$3
   local fail_file="/tmp/fail_http_${name// /_}"
-  local response=$(curl -s -L -o /tmp/hcheck -w "%{http_code}" --max-time 10 "$url" 2>/dev/null)
-  local body=$(cat /tmp/hcheck)
+  local tmpfile=$(mktemp)
+  local response=$(curl -s -L -o "$tmpfile" -w "%{http_code}" --max-time 10 "$url" 2>/dev/null)
+  local body=$(cat "$tmpfile")
+  rm -f "$tmpfile"
   if [ "$response" != "200" ] || [[ "$body" != *"$expected"* ]]; then
     COUNT=$(cat "$fail_file" 2>/dev/null || echo 0)
     COUNT=$((COUNT + 1))
@@ -67,7 +69,7 @@ check_service "Harbor Booking" "harbor-booking"
 check_http "Harbor Booking" "https://booking.harborprivacy.com/health" '"status":"ok"'
 check_http "Harbor Privacy" "https://harborprivacy.com" "harbor"
 check_http "Harbor Dashboard" "https://dashboard.harborprivacy.com/login" "harbor"
-check_http "Harbor DoH" "https://doh.harborprivacy.com/dns-query" ""
+check_http "Harbor DoH" "https://doh.harborprivacy.com/resolve?name=google.com&type=A" "Harbor Privacy"
 check_http "Harbor Fax Site" "https://fax.harborprivacy.com" "harbor"
 check_http "Harbor Fax Payments" "https://fax.harborprivacy.com/fax/health" '"stripe":"ok"'
 
