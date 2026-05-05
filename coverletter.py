@@ -73,10 +73,7 @@ def create_cover_letter():
     jobs[job_id] = job
     save_jobs(jobs)
     
-    return jsonify({
-        'job_id': job_id,
-        'checkout_url': f'https://buy.stripe.com/bJe7sKfUXchNaLHa916kg0n?client_reference_id={job_id}&success_url=https://career.harborprivacy.com/processing?job_id={job_id}&prefilled_email={email}'
-    })
+    return jsonify({'job_id': job_id, 'email': email})
 
 @app.route('/api/resume/create', methods=['POST'])
 def create_resume_review():
@@ -120,10 +117,7 @@ def create_resume_review():
     jobs[job_id] = job
     save_jobs(jobs)
     
-    return jsonify({
-        'job_id': job_id,
-        'checkout_url': f'https://buy.stripe.com/7sYaEW103dlRf1X6WP6kg0m?client_reference_id={job_id}&success_url=https://resume.harborprivacy.com/processing?job_id={job_id}&prefilled_email={email}'
-    })
+    return jsonify({'job_id': job_id, 'email': email})
 
 @app.route('/api/coverletter/generate/<job_id>', methods=['POST'])
 def generate_cover_letter(job_id):
@@ -929,6 +923,113 @@ def checkout_adjust():
         return jsonify({'clientSecret': session.client_secret})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
+PRICE_CL     = 299   # $2.99 cover letter
+PRICE_RV     = 299   # $2.99 resume review
+PRICE_ADJUST = 199   # $1.99 extra adjustment
+
+def _validate_promo(code, amount):
+    import stripe as _stripe
+    _stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+    promos = _stripe.PromotionCode.list(code=code.upper().strip(), active=True, limit=1)
+    if not promos.data:
+        return None, None, 'Invalid or expired promo code'
+    promo = promos.data[0]
+    d = promo.to_dict()
+    coupon_id = (d.get('promotion') or {}).get('coupon') or d.get('coupon')
+    if not coupon_id:
+        return None, None, 'Promo has no coupon'
+    coupon = _stripe.Coupon.retrieve(coupon_id) if isinstance(coupon_id, str) else coupon_id
+    cd = coupon.to_dict() if hasattr(coupon, 'to_dict') else coupon
+    if cd.get('percent_off'):
+        discount = int(round(amount * cd['percent_off'] / 100))
+    elif cd.get('amount_off'):
+        discount = cd['amount_off']
+    else:
+        return None, None, 'Promo has no valid discount'
+    return promo.id, min(discount, amount), None
+
+@app.route('/api/pay/coverletter', methods=['POST'])
+def pay_coverletter():
+    import stripe as _stripe
+    _stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+    data = request.get_json() or {}
+    job_id   = data.get('job_id', '').strip()
+    promo    = data.get('promo_code', '').strip()
+    jobs     = load_jobs()
+    if job_id not in jobs:
+        return jsonify({'error': 'Order not found'}), 404
+    amount = PRICE_CL
+    if promo:
+        promo_id, discount, err = _validate_promo(promo, amount)
+        if err:
+            return jsonify({'error': err}), 400
+        amount = max(0, amount - discount)
+    if amount == 0:
+        jobs[job_id]['status'] = 'paid'
+        save_jobs(jobs)
+        return jsonify({'free': True})
+    try:
+        intent = _stripe.PaymentIntent.create(
+            amount=amount, currency='usd',
+            receipt_email=jobs[job_id].get('email') or None,
+            metadata={'job_id': job_id, 'service': 'harbor-career-cl'},
+        )
+        return jsonify({'client_secret': intent.client_secret, 'amount': amount})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/pay/resume', methods=['POST'])
+def pay_resume():
+    import stripe as _stripe
+    _stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+    data = request.get_json() or {}
+    job_id   = data.get('job_id', '').strip()
+    promo    = data.get('promo_code', '').strip()
+    jobs     = load_jobs()
+    if job_id not in jobs:
+        return jsonify({'error': 'Order not found'}), 404
+    amount = PRICE_RV
+    if promo:
+        promo_id, discount, err = _validate_promo(promo, amount)
+        if err:
+            return jsonify({'error': err}), 400
+        amount = max(0, amount - discount)
+    if amount == 0:
+        jobs[job_id]['status'] = 'paid'
+        save_jobs(jobs)
+        return jsonify({'free': True})
+    try:
+        intent = _stripe.PaymentIntent.create(
+            amount=amount, currency='usd',
+            receipt_email=jobs[job_id].get('email') or None,
+            metadata={'job_id': job_id, 'service': 'harbor-career-rv'},
+        )
+        return jsonify({'client_secret': intent.client_secret, 'amount': amount})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/webhook/stripe/pi', methods=['POST'])
+def stripe_pi_webhook():
+    import stripe as _stripe
+    _stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+    payload    = request.data
+    sig_header = request.headers.get('Stripe-Signature', '')
+    try:
+        secret = os.getenv('STRIPE_WEBHOOK_SECRET_PI') or os.getenv('STRIPE_WEBHOOK_SECRET')
+        event = _stripe.Webhook.construct_event(payload, sig_header, secret)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+    if event['type'] == 'payment_intent.succeeded':
+        pi     = event['data']['object']
+        job_id = pi.get('metadata', {}).get('job_id', '')
+        if job_id:
+            jobs = load_jobs()
+            if job_id in jobs:
+                jobs[job_id]['status'] = 'paid'
+                save_jobs(jobs)
+    return jsonify({'status': 'ok'}), 200
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=7100, debug=False)

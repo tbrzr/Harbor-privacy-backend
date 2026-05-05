@@ -376,6 +376,31 @@ def fax_upload():
     return jsonify({"file_token": token, "page_count": pages})
 
 
+def _get_coupon_discount(promo_id_or_code, amount, is_code=False):
+    if is_code:
+        promos = stripe.PromotionCode.list(code=promo_id_or_code, active=True, limit=1)
+        if not promos.data:
+            return None, None, "Invalid or expired promo code"
+        promo = promos.data[0]
+        promo_id = promo.id
+    else:
+        promo = stripe.PromotionCode.retrieve(promo_id_or_code)
+        promo_id = promo_id_or_code
+    d = promo.to_dict()
+    coupon_id = (d.get("promotion") or {}).get("coupon") or d.get("coupon")
+    if not coupon_id:
+        return None, None, "Promo has no coupon"
+    coupon = stripe.Coupon.retrieve(coupon_id) if isinstance(coupon_id, str) else coupon_id
+    cd = coupon.to_dict() if hasattr(coupon, "to_dict") else coupon
+    if cd.get("percent_off"):
+        discount = int(round(amount * cd["percent_off"] / 100))
+    elif cd.get("amount_off"):
+        discount = cd["amount_off"]
+    else:
+        return None, None, "Promo has no valid discount"
+    return promo_id, min(discount, amount), None
+
+
 @app.route("/fax/validate-promo", methods=["POST"])
 def validate_promo():
     body = request.get_json(silent=True) or {}
@@ -386,15 +411,11 @@ def validate_promo():
         promos = stripe.PromotionCode.list(code=code, active=True, limit=1)
         if not promos.data:
             return jsonify({"error": "Invalid or expired promo code"}), 400
-        promo = promos.data[0]
-        coupon = promo.coupon
-        if coupon.percent_off:
-            discount = int(round((body.get("amount", 299) * coupon.percent_off) / 100))
-        elif coupon.amount_off:
-            discount = coupon.amount_off
-        else:
-            return jsonify({"error": "Promo code has no valid discount"}), 400
-        return jsonify({"promo_id": promo.id, "discount": discount})
+        amount = body.get("amount", 299)
+        promo_id, discount, err = _get_coupon_discount(code, amount, is_code=True)
+        if err:
+            return jsonify({"error": err}), 400
+        return jsonify({"promo_id": promo_id, "discount": discount})
     except stripe.error.StripeError as e:
         return jsonify({"error": str(e)}), 400
 
@@ -436,14 +457,9 @@ def create_payment_intent():
     amount = _calc_amount(remove_branding, extra_pages)
     if promo_id and discount:
         try:
-            promo = stripe.PromotionCode.retrieve(promo_id)
-            coupon = promo.coupon
-            if coupon.percent_off:
-                real_discount = int(round(amount * coupon.percent_off / 100))
-            elif coupon.amount_off:
-                real_discount = coupon.amount_off
-            else:
-                real_discount = 0
+            _, real_discount, err = _get_coupon_discount(promo_id, amount)
+            if err:
+                return jsonify({"error": err}), 400
             amount = max(0, amount - real_discount)
         except Exception:
             return jsonify({"error": "Invalid promo code"}), 400
@@ -508,14 +524,9 @@ def send_free():
 
     if promo_id and discount:
         try:
-            promo = stripe.PromotionCode.retrieve(promo_id)
-            coupon = promo.coupon
-            if coupon.percent_off:
-                real_discount = int(round(amount * coupon.percent_off / 100))
-            elif coupon.amount_off:
-                real_discount = coupon.amount_off
-            else:
-                real_discount = 0
+            _, real_discount, err = _get_coupon_discount(promo_id, amount)
+            if err:
+                return jsonify({"error": err}), 400
             if real_discount < amount:
                 return jsonify({"error": "Promo does not cover full amount"}), 400
         except Exception:
