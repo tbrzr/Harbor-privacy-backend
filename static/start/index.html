@@ -178,6 +178,8 @@
         <a href="https://booking.harborprivacy.com" target="_blank" class="card booking"><div class="card-icon">&#128197;</div><div class="card-name">Harbor Booking</div><div class="card-desc">Scheduling platform</div><div class="card-badge">BOOKING</div></a>
         <a href="https://fax.harborprivacy.com" target="_blank" class="card fax"><div class="card-icon">&#128424;</div><div class="card-name">Harbor Fax</div><div class="card-desc">Anonymous fax &middot; $2.99/send</div><div class="card-badge">FAX</div></a>
         <a href="https://career.harborprivacy.com" target="_blank" class="card career"><div class="card-icon">&#128196;</div><div class="card-name">Career Tools</div><div class="card-desc">AI resume + cover letter</div><div class="card-badge">CAREER</div></a>
+        <a href="https://resume.harborprivacy.com" target="_blank" class="card career"><div class="card-icon">&#128203;</div><div class="card-name">Resume Builder</div><div class="card-desc">AI resume generator</div><div class="card-badge">CAREER</div></a>
+        <a href="https://career.harborprivacy.com" target="_blank" class="card career"><div class="card-icon">&#9997;&#65039;</div><div class="card-name">Cover Letter</div><div class="card-desc">AI cover letter writer</div><div class="card-badge">CAREER</div></a>
         <a href="https://dashboard.harborprivacy.com" target="_blank" class="card dns"><div class="card-icon">&#128202;</div><div class="card-name">Admin Dashboard</div><div class="card-desc">Customer management</div><div class="card-badge">ADMIN</div></a>
       </div>
     </div>
@@ -250,6 +252,8 @@
           <div class="server-row"><span class="server-dot" id="dot-dash"></span><span class="server-name">Dashboard</span><span class="server-ip">dashboard</span><span class="server-ms" id="ms-dash"></span></div>
           <div class="server-row"><span class="server-dot" id="dot-doh"></span><span class="server-name">DoH</span><span class="server-ip" id="doh-detail">dns-query</span><span class="server-ms" id="ms-doh"></span></div>
           <div class="server-row"><span class="server-dot" id="dot-fax"></span><span class="server-name">Fax</span><span class="server-ip">fax.harborprivacy.com</span><span class="server-ms" id="ms-fax"></span></div>
+          <div class="server-row"><span class="server-dot" id="dot-career"></span><span class="server-name">Career/Resume</span><span class="server-ip">career.harborprivacy.com</span><span class="server-ms" id="ms-career"></span></div>
+          <div class="server-row"><span class="server-dot" id="dot-ntfy"></span><span class="server-name">ntfy</span><span class="server-ip">ntfy.sh</span><span class="server-ms" id="ms-ntfy"></span></div>
           <div class="server-row"><span class="server-dot" id="dot-homebridge"></span><span class="server-name">Homebridge</span><span class="server-ip" id="ip-homebridge">192.168.22.199:8581</span><span class="server-ms" id="ms-homebridge"></span></div>
           <div class="server-row"><span class="server-dot" id="dot-unbound"></span><span class="server-name">Unbound</span><span class="server-ip" id="ip-unbound">192.168.22.199:5335</span><span class="server-ms" id="ms-unbound"></span></div>
         </div>
@@ -339,15 +343,17 @@ function weatherEmoji(c){if(c===0)return'&#9728;&#65039;';if(c<=2)return'&#9925;
 function weatherDesc(c){const m={0:'Clear',1:'Mostly clear',2:'Partly cloudy',3:'Overcast',45:'Foggy',48:'Icy fog',51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',71:'Light snow',73:'Snow',75:'Heavy snow',77:'Snow grains',80:'Light showers',81:'Showers',82:'Heavy showers',95:'Thunderstorm',96:'Thunderstorm + hail',99:'Severe thunderstorm'};return m[c]||'Mixed conditions';}
 async function loadMRR(){const key=localStorage.getItem('hp_stripe_key');if(!key)return;document.getElementById('mrr-value').textContent='...';try{const r=await fetch('https://api.stripe.com/v1/subscriptions?status=active&limit=100',{headers:{Authorization:'Bearer '+key}});const d=await r.json();if(d.error)throw new Error(d.error.message);let mrr=0;for(const s of d.data){for(const i of s.items.data){const p=i.price,a=i.quantity*p.unit_amount;if(p.recurring.interval==='year')mrr+=a/12;else if(p.recurring.interval==='month')mrr+=a;else if(p.recurring.interval==='week')mrr+=a*4.33;}}mrr=mrr/100;document.getElementById('mrr-value').textContent='$'+mrr.toFixed(2);document.getElementById('mrr-sub').textContent=d.data.length+' active subs &middot; MRR';}catch(e){document.getElementById('mrr-value').textContent='&#8212;';document.getElementById('mrr-sub').textContent='Error: '+e.message;}}
 const SERVERS=[
-  {id:'vm3', url:'https://harborprivacy.com'},
-  {id:'book',url:'https://booking.harborprivacy.com'},
-  {id:'dash',url:'https://dashboard.harborprivacy.com'},
-  {id:'fax', url:'https://fax.harborprivacy.com'},
+  {id:'vm3',   url:'https://harborprivacy.com'},
+  {id:'book',  url:'https://booking.harborprivacy.com'},
+  {id:'dash',  url:'https://dashboard.harborprivacy.com'},
+  {id:'fax',   url:'https://fax.harborprivacy.com'},
+  {id:'career',url:'https://career.harborprivacy.com'},
+  {id:'ntfy',  url:'https://ntfy.sh'},
 ];
 const DOH_TEST_URL='https://doh.harborprivacy.com/dns-query?dns=AAABAAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB';
 async function checkServers(){
   document.getElementById('server-updated').textContent='Checking...';
-  ['vm3','book','dash','fax','doh','homebridge','unbound'].forEach(id=>{
+  ['vm3','book','dash','fax','career','ntfy','doh','homebridge','unbound'].forEach(id=>{
     const d=document.getElementById('dot-'+id);if(d)d.className='server-dot checking';
     const m=document.getElementById('ms-'+id);if(m){m.textContent='';m.className='server-ms';}
   });
