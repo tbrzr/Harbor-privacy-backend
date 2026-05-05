@@ -1535,6 +1535,38 @@ def admin():
         get_client=get_client, active="admin")
 
 
+@app.route("/api/agh-status")
+def agh_status():
+    try:
+        stats     = agh_get("/control/stats") or {}
+        query_log = agh_get("/control/querylog?limit=100") or {}
+        logs      = query_log.get("data") or []
+
+        doh_clients = {}
+        for entry in logs:
+            proto     = entry.get("client_proto", "")
+            client_id = entry.get("client_id") or entry.get("client", "?")
+            name      = (entry.get("client_info") or {}).get("name") or client_id
+            if proto in ("doh", "dot", "doq"):
+                key = f"{name} ({proto})" if name != client_id else f"{client_id} ({proto})"
+                doh_clients[key] = doh_clients.get(key, 0) + 1
+
+        resp = jsonify({
+            "num_dns_queries":           stats.get("num_dns_queries", 0),
+            "num_blocked_filtering":     stats.get("num_blocked_filtering", 0),
+            "num_replaced_safebrowsing": stats.get("num_replaced_safebrowsing", 0),
+            "top_clients":               stats.get("top_clients") or [],
+            "top_blocked":               (stats.get("top_blocked_domains") or [])[:5],
+            "doh_clients":               doh_clients,
+        })
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp
+    except Exception as e:
+        resp = jsonify({"error": str(e)})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp, 500
+
+
 @app.route("/api/dns-analytics", methods=["POST"])
 def log_dns_analytics():
     import json as _json, time

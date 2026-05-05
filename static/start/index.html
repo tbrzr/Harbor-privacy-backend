@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="apple-touch-icon" href="/favicon.svg">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>harbor/privacy &middot; start</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -77,6 +79,13 @@
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
   .server-name{font-size:12px;color:var(--text);flex:1}
   .server-ip{font-size:10px;color:var(--muted);font-family:'DM Mono',monospace}
+  .server-ms{font-size:10px;font-family:'DM Mono',monospace;min-width:42px;text-align:right;color:var(--muted)}
+  .server-ms.fast{color:var(--accent)}.server-ms.slow{color:var(--career)}.server-ms.bad{color:var(--danger)}
+  .agh-stat-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);font-size:11px}
+  .agh-stat-row:last-child{border-bottom:none}
+  .agh-stat-label{color:var(--muted);font-family:'DM Mono',monospace}
+  .agh-stat-val{color:var(--text);font-family:'DM Mono',monospace}
+  .agh-stat-val.blocked{color:var(--danger)}.agh-stat-val.doh{color:var(--accent)}
   .deadline-item{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);gap:8px}
   .deadline-item:last-child{border-bottom:none}
   .deadline-name{font-size:12px;color:var(--text);flex:1;line-height:1.3}
@@ -189,6 +198,7 @@
         <a href="https://github.com/tbrzr" target="_blank" class="card infra"><div class="card-icon">&#128190;</div><div class="card-name">GitHub</div><div class="card-desc">Private repos &middot; tbrzr</div><div class="card-badge">CODE</div></a>
         <a href="https://ntfy.sh" target="_blank" class="card infra"><div class="card-icon">&#128276;</div><div class="card-name">ntfy.sh</div><div class="card-desc">harbor-brazer-monitor</div><div class="card-badge">ALERTS</div></a>
         <a href="https://claude.ai" target="_blank" class="card infra"><div class="card-icon">&#129302;</div><div class="card-name">Claude</div><div class="card-desc">AI coding partner</div><div class="card-badge">AI</div></a>
+        <a href="https://www.namecheap.com" target="_blank" class="card infra"><div class="card-icon">&#127760;</div><div class="card-name">Namecheap</div><div class="card-desc">Domain registrar</div><div class="card-badge">DOMAINS</div></a>
       </div>
     </div>
     <div class="section" id="sec-jobs">
@@ -232,13 +242,24 @@
       <div class="widget">
         <div class="widget-label">SERVER HEALTH</div>
         <div id="server-list">
-          <div class="server-row"><span class="server-dot" id="dot-vm3"></span><span class="server-name">VM3 &middot; Harbor Privacy</span><span class="server-ip">129.80.154.105</span></div>
-          <div class="server-row"><span class="server-dot" id="dot-book"></span><span class="server-name">Booking</span><span class="server-ip">booking.harborprivacy.com</span></div>
-          <div class="server-row"><span class="server-dot" id="dot-dash"></span><span class="server-name">Dashboard</span><span class="server-ip">dashboard.harborprivacy.com</span></div>
-          <div class="server-row"><span class="server-dot" id="dot-doh"></span><span class="server-name">DoH</span><span class="server-ip">doh.harborprivacy.com</span></div>
+          <div class="server-row"><span class="server-dot" id="dot-vm3"></span><span class="server-name">VM3</span><span class="server-ip">harborprivacy.com</span><span class="server-ms" id="ms-vm3"></span></div>
+          <div class="server-row"><span class="server-dot" id="dot-book"></span><span class="server-name">Booking</span><span class="server-ip">booking</span><span class="server-ms" id="ms-book"></span></div>
+          <div class="server-row"><span class="server-dot" id="dot-dash"></span><span class="server-name">Dashboard</span><span class="server-ip">dashboard</span><span class="server-ms" id="ms-dash"></span></div>
+          <div class="server-row"><span class="server-dot" id="dot-doh"></span><span class="server-name">DoH</span><span class="server-ip" id="doh-detail">dns-query</span><span class="server-ms" id="ms-doh"></span></div>
+          <div class="server-row"><span class="server-dot" id="dot-fax"></span><span class="server-name">Fax</span><span class="server-ip">fax.harborprivacy.com</span><span class="server-ms" id="ms-fax"></span></div>
         </div>
         <div id="server-updated" class="mrr-sub"></div>
         <button class="widget-btn" onclick="checkServers()">&#8635; Refresh</button>
+      </div>
+      <div class="widget">
+        <div class="widget-label">AGH &middot; DNS</div>
+        <div id="agh-stats"><div class="widget-loading">Loading...</div></div>
+        <button class="widget-btn" onclick="loadAghStatus()">&#8635; Refresh</button>
+      </div>
+      <div class="widget">
+        <div class="widget-label">FAIL2BAN</div>
+        <div id="f2b-content" class="widget-loading">Loading...</div>
+        <button class="widget-btn" onclick="loadFail2ban()">&#8635; Refresh</button>
       </div>
       <div class="widget">
         <div class="widget-label">FAX VOLUME</div>
@@ -296,7 +317,8 @@ const params=new URLSearchParams(window.location.search);
 if(params.get('reset')==='hp-reset-2026'){localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(TOKEN_EXPIRY_KEY);window.history.replaceState({},'',window.location.pathname);}
 function checkAuth(){const t=localStorage.getItem(TOKEN_KEY),e=localStorage.getItem(TOKEN_EXPIRY_KEY);if(t==='authenticated'&&e&&Date.now()<parseInt(e))showApp();}
 function tryLogin(){const v=document.getElementById('pw-input').value;if(v===PASS){localStorage.setItem(TOKEN_KEY,'authenticated');localStorage.setItem(TOKEN_EXPIRY_KEY,Date.now()+DAYS_90);showApp();}else{document.getElementById('auth-error').textContent='incorrect passphrase';document.getElementById('pw-input').value='';document.getElementById('pw-input').focus();}}
-function showApp(){document.getElementById('auth-screen').style.display='none';document.getElementById('app').style.display='block';startClock();loadWeather();loadMRR();renderDeadlines();initClipboard();checkServers();loadFaxVolume();loadChangelog();}
+function showApp(){document.getElementById('auth-screen').style.display='none';document.getElementById('app').style.display='block';startClock();loadWeather();loadMRR();renderDeadlines();initClipboard();checkServers();loadFaxVolume();loadChangelog();loadFail2ban();}
+async function loadFail2ban(){const el=document.getElementById('f2b-content');try{const r=await fetch('/fail2ban.json?_='+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);const d=await r.json();const updStr=d.updated?new Date(d.updated).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}):'';let html='<div class="server-row"><span style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;flex:1">Currently banned</span><span style="font-family:\'DM Mono\',monospace;font-size:12px;color:'+(d.banned>0?'var(--danger)':'var(--accent)')+'">'+d.banned+'</span></div>';html+='<div class="server-row"><span style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;flex:1">Total banned</span><span style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--text)">'+d.total_banned+'</span></div>';html+='<div class="server-row"><span style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;flex:1">Currently failed</span><span style="font-family:\'DM Mono\',monospace;font-size:12px;color:'+(d.failed>0?'var(--career)':'var(--text)')+'">'+d.failed+'</span></div>';if(d.banned_ips&&d.banned_ips.length){html+='<div style="margin-top:6px;font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;border-top:1px solid var(--border);padding-top:6px">'+d.banned_ips.map(ip=>'<div style="color:var(--danger);padding:1px 0">'+ip+'</div>').join('')+'</div>';}if(updStr)html+='<div class="mrr-sub" style="margin-top:6px">updated '+updStr+'</div>';el.innerHTML=html;}catch(e){el.innerHTML='<div style="font-size:12px;color:var(--danger);font-family:\'DM Mono\',monospace">'+e.message+'</div>';}}
 function logout(){localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(TOKEN_EXPIRY_KEY);location.reload();}
 function startClock(){function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}tick();setInterval(tick,1000);}
 document.getElementById('pw-input').addEventListener('keydown',e=>{if(e.key==='Enter')tryLogin();});
@@ -307,8 +329,80 @@ async function loadWeather(){try{const loc=localStorage.getItem('hp_location')||
 function weatherEmoji(c){if(c===0)return'&#9728;&#65039;';if(c<=2)return'&#9925;';if(c<=3)return'&#9729;&#65039;';if(c<=49)return'&#127787;&#65039;';if(c<=67)return'&#127783;&#65039;';if(c<=77)return'&#10052;&#65039;';if(c<=82)return'&#127782;&#65039;';if(c<=99)return'&#9928;&#65039;';return'&#127777;&#65039;';}
 function weatherDesc(c){const m={0:'Clear',1:'Mostly clear',2:'Partly cloudy',3:'Overcast',45:'Foggy',48:'Icy fog',51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',71:'Light snow',73:'Snow',75:'Heavy snow',77:'Snow grains',80:'Light showers',81:'Showers',82:'Heavy showers',95:'Thunderstorm',96:'Thunderstorm + hail',99:'Severe thunderstorm'};return m[c]||'Mixed conditions';}
 async function loadMRR(){const key=localStorage.getItem('hp_stripe_key');if(!key)return;document.getElementById('mrr-value').textContent='...';try{const r=await fetch('https://api.stripe.com/v1/subscriptions?status=active&limit=100',{headers:{Authorization:'Bearer '+key}});const d=await r.json();if(d.error)throw new Error(d.error.message);let mrr=0;for(const s of d.data){for(const i of s.items.data){const p=i.price,a=i.quantity*p.unit_amount;if(p.recurring.interval==='year')mrr+=a/12;else if(p.recurring.interval==='month')mrr+=a;else if(p.recurring.interval==='week')mrr+=a*4.33;}}mrr=mrr/100;document.getElementById('mrr-value').textContent='$'+mrr.toFixed(2);document.getElementById('mrr-sub').textContent=d.data.length+' active subs &middot; MRR';}catch(e){document.getElementById('mrr-value').textContent='&#8212;';document.getElementById('mrr-sub').textContent='Error: '+e.message;}}
-const SERVERS=[{id:'vm3',url:'https://harborprivacy.com'},{id:'book',url:'https://booking.harborprivacy.com'},{id:'dash',url:'https://dashboard.harborprivacy.com'},{id:'doh',url:'https://doh.harborprivacy.com'}];
-async function checkServers(){document.getElementById('server-updated').textContent='Checking...';SERVERS.forEach(s=>{const d=document.getElementById('dot-'+s.id);if(d)d.className='server-dot checking';});const results=await Promise.allSettled(SERVERS.map(s=>fetch(s.url,{method:'HEAD',mode:'no-cors',signal:AbortSignal.timeout(4000)})));results.forEach((r,i)=>{const s=SERVERS[i],dot=document.getElementById('dot-'+s.id);if(!dot)return;dot.className=r.status==='fulfilled'?'server-dot up':'server-dot down';});document.getElementById('server-updated').textContent='Updated '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});}
+const SERVERS=[
+  {id:'vm3', url:'https://harborprivacy.com'},
+  {id:'book',url:'https://booking.harborprivacy.com'},
+  {id:'dash',url:'https://dashboard.harborprivacy.com'},
+  {id:'fax', url:'https://fax.harborprivacy.com'},
+];
+const DOH_TEST_URL='https://doh.harborprivacy.com/dns-query?dns=AAABAAABAAAAAAAAA3d3dwdleGFtcGxlA2NvbQAAAQAB';
+async function checkServers(){
+  document.getElementById('server-updated').textContent='Checking...';
+  ['vm3','book','dash','fax','doh'].forEach(id=>{
+    const d=document.getElementById('dot-'+id);if(d)d.className='server-dot checking';
+    const m=document.getElementById('ms-'+id);if(m){m.textContent='';m.className='server-ms';}
+  });
+  const checks=SERVERS.map(async s=>{
+    const t0=Date.now();
+    try{
+      await fetch(s.url,{method:'HEAD',mode:'no-cors',signal:AbortSignal.timeout(5000)});
+      return{id:s.id,ok:true,ms:Date.now()-t0};
+    }catch{return{id:s.id,ok:false,ms:Date.now()-t0};}
+  });
+  const dohCheck=(async()=>{
+    const t0=Date.now();
+    try{
+      const r=await fetch(DOH_TEST_URL,{headers:{'Accept':'application/dns-message'},signal:AbortSignal.timeout(5000)});
+      const ms=Date.now()-t0;
+      const ok=r.ok&&r.headers.get('content-type')&&r.headers.get('content-type').includes('dns-message');
+      const detail=document.getElementById('doh-detail');
+      if(detail)detail.textContent=ok?'resolving ✓':'bad response';
+      return{id:'doh',ok,ms};
+    }catch(e){
+      const detail=document.getElementById('doh-detail');if(detail)detail.textContent='unreachable';
+      return{id:'doh',ok:false,ms:Date.now()-t0};
+    }
+  })();
+  const results=await Promise.all([...checks,dohCheck]);
+  results.forEach(({id,ok,ms})=>{
+    const dot=document.getElementById('dot-'+id);
+    if(dot)dot.className='server-dot '+(ok?'up':'down');
+    const mel=document.getElementById('ms-'+id);
+    if(mel&&ok){
+      mel.textContent=ms+'ms';
+      mel.className='server-ms '+(ms<300?'fast':ms<800?'slow':'bad');
+    }
+  });
+  document.getElementById('server-updated').textContent='Updated '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  loadAghStatus();
+}
+async function loadAghStatus(){
+  const el=document.getElementById('agh-stats');
+  try{
+    const r=await fetch('https://dashboard.harborprivacy.com/api/agh-status',{signal:AbortSignal.timeout(6000)});
+    const d=await r.json();
+    if(d.error){el.innerHTML='<div class="agh-stat-label">'+d.error+'</div>';return;}
+    const pct=d.num_dns_queries>0?Math.round(d.num_blocked_filtering/d.num_dns_queries*100):0;
+    let html='';
+    html+='<div class="agh-stat-row"><span class="agh-stat-label">Queries today</span><span class="agh-stat-val">'+d.num_dns_queries.toLocaleString()+'</span></div>';
+    html+='<div class="agh-stat-row"><span class="agh-stat-label">Blocked</span><span class="agh-stat-val blocked">'+d.num_blocked_filtering.toLocaleString()+' ('+pct+'%)</span></div>';
+    if(d.top_blocked&&d.top_blocked.length){
+      const top=Object.keys(d.top_blocked[0]||{})[0]||'';
+      if(top)html+='<div class="agh-stat-row"><span class="agh-stat-label">Top blocked</span><span class="agh-stat-val" style="font-size:10px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+top+'</span></div>';
+    }
+    const dohClients=d.doh_clients||{};
+    const dohKeys=Object.keys(dohClients);
+    if(dohKeys.length){
+      html+='<div class="agh-stat-row" style="margin-top:4px;border-top:1px solid var(--border);padding-top:6px"><span class="agh-stat-label">DoH clients (last 100q)</span><span class="agh-stat-val doh">'+dohKeys.length+'</span></div>';
+      dohKeys.sort((a,b)=>dohClients[b]-dohClients[a]).forEach(k=>{
+        html+='<div class="agh-stat-row"><span class="agh-stat-label" style="font-size:10px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+k+'">'+k+'</span><span class="agh-stat-val doh">'+dohClients[k]+'q</span></div>';
+      });
+    }else{
+      html+='<div class="agh-stat-row"><span class="agh-stat-label">DoH active</span><span class="agh-stat-val" style="color:var(--muted)">none in last 100q</span></div>';
+    }
+    el.innerHTML=html;
+  }catch(e){el.innerHTML='<div class="agh-stat-label" style="color:var(--danger)">'+e.message+'</div>';}
+}
 async function loadFaxVolume(){const key=localStorage.getItem('hp_telnyx_key');if(!key)return;document.getElementById('fax-this-month').textContent='...';document.getElementById('fax-sub').textContent='Fetching...';try{const now=new Date();const ts=new Date(now.getFullYear(),now.getMonth(),1).toISOString();const ls=new Date(now.getFullYear(),now.getMonth()-1,1).toISOString();const le=ts;const[tr,lr]=await Promise.all([fetch('https://api.telnyx.com/v2/faxes?filter[created_at][gte]='+ts+'&page[size]=100',{headers:{Authorization:'Bearer '+key}}),fetch('https://api.telnyx.com/v2/faxes?filter[created_at][gte]='+ls+'&filter[created_at][lt]='+le+'&page[size]=100',{headers:{Authorization:'Bearer '+key}})]);const td=await tr.json(),ld=await lr.json();if(td.errors)throw new Error(td.errors[0].detail);const tc=td.data?.length??0,lc=ld.data?.length??0,diff=tc-lc;document.getElementById('fax-this-month').textContent=tc;document.getElementById('fax-sub').textContent='faxes sent this month';document.getElementById('fax-compare').textContent=(diff>=0?'+':'')+diff+' vs last month ('+lc+')';}catch(e){document.getElementById('fax-this-month').textContent='&#8212;';document.getElementById('fax-sub').textContent='Error: '+e.message;}}
 const DEADLINES=[{name:'Discussion 1 + Case 2.1',course:'5150',date:'2026-05-09'},{name:'Discussion 2',course:'5150',date:'2026-05-16'},{name:'Teams Session 2 + Case 5.1',course:'5150',date:'2026-05-23'},{name:'Midterm Exam',course:'5150',date:'2026-05-30'},{name:'Teams Session 3 + Case 7.1',course:'5150',date:'2026-06-06'},{name:'Discussion 4 + PBC Paper',course:'5150',date:'2026-06-13'},{name:'Teams Session 4 + Case 10.2',course:'5150',date:'2026-06-20'},{name:'Research Project',course:'5150',date:'2026-06-22'},{name:'Final Exam',course:'5150',date:'2026-06-26'},{name:'Exec Memo Wk1 (GAAP Foundations)',course:'5200',date:'2026-05-09'},{name:'Exec Memo Wk2 (Accounting Quality)',course:'5200',date:'2026-05-16'},{name:'Exec Memo Wk3 (Ratio Analysis)',course:'5200',date:'2026-05-23'},{name:'Exec Memo Wk4 (Cash Flows)',course:'5200',date:'2026-05-30'},{name:'Exec Memo Wk5 (Fair Value)',course:'5200',date:'2026-06-06'},{name:'Exec Memo Wk6 (Limitations)',course:'5200',date:'2026-06-13'},{name:'Exec Memo Wk7 (SEC / SOX)',course:'5200',date:'2026-06-20'},{name:'Final Report + Presentation',course:'5200',date:'2026-06-28'}];
 function renderDeadlines(){const now=new Date();now.setHours(0,0,0,0);const upcoming=DEADLINES.map(d=>({...d,days:Math.ceil((new Date(d.date+'T23:59:00')-now)/86400000)})).filter(d=>d.days>=0).sort((a,b)=>a.days-b.days).slice(0,7);document.getElementById('deadlines-list').innerHTML=upcoming.map(d=>{const cls=d.days<=2?'days-urgent':d.days<=7?'days-soon':'days-ok';const label=d.days===0?'TODAY':d.days===1?'1 day':d.days+'d';return'<div class="deadline-item"><div style="flex:1;min-width:0;"><div class="deadline-name">'+d.name+'</div><div class="deadline-course">MBA '+d.course+'</div></div><div class="deadline-days '+cls+'">'+label+'</div><button class="deadline-cal" onclick="addToCalendar('+JSON.stringify(d).replace(/"/g,"'")+')" title="Add to calendar">&#128197;</button></div>';}).join('');}
