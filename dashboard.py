@@ -64,6 +64,8 @@ USERS_DB = os.environ.get("USERS_DB", "/var/log/harbor-dashboard-users.json")
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
 FROM_EMAIL = os.environ.get("FROM_EMAIL", "info@mail.harborprivacy.com")
 ADMIN_EMAIL = "admin@harborprivacy.com"
+HOME_STATUS_TOKEN = os.environ.get("HOME_STATUS_TOKEN", "")
+HOME_STATUS_FILE  = "/home/ubuntu/harbor-home-status.json"
 
 # ── DATA ──────────────────────────────────────────────────
 
@@ -1577,6 +1579,41 @@ def agh_status():
         resp = jsonify({"error": str(e)})
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp, 500
+
+
+@app.route("/api/home-status", methods=["GET"])
+def home_status_get():
+    try:
+        with open(HOME_STATUS_FILE) as f:
+            data = json.load(f)
+        updated = data.get("updated")
+        if updated:
+            age = (datetime.utcnow() - datetime.fromisoformat(updated.rstrip("Z"))).total_seconds()
+            if age > 180:
+                data.setdefault("homebridge", {})["ok"] = False
+                data.setdefault("unbound", {})["ok"] = False
+                data["stale"] = True
+    except:
+        data = {"homebridge": {"ok": False, "ms": 0}, "unbound": {"ok": False, "ms": 0}, "updated": None}
+    resp = jsonify(data)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+@app.route("/api/home-status", methods=["POST"])
+def home_status_post():
+    if not HOME_STATUS_TOKEN or request.headers.get("X-Home-Token", "") != HOME_STATUS_TOKEN:
+        return jsonify({"error": "unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    data["updated"] = datetime.utcnow().isoformat() + "Z"
+    try:
+        with open(HOME_STATUS_FILE, "w") as f:
+            json.dump(data, f)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    resp = jsonify({"ok": True})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
 
 
 @app.route("/api/dns-analytics", methods=["POST"])

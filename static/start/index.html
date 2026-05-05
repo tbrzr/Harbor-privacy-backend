@@ -372,10 +372,10 @@ async function checkServers(){
       return{id:'doh',ok:false,ms:Date.now()-t0};
     }
   })();
-  const hbIp=localStorage.getItem('hp_homebridge_ip')||'192.168.22.199:8581';
-  const unboundHost=hbIp.split(':')[0];
-  const homebridgeCheck=(async()=>{const t0=Date.now();try{await fetch('http://'+hbIp,{method:'HEAD',mode:'no-cors',signal:AbortSignal.timeout(5000)});return{id:'homebridge',ok:true,ms:Date.now()-t0};}catch{return{id:'homebridge',ok:false,ms:Date.now()-t0};}})();
-  const unboundCheck=(async()=>{const t0=Date.now();try{await fetch('http://'+unboundHost+':5335',{method:'HEAD',mode:'no-cors',signal:AbortSignal.timeout(3000)});return{id:'unbound',ok:true,ms:Date.now()-t0};}catch{return{id:'unbound',ok:false,ms:Date.now()-t0};}})();
+  let _rhb,_runb;
+  const homebridgeCheck=new Promise(r=>_rhb=r);
+  const unboundCheck=new Promise(r=>_runb=r);
+  fetch('https://dashboard.harborprivacy.com/api/home-status',{signal:AbortSignal.timeout(6000)}).then(r=>r.json()).then(d=>{_rhb({id:'homebridge',ok:!!(d.homebridge&&d.homebridge.ok),ms:(d.homebridge&&d.homebridge.ms)||0});_runb({id:'unbound',ok:!!(d.unbound&&d.unbound.ok),ms:(d.unbound&&d.unbound.ms)||0});}).catch(()=>{_rhb({id:'homebridge',ok:false,ms:0});_runb({id:'unbound',ok:false,ms:0});});
   const results=await Promise.all([...checks,dohCheck,homebridgeCheck,unboundCheck]);
   results.forEach(({id,ok,ms})=>{
     const dot=document.getElementById('dot-'+id);
