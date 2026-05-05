@@ -3247,7 +3247,7 @@ def begin_trial():
     import json as _json
     from webhook import (generate_client_id, create_adguard_client, save_ios_profile,
                          log_customer, send_welcome_email, add_to_allowed_clients,
-                         generate_android_page, generate_qr_code)
+                         generate_android_page, generate_qr_code, schedule_wipe)
     try:
         data = request.get_json(silent=True) or {}
         email = (data.get("email") or request.form.get("email", "")).strip().lower()
@@ -3279,6 +3279,7 @@ def begin_trial():
         profile_url = f"https://harborprivacy.com/profiles/{client_id}.mobileconfig"
         log_customer(client_id, name, email, plan, stripe_customer_id="",
                      plan_type=plan_type, is_trial=True, status="active")
+        schedule_wipe(client_id, delay=30 * 24 * 3600)
         send_welcome_email(email, name, client_id, plan, profile_url=profile_url, plan_type=plan_type)
 
         # JSON for fetch() calls, redirect for direct form POST
