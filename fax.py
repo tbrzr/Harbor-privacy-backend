@@ -59,6 +59,18 @@ telnyx_client = telnyx.Telnyx(api_key=TELNYX_API_KEY)
 
 ALLOWED_EXTS = {"pdf", "jpg", "jpeg", "png", "docx"}
 
+_UPLOAD_RATE: dict = {}  # {ip: [timestamps]}
+
+def _check_upload_rate(ip: str) -> bool:
+    import time as _t
+    now = _t.time()
+    hits = [t for t in _UPLOAD_RATE.get(ip, []) if now - t < 60]
+    _UPLOAD_RATE[ip] = hits
+    if len(hits) >= 5:
+        return False
+    _UPLOAD_RATE[ip].append(now)
+    return True
+
 
 # ---------------------------------------------------------------------------
 # Database
@@ -409,6 +421,9 @@ def send_delivery_email(email, order_token, fax_number, status):
 
 @app.route("/fax/upload", methods=["POST"])
 def fax_upload():
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+    if not _check_upload_rate(ip):
+        return jsonify({"error": "Too many uploads. Please wait a moment."}), 429
     f = request.files.get("file")
     if not f:
         return jsonify({"error": "No file provided"}), 400

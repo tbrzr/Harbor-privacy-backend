@@ -175,6 +175,7 @@ def _save_codes(codes):
     except Exception as e:
         print(f"Support code save error: {e}")
 LOGIN_ATTEMPTS = {}  # {ip: {count, locked_until}}
+CODE_ATTEMPTS  = {}  # {ip: {count, locked_until}}
 
 def check_rate_limit(ip):
     import time as _t
@@ -202,9 +203,13 @@ def generate_support_code(client_id):
     _save_codes(codes)
     return code
 
-def verify_support_code(client_id, code):
+def verify_support_code(client_id, code, ip=None):
     if not code:
         return False
+    if ip:
+        entry = CODE_ATTEMPTS.get(ip, {})
+        if entry.get("locked_until", 0) > _time.time():
+            return False
     codes = _load_codes()
     entry = codes.get(client_id)
     if not entry:
@@ -222,6 +227,13 @@ def verify_support_code(client_id, code):
     entry["attempts"] = entry.get("attempts", 0) + 1
     codes[client_id] = entry
     _save_codes(codes)
+    if ip:
+        ce = CODE_ATTEMPTS.get(ip, {"count": 0, "locked_until": 0})
+        ce["count"] = ce.get("count", 0) + 1
+        if ce["count"] >= 10:
+            ce["locked_until"] = _time.time() + 900
+            ce["count"] = 0
+        CODE_ATTEMPTS[ip] = ce
     return False
 
 def revoke_support_code(client_id):
@@ -2124,7 +2136,8 @@ async function removeRule(rule){
     blocked_services = get_client_blocked_services(client_id)
     # Auto-grant access for internal/test accounts, require code for real customers
     customer_email = customer.get("email", "")
-    code_valid = customer_email.endswith("@harborprivacy.com") or verify_support_code(client_id, request.args.get("code", ""))
+    _ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+    code_valid = customer_email.endswith("@harborprivacy.com") or verify_support_code(client_id, request.args.get("code", ""), ip=_ip)
     return render_template_string(html, customer=customer, client_id=client_id,
         rules=rules, family_safe=family_safe, harbor_kids=harbor_kids, kids_profiles=get_kids_profiles(client_id), cstats=cstats,
         service_groups=service_groups, blocked_services=blocked_services,
