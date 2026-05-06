@@ -1136,11 +1136,11 @@ def dashboard():
   <div class="stat-grid">
     <div class="stat">
       <div class="stat-num {% if not is_active %}muted{% endif %}">{{ total if is_active else '—' }}</div>
-      <div class="stat-label">Queries Today</div>
+      <div class="stat-label">Queries (7 Days)</div>
     </div>
     <div class="stat">
       <div class="stat-num {% if not is_active %}muted{% endif %}">{{ blocked if is_active else '—' }}</div>
-      <div class="stat-label">Blocked Today</div>
+      <div class="stat-label">Blocked (7 Days)</div>
     </div>
   </div>
 
@@ -1497,7 +1497,7 @@ def admin():
 
   <div class="stat-grid" style="margin-bottom:32px;">
     <div class="stat"><div class="stat-num">{{ customers|length }}</div><div class="stat-label">Active Customers</div></div>
-    <div class="stat"><div class="stat-num">{{ total_queries }}</div><div class="stat-label">DNS Queries Today</div></div>
+    <div class="stat"><div class="stat-num">{{ total_queries }}</div><div class="stat-label">DNS Queries (7 Days)</div></div>
     <div class="stat"><div class="stat-num">{{ block_pct }}%</div><div class="stat-label">Network Block Rate</div></div>
   </div>
 
@@ -1579,6 +1579,13 @@ def agh_status():
         resp = jsonify({"error": str(e)})
         resp.headers["Access-Control-Allow-Origin"] = "*"
         return resp, 500
+
+
+@app.route("/api/home-beacon")
+def home_beacon_script():
+    with open("/home/ubuntu/harbor-home-beacon.sh") as f:
+        content = f.read()
+    return content, 200, {"Content-Type": "text/plain"}
 
 
 @app.route("/api/home-status", methods=["GET"])
@@ -1876,8 +1883,8 @@ def admin_customer(client_id):
   </div>
 
   <div class="stat-grid" style="margin-bottom:20px;">
-    <div class="stat"><div class="stat-num">{{ cstats.total }}</div><div class="stat-label">Queries Today</div></div>
-    <div class="stat"><div class="stat-num">{{ cstats.blocked }}</div><div class="stat-label">Blocked Today</div></div>
+    <div class="stat"><div class="stat-num">{{ cstats.total }}</div><div class="stat-label">Queries (7 Days)</div></div>
+    <div class="stat"><div class="stat-num">{{ cstats.blocked }}</div><div class="stat-label">Blocked (7 Days)</div></div>
     <div class="stat"><div class="stat-num">{{ cstats.pct }}%</div><div class="stat-label">Network Block Rate</div></div>
   </div>
 
