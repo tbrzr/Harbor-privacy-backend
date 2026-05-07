@@ -60,6 +60,8 @@
   .anchor-nav{display:flex;flex-wrap:wrap;gap:6px;padding:10px 24px;max-width:1100px;margin:0 auto}
   .anchor-pill{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;text-decoration:none;padding:5px 11px;border-radius:20px;border:1px solid var(--card-accent,var(--border));color:var(--card-accent,var(--muted));background:var(--card-accent-bg,transparent);transition:background 0.15s,color 0.15s,transform 0.1s;white-space:nowrap}
   .anchor-pill:hover{background:var(--card-accent,var(--accent));color:var(--bg);transform:translateY(-1px)}
+  .status-bar{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px;margin-bottom:32px}
+  @media(max-width:800px){.status-bar{grid-template-columns:1fr}}
   .widgets-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:8px;margin-bottom:40px}
   .widget{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 16px;display:flex;flex-direction:column;gap:8px}
   .widget-label{font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.15em;color:var(--muted);text-transform:uppercase;margin-bottom:4px;border-bottom:1px solid var(--border);padding-bottom:8px}
@@ -203,6 +205,36 @@
     <div class="header-meta">Command Center<span>start.harborprivacy.com</span></div>
   </header>
   <main>
+    <div class="status-bar" id="sec-status">
+      <div class="widget">
+        <div class="widget-label">SERVER HEALTH</div>
+        <div id="server-list">
+          <div class="server-row"><span class="server-dot" id="dot-doh"></span><span class="server-name">DoH</span><span class="server-ip">doh.harborprivacy.com/dns-query</span><span class="server-ms" id="ms-doh"></span></div>
+          <div class="server-row"><span class="server-dot" id="dot-vm3"></span><span class="server-name">VM3</span><span class="server-ip">harborprivacy.com</span><span class="server-ms" id="ms-vm3"></span></div>
+          <div class="server-row"><span class="server-dot" id="dot-brazer"></span><span class="server-name">Brazer</span><span class="server-ip">start.brazer.us</span><span class="server-ms" id="ms-brazer"></span></div>
+          <div class="server-row"><span class="server-dot" id="dot-vm1"></span><span class="server-name">VM1 (backup)</span><span class="server-ip">129.158.35.175</span><span class="server-ms" id="ms-vm1"></span></div>
+          <div class="server-row"><span class="server-dot" id="dot-book"></span><span class="server-name">Booking</span><span class="server-ip">booking.harborprivacy.com</span><span class="server-ms" id="ms-book"></span></div>
+          <div class="server-row"><span class="server-dot" id="dot-dash"></span><span class="server-name">Dashboard</span><span class="server-ip">dashboard.harborprivacy.com</span><span class="server-ms" id="ms-dash"></span></div>
+          <div class="server-row"><span class="server-dot" id="dot-fax"></span><span class="server-name">Fax</span><span class="server-ip">fax.harborprivacy.com</span><span class="server-ms" id="ms-fax"></span></div>
+          <div class="server-row"><span class="server-dot" id="dot-career"></span><span class="server-name">Career/Resume</span><span class="server-ip">career.harborprivacy.com</span><span class="server-ms" id="ms-career"></span></div>
+          <div class="server-row"><span class="server-dot" id="dot-ntfy"></span><span class="server-name">ntfy</span><span class="server-ip">ntfy.sh</span><span class="server-ms" id="ms-ntfy"></span></div>
+          <div class="server-row"><span class="server-dot" id="dot-homebridge"></span><span class="server-name">Homebridge</span><span class="server-ip" id="ip-homebridge">192.168.22.199:8581</span><span class="server-ms" id="ms-homebridge"></span></div>
+          <div class="server-row"><span class="server-dot" id="dot-unbound"></span><span class="server-name">Unbound</span><span class="server-ip" id="ip-unbound">192.168.22.199:5335</span><span class="server-ms" id="ms-unbound"></span></div>
+        </div>
+        <div id="server-updated" class="mrr-sub"></div>
+        <button class="widget-btn" onclick="checkServers()">&#8635; Refresh</button>
+      </div>
+      <div class="widget">
+        <div class="widget-label">AGH &middot; DNS</div>
+        <div id="agh-stats"><div class="widget-loading">Loading...</div></div>
+        <button class="widget-btn" onclick="loadAghStatus()">&#8635; Refresh</button>
+      </div>
+      <div class="widget">
+        <div class="widget-label">FAIL2BAN</div>
+        <div id="f2b-content" class="widget-loading">Loading...</div>
+        <button class="widget-btn" onclick="loadFail2ban()">&#8635; Refresh</button>
+      </div>
+    </div>
     <div class="section" id="sec-products">
       <div class="section-label">Harbor Products</div>
       <div class="grid">
@@ -279,34 +311,6 @@
         <div class="widget-label">CLIPBOARD HISTORY</div>
         <div id="clip-list"></div>
         <button class="widget-btn" onclick="clearClipboard()">Clear</button>
-      </div>
-      <div class="widget">
-        <div class="widget-label">SERVER HEALTH</div>
-        <div id="server-list">
-          <div class="server-row"><span class="server-dot" id="dot-doh"></span><span class="server-name">DoH</span><span class="server-ip">doh.harborprivacy.com/dns-query</span><span class="server-ms" id="ms-doh"></span></div>
-          <div class="server-row"><span class="server-dot" id="dot-vm3"></span><span class="server-name">VM3</span><span class="server-ip">harborprivacy.com</span><span class="server-ms" id="ms-vm3"></span></div>
-          <div class="server-row"><span class="server-dot" id="dot-brazer"></span><span class="server-name">Brazer</span><span class="server-ip">start.brazer.us</span><span class="server-ms" id="ms-brazer"></span></div>
-          <div class="server-row"><span class="server-dot" id="dot-vm1"></span><span class="server-name">VM1 (backup)</span><span class="server-ip">129.158.35.175</span><span class="server-ms" id="ms-vm1"></span></div>
-          <div class="server-row"><span class="server-dot" id="dot-book"></span><span class="server-name">Booking</span><span class="server-ip">booking.harborprivacy.com</span><span class="server-ms" id="ms-book"></span></div>
-          <div class="server-row"><span class="server-dot" id="dot-dash"></span><span class="server-name">Dashboard</span><span class="server-ip">dashboard.harborprivacy.com</span><span class="server-ms" id="ms-dash"></span></div>
-          <div class="server-row"><span class="server-dot" id="dot-fax"></span><span class="server-name">Fax</span><span class="server-ip">fax.harborprivacy.com</span><span class="server-ms" id="ms-fax"></span></div>
-          <div class="server-row"><span class="server-dot" id="dot-career"></span><span class="server-name">Career/Resume</span><span class="server-ip">career.harborprivacy.com</span><span class="server-ms" id="ms-career"></span></div>
-          <div class="server-row"><span class="server-dot" id="dot-ntfy"></span><span class="server-name">ntfy</span><span class="server-ip">ntfy.sh</span><span class="server-ms" id="ms-ntfy"></span></div>
-          <div class="server-row"><span class="server-dot" id="dot-homebridge"></span><span class="server-name">Homebridge</span><span class="server-ip" id="ip-homebridge">192.168.22.199:8581</span><span class="server-ms" id="ms-homebridge"></span></div>
-          <div class="server-row"><span class="server-dot" id="dot-unbound"></span><span class="server-name">Unbound</span><span class="server-ip" id="ip-unbound">192.168.22.199:5335</span><span class="server-ms" id="ms-unbound"></span></div>
-        </div>
-        <div id="server-updated" class="mrr-sub"></div>
-        <button class="widget-btn" onclick="checkServers()">&#8635; Refresh</button>
-      </div>
-      <div class="widget">
-        <div class="widget-label">AGH &middot; DNS</div>
-        <div id="agh-stats"><div class="widget-loading">Loading...</div></div>
-        <button class="widget-btn" onclick="loadAghStatus()">&#8635; Refresh</button>
-      </div>
-      <div class="widget">
-        <div class="widget-label">FAIL2BAN</div>
-        <div id="f2b-content" class="widget-loading">Loading...</div>
-        <button class="widget-btn" onclick="loadFail2ban()">&#8635; Refresh</button>
       </div>
       <div class="widget">
         <div class="widget-label">FAX VOLUME</div>
