@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scriptable Widgets · Harbor</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#07090a;--surface:#111618;--border:#1e2a2d;--accent:#00e5c0;--text:#e8f0ef;--muted:#6b8a87;--danger:#ff4e4e;--harbor:#00e5c0;--brazer:#ff8c69}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;min-height:100vh;padding:0 0 60px}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,192,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,192,0.02) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+#auth-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;padding:24px}
+.auth-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:40px 32px;width:100%;max-width:360px;text-align:center}
+.auth-logo{font-family:'DM Mono',monospace;font-size:20px;color:var(--text);margin-bottom:4px}
+.auth-logo span{color:var(--accent)}
+.auth-sub{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:28px}
+.auth-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:13px 16px;color:var(--text);font-family:'DM Mono',monospace;font-size:14px;outline:none;transition:border-color .2s;margin-bottom:12px;letter-spacing:.05em}
+.auth-input:focus{border-color:var(--accent)}
+.auth-btn{width:100%;background:var(--accent);color:var(--bg);border:none;border-radius:10px;padding:13px;font-family:'DM Sans',sans-serif;font-weight:500;font-size:15px;cursor:pointer}
+.auth-error{color:var(--danger);font-size:12px;margin-top:8px;min-height:16px;font-family:'DM Mono',monospace}
+#app{display:none;position:relative;z-index:1}
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;gap:12px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)}
+.topbar a{color:var(--accent);text-decoration:none}
+.topbar a:hover{text-decoration:underline}
+.topbar-sep{opacity:.3}
+main{max-width:900px;margin:0 auto;padding:32px 20px}
+.page-title{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.page-sub{font-size:14px;color:var(--muted);margin-bottom:32px;line-height:1.6}
+.site-section{margin-bottom:48px}
+.site-label{display:flex;align-items:center;gap:10px;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.site-dot{width:8px;height:8px;border-radius:50%}
+.dot-harbor{background:var(--harbor)}
+.dot-brazer{background:var(--brazer)}
+.widgets-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.widget-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px 18px;display:flex;flex-direction:column;gap:10px;transition:border-color .2s}
+.widget-card:hover{border-color:var(--card-accent,var(--border))}
+.widget-card.harbor{--card-accent:#00e5c0}
+.widget-card.brazer{--card-accent:#ff8c69}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.card-icon{font-size:22px;line-height:1;flex-shrink:0}
+.card-size{font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 7px;letter-spacing:.05em;white-space:nowrap}
+.card-name{font-size:14px;font-weight:500;color:var(--text);line-height:1.2}
+.card-desc{font-size:12px;color:var(--muted);line-height:1.6}
+.card-needs{display:flex;flex-wrap:wrap;gap:5px}
+.need-tag{font-family:'DM Mono',monospace;font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(0,229,192,0.06);color:var(--muted);border:1px solid var(--border);letter-spacing:.04em}
+.copy-btn{width:100%;background:var(--card-accent,var(--accent));color:var(--bg);border:none;border-radius:9px;padding:10px 14px;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;cursor:pointer;letter-spacing:.04em;transition:opacity .15s;display:flex;align-items:center;justify-content:center;gap:6px}
+.copy-btn:hover{opacity:.85}
+.copy-btn.copied{background:#00e5c0;color:#07090a}
+.copy-btn.brazer-btn{background:var(--brazer);color:#fff}
+.copy-btn.brazer-btn.copied{background:#5a9e64}
+.setup-note{background:rgba(0,229,192,0.04);border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--muted);line-height:1.7}
+.setup-note strong{color:var(--text)}
+.setup-note code{font-family:'DM Mono',monospace;font-size:11px;background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;color:var(--accent)}
+@media(max-width:600px){.widgets-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">harbor<span>/</span>widgets</div>
+    <div class="auth-sub">Scriptable Gallery</div>
+    <input type="password" id="pw" class="auth-input" placeholder="passphrase" autocomplete="current-password">
+    <button class="auth-btn" onclick="tryLogin()">Enter</button>
+    <div class="auth-error" id="auth-err"></div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="topbar">
+    <a href="/start/">&#8592; Dashboard</a>
+    <span class="topbar-sep">|</span>
+    <span>Scriptable Widgets</span>
+  </div>
+  <main>
+    <div class="page-title">Scriptable Widgets</div>
+    <p class="page-sub">Copy any script into the <strong style="color:var(--text)">Scriptable</strong> app on iOS. Each script is pre-configured with your keys. Add a widget to your home screen and select the matching script.</p>
+
+    <div class="setup-note" style="margin-bottom:32px">
+      <strong>Setup:</strong> Install <strong>Scriptable</strong> (free on App Store) &rarr; tap <strong>+</strong> &rarr; paste the copied script &rarr; name it &rarr; long-press home screen &rarr; add Scriptable widget &rarr; select <strong>Medium</strong> size &rarr; choose the script.<br>
+      Widgets needing <code>Stripe</code> or <code>Telnyx</code> keys: replace the placeholder at the top of the script with your actual key.
+    </div>
+
+    <div class="site-section">
+      <div class="site-label"><span class="site-dot dot-harbor"></span><span style="color:#00e5c0">Harbor Privacy</span></div>
+      <div class="widgets-grid">
+
+        <div class="widget-card harbor">
+          <div class="card-top"><div class="card-icon">&#128202;</div><span class="card-size">Medium</span></div>
+          <div class="card-name">Server Status</div>
+          <div class="card-desc">Live health dots for all Harbor services + VM1 backup. Fail2ban banned/failing counts for both VMs.</div>
+          <div class="card-needs"><span class="need-tag">No setup</span></div>
+          <button class="copy-btn" onclick="copyWidget('harbor-widget.js', this)">&#128203; Copy Script</button>
+        </div>
+
+        <div class="widget-card harbor">
+          <div class="card-top"><div class="card-icon">&#128176;</div><span class="card-size">Medium</span></div>
+          <div class="card-name">MRR</div>
+          <div class="card-desc">Live monthly recurring revenue, active subscription count, and top plan from Stripe.</div>
+          <div class="card-needs"><span class="need-tag">Stripe key</span></div>
+          <button class="copy-btn" onclick="copyWidget('harbor-mrr.js', this)">&#128203; Copy Script</button>
+        </div>
+
+        <div class="widget-card harbor">
+          <div class="card-top"><div class="card-icon">&#128224;</div><span class="card-size">Medium</span></div>
+          <div class="card-name">Fax Volume</div>
+          <div class="card-desc">Faxes sent this month with comparison to last month. Powered by Telnyx API.</div>
+          <div class="card-needs"><span class="need-tag">Telnyx key</span></div>
+          <button class="copy-btn" onclick="copyWidget('harbor-fax.js', this)">&#128203; Copy Script</button>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="site-section">
+      <div class="site-label"><span class="site-dot dot-brazer"></span><span style="color:#ff8c69">Brazer Family</span></div>
+      <div class="widgets-grid">
+
+        <div class="widget-card brazer">
+          <div class="card-top"><div class="card-icon">&#128197;</div><span class="card-size">Medium</span></div>
+          <div class="card-name">Today</div>
+          <div class="card-desc">Upcoming reminders and pending to-dos for the day. Shows next 3 of each.</div>
+          <div class="card-needs"><span class="need-tag">Auto-configured</span></div>
+          <button class="copy-btn brazer-btn" onclick="copyWidget('brazer-today.js', this, true)">&#128203; Copy Script</button>
+        </div>
+
+        <div class="widget-card brazer">
+          <div class="card-top"><div class="card-icon">&#128172;</div><span class="card-size">Medium</span></div>
+          <div class="card-name">Family Updates</div>
+          <div class="card-desc">Latest 3 posts from the family updates feed with author chips and flags.</div>
+          <div class="card-needs"><span class="need-tag">Auto-configured</span></div>
+          <button class="copy-btn brazer-btn" onclick="copyWidget('brazer-updates.js', this, true)">&#128203; Copy Script</button>
+        </div>
+
+        <div class="widget-card brazer">
+          <div class="card-top"><div class="card-icon">&#128181;</div><span class="card-size">Medium</span></div>
+          <div class="card-name">Bills Due</div>
+          <div class="card-desc">Bills due in the next 7 days with countdown and amounts. Red for &le;2 days, yellow for &le;5.</div>
+          <div class="card-needs"><span class="need-tag">Auto-configured</span></div>
+          <button class="copy-btn brazer-btn" onclick="copyWidget('brazer-bills.js', this, true)">&#128203; Copy Script</button>
+        </div>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const PASS = 'Penel0pe!@!@!@';
+const TK   = 'hp_start_token';
+const EXP  = 'hp_start_expiry';
+const D90  = 90*24*60*60*1000;
+const F2B_KEY    = 'Zdxm6giU-EjMHIR8uOt2GK0ibTEbq2cm';
+const BRAZER_KEY = 'caK_zGfukPbl3Lv6-0t6GFe5EBOFJSC_';
+
+function checkAuth(){const t=localStorage.getItem(TK),e=localStorage.getItem(EXP);if(t==='authenticated'&&e&&Date.now()<parseInt(e))show();}
+function tryLogin(){const v=document.getElementById('pw').value;if(v===PASS){localStorage.setItem(TK,'authenticated');localStorage.setItem(EXP,Date.now()+D90);show();}else{document.getElementById('auth-err').textContent='incorrect';document.getElementById('pw').value='';}}
+function show(){document.getElementById('auth-screen').style.display='none';document.getElementById('app').style.display='block';}
+document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')tryLogin();});
+
+async function copyWidget(file, btn, isBrazer) {
+  try {
+    const r = await fetch('/start/' + file + '?_=' + Date.now())
+    let src = await r.text()
+    src = src.replace('YOUR_BRAZER_WIDGET_KEY', BRAZER_KEY)
+    src = src.replace(/\?k=YOUR_BRAZER_WIDGET_KEY/g, '?k=' + BRAZER_KEY)
+    if (file === 'harbor-widget.js' || file === 'harbor-status.js') {
+      src = src.replace('YOUR_F2B_KEY', F2B_KEY)
+    }
+    await navigator.clipboard.writeText(src)
+    const orig = btn.innerHTML
+    btn.innerHTML = '&#10003; Copied!'
+    btn.classList.add('copied')
+    setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('copied') }, 2000)
+  } catch(e) {
+    btn.innerHTML = '&#10005; Error'
+    setTimeout(() => { btn.innerHTML = '&#128203; Copy Script' }, 2000)
+  }
+}
+
+checkAuth();
+</script>
+</body>
+</html>
