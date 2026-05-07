@@ -1,0 +1,28 @@
+{
+  "LOG": true,
+  "LOG_LEVEL": "info",
+  "API_TIMEOUT_MS": 120000,
+  "Providers": [
+    {
+      "name": "gemini",
+      "api_base_url": "https://generativelanguage.googleapis.com/v1beta/models/",
+      "api_key": "YOUR_GEMINI_API_KEY",
+      "models": ["gemini-2.5-flash"],
+      "transformer": {
+        "use": ["gemini"]
+      }
+    },
+    {
+      "name": "claude",
+      "api_base_url": "https://api.anthropic.com/v1/messages",
+      "api_key": "YOUR_ANTHROPIC_API_KEY",
+      "models": ["claude-sonnet-4-6", "claude-haiku-4-5-20251001"]
+    }
+  ],
+  "Router": {
+    "default": "gemini,gemini-2.5-flash",
+    "background": "gemini,gemini-2.5-flash",
+    "thinking": "claude,claude-sonnet-4-6",
+    "longContext": "claude,claude-sonnet-4-6"
+  }
+}
