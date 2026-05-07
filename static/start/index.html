@@ -134,6 +134,38 @@
   .section{animation:fadeUp 0.4s ease both}
   .section:nth-child(1){animation-delay:0.05s}.section:nth-child(2){animation-delay:0.10s}.section:nth-child(3){animation-delay:0.15s}.section:nth-child(4){animation-delay:0.20s}.section:nth-child(5){animation-delay:0.25s}.section:nth-child(6){animation-delay:0.30s}.section:nth-child(7){animation-delay:0.35s}
   @media(max-width:600px){.grid{grid-template-columns:repeat(2,1fr)}.widgets-row{grid-template-columns:1fr}header{flex-direction:column;align-items:flex-start;gap:4px}.header-meta{text-align:left}.auth-box{padding:32px 20px}}
+  .search-overlay{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);display:none;align-items:flex-start;justify-content:center;padding:80px 16px 16px}
+  .search-overlay.open{display:flex}
+  .search-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:520px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.5);display:flex;flex-direction:column;max-height:70vh}
+  .search-input{width:100%;background:transparent;border:none;border-bottom:1px solid var(--border);padding:16px 20px;color:var(--text);font-family:'DM Mono',monospace;font-size:14px;outline:none}
+  .search-input::placeholder{color:var(--muted)}
+  .search-results{overflow-y:auto;padding:8px}
+  .search-result{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;text-decoration:none;cursor:pointer;transition:background 0.15s}
+  .search-result:hover{background:rgba(0,229,192,0.08)}
+  .search-result-icon{font-size:18px;width:32px;text-align:center;flex-shrink:0}
+  .search-result-name{font-size:13px;font-weight:500;color:var(--text)}
+  .search-result-desc{font-size:11px;color:var(--muted);font-family:'DM Mono',monospace}
+  .search-empty{padding:20px;text-align:center;color:var(--muted);font-family:'DM Mono',monospace;font-size:12px}
+  .chat-fab{position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;box-shadow:0 4px 20px rgba(0,229,192,0.35);z-index:400;display:flex;align-items:center;justify-content:center;font-size:22px;transition:transform 0.2s,box-shadow 0.2s}
+  .chat-fab:hover{transform:scale(1.08);box-shadow:0 6px 28px rgba(0,229,192,0.5)}
+  .chat-panel{position:fixed;bottom:88px;right:24px;width:360px;background:var(--surface);border:1px solid var(--border);border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.4);z-index:400;display:flex;flex-direction:column;overflow:hidden;transform:scale(0.95) translateY(10px);opacity:0;pointer-events:none;transition:transform 0.2s,opacity 0.2s;max-height:500px}
+  .chat-panel.open{transform:scale(1) translateY(0);opacity:1;pointer-events:all}
+  .chat-header{background:var(--bg);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
+  .chat-title{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent)}
+  .chat-close{background:none;border:none;color:var(--muted);font-size:16px;cursor:pointer;line-height:1;padding:0}
+  .chat-close:hover{color:var(--text)}
+  .chat-messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;min-height:200px}
+  .chat-msg{max-width:90%;padding:9px 12px;border-radius:10px;font-size:12px;line-height:1.5}
+  .chat-msg.user{background:rgba(0,229,192,0.12);color:var(--text);align-self:flex-end;border-radius:10px 10px 2px 10px;font-family:'DM Mono',monospace}
+  .chat-msg.ai{background:var(--bg);color:var(--text);align-self:flex-start;border:1px solid var(--border);border-radius:10px 10px 10px 2px}
+  .chat-typing{color:var(--muted);font-size:20px;font-family:'DM Mono',monospace;align-self:flex-start;padding:4px 8px}
+  .chat-input-row{display:flex;gap:8px;padding:10px;border-top:1px solid var(--border);background:var(--bg)}
+  .chat-input{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:12px;outline:none;transition:border-color 0.2s}
+  .chat-input:focus{border-color:var(--accent)}
+  .chat-send{background:var(--accent);color:var(--bg);border:none;border-radius:8px;padding:8px 14px;font-family:'DM Mono',monospace;font-size:11px;font-weight:500;cursor:pointer;white-space:nowrap;transition:background 0.2s}
+  .chat-send:hover{background:var(--hover)}
+  .chat-send:disabled{opacity:0.5;cursor:default}
+  @media(max-width:480px){.chat-panel{width:calc(100vw - 32px);right:16px}}
 </style>
 </head>
 <body>
@@ -152,6 +184,7 @@
     <span id="clock"></span>
     <span>harbor/privacy &middot; start</span>
     <div style="display:flex;gap:6px;">
+      <button class="logout-btn" onclick="openSearch()">&#128269;</button>
       <button class="logout-btn" onclick="openSettings()">&#9881; settings</button>
       <button class="logout-btn" onclick="logout()">lock</button>
     </div>
@@ -173,7 +206,7 @@
     <div class="section" id="sec-products">
       <div class="section-label">Harbor Products</div>
       <div class="grid">
-        <a href="https://harborprivacy.com" target="_blank" class="card dns"><div class="card-icon">&#127760;</div><div class="card-name">Harbor DNS</div><div class="card-desc">Main site &middot; DNS product</div><div class="card-badge">DNS</div></a>
+        <a href="https://harborprivacy.com" target="_blank" class="card dns"><div class="card-icon">&#127760;</div><div class="card-name">Harbor Privacy Brands</div><div class="card-desc">Main site &middot; all products</div><div class="card-badge">DNS</div></a>
         <a href="https://adblock.harborprivacy.com" target="_blank" class="card dns"><div class="card-icon">&#128737;&#65039;</div><div class="card-name">AdBlock Portal</div><div class="card-desc">Customer AdGuard access</div><div class="card-badge">DNS</div></a>
         <a href="https://booking.harborprivacy.com" target="_blank" class="card booking"><div class="card-icon">&#128197;</div><div class="card-name">Harbor Booking</div><div class="card-desc">Scheduling platform</div><div class="card-badge">BOOKING</div></a>
         <a href="https://fax.harborprivacy.com" target="_blank" class="card fax"><div class="card-icon">&#128424;</div><div class="card-name">Harbor Fax</div><div class="card-desc">Anonymous fax &middot; $2.99/send</div><div class="card-badge">FAX</div></a>
@@ -316,11 +349,32 @@
     <div class="settings-group"><div class="settings-label">Homebridge Username</div><div class="settings-hint">Login username</div><input id="s-homebridge-user" type="text" placeholder="admin" class="settings-input"></div>
     <div class="settings-group"><div class="settings-label">Homebridge Password</div><div class="settings-hint">Login password</div><input id="s-homebridge-pass" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" class="settings-input"></div>
     <div class="settings-group"><div class="settings-label">CloudConvert API Key</div><div class="settings-hint">File conversion API key</div><input id="s-cloudconvert" type="password" placeholder="eyJ0eXAiOi..." class="settings-input"></div>
+    <div class="settings-group"><div class="settings-label">Gemini API Key</div><div class="settings-hint">Powers the Harbor AI assistant chatbot</div><input id="s-gemini" type="password" placeholder="AIza..." class="settings-input"></div>
     <div style="display:flex;gap:8px;margin-top:8px;">
       <button onclick="saveSettings()" style="flex:1;background:#00e5c0;color:#0a0e0f;border:none;border-radius:10px;padding:12px;font-family:'DM Sans',sans-serif;font-weight:500;font-size:14px;cursor:pointer;" onmouseover="this.style.background='#00ffda'" onmouseout="this.style.background='#00e5c0'">Save All</button>
       <button onclick="closeSettings()" style="background:transparent;color:#6b8a87;border:1px solid #1e2a2d;border-radius:10px;padding:12px 20px;font-family:'DM Sans',sans-serif;cursor:pointer;">Cancel</button>
     </div>
     <div style="font-size:11px;color:#6b8a87;margin-top:12px;font-family:'DM Mono',monospace;line-height:1.5;">All keys stored in localStorage only. Never transmitted except to the respective service APIs.</div>
+  </div>
+</div>
+<div class="search-overlay" id="search-overlay" onclick="if(event.target===this)closeSearch()">
+  <div class="search-box">
+    <input class="search-input" id="search-input" placeholder="Search links..." oninput="filterSearch(this.value)" onkeydown="searchKeydown(event)">
+    <div class="search-results" id="search-results"><div class="search-empty">Start typing...</div></div>
+  </div>
+</div>
+<button class="chat-fab" id="chat-fab" onclick="toggleChat()" title="Harbor AI">&#129302;</button>
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header">
+    <span class="chat-title">Harbor AI</span>
+    <button class="chat-close" onclick="toggleChat()">&#10005;</button>
+  </div>
+  <div class="chat-messages" id="chat-messages">
+    <div class="chat-msg ai">Hi! I'm your Harbor Privacy assistant. Ask me anything about your services, infrastructure, or anything else.</div>
+  </div>
+  <div class="chat-input-row">
+    <input class="chat-input" id="chat-input" placeholder="Ask something..." onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat();}">
+    <button class="chat-send" id="chat-send" onclick="sendChat()">Send</button>
   </div>
 </div>
 <script>
@@ -333,14 +387,14 @@ const params=new URLSearchParams(window.location.search);
 if(params.get('reset')==='hp-reset-2026'){localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(TOKEN_EXPIRY_KEY);window.history.replaceState({},'',window.location.pathname);}
 function checkAuth(){const t=localStorage.getItem(TOKEN_KEY),e=localStorage.getItem(TOKEN_EXPIRY_KEY);if(t==='authenticated'&&e&&Date.now()<parseInt(e))showApp();}
 function tryLogin(){const v=document.getElementById('pw-input').value;if(v===PASS){localStorage.setItem(TOKEN_KEY,'authenticated');localStorage.setItem(TOKEN_EXPIRY_KEY,Date.now()+DAYS_90);showApp();}else{document.getElementById('auth-error').textContent='incorrect passphrase';document.getElementById('pw-input').value='';document.getElementById('pw-input').focus();}}
-function showApp(){document.getElementById('auth-screen').style.display='none';document.getElementById('app').style.display='block';startClock();loadWeather();loadMRR();renderDeadlines();initClipboard();checkServers();loadFaxVolume();loadChangelog();loadFail2ban();updateLocalIpDisplay();}
+function showApp(){document.getElementById('auth-screen').style.display='none';document.getElementById('app').style.display='block';startClock();loadWeather();loadMRR();renderDeadlines();initClipboard();checkServers();loadFaxVolume();loadChangelog();loadFail2ban();updateLocalIpDisplay();setTimeout(buildSearchIndex,200);}
 async function loadFail2ban(){const el=document.getElementById('f2b-content');try{const r=await fetch('/fail2ban.json?_='+Date.now());if(!r.ok)throw new Error('HTTP '+r.status);const d=await r.json();const updStr=d.updated?new Date(d.updated).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}):'';let html='<div class="server-row"><span style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;flex:1">Currently banned</span><span style="font-family:\'DM Mono\',monospace;font-size:12px;color:'+(d.banned>0?'var(--danger)':'var(--accent)')+'">'+d.banned+'</span></div>';html+='<div class="server-row"><span style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;flex:1">Total banned</span><span style="font-family:\'DM Mono\',monospace;font-size:12px;color:var(--text)">'+d.total_banned+'</span></div>';html+='<div class="server-row"><span style="font-size:11px;color:var(--muted);font-family:\'DM Mono\',monospace;flex:1">Currently failed</span><span style="font-family:\'DM Mono\',monospace;font-size:12px;color:'+(d.failed>0?'var(--career)':'var(--text)')+'">'+d.failed+'</span></div>';if(d.banned_ips&&d.banned_ips.length){html+='<div style="margin-top:6px;font-size:10px;color:var(--muted);font-family:\'DM Mono\',monospace;border-top:1px solid var(--border);padding-top:6px">'+d.banned_ips.map(ip=>'<div style="color:var(--danger);padding:1px 0">'+ip+'</div>').join('')+'</div>';}if(updStr)html+='<div class="mrr-sub" style="margin-top:6px">updated '+updStr+'</div>';el.innerHTML=html;}catch(e){el.innerHTML='<div style="font-size:12px;color:var(--danger);font-family:\'DM Mono\',monospace">'+e.message+'</div>';}}
 function logout(){localStorage.removeItem(TOKEN_KEY);localStorage.removeItem(TOKEN_EXPIRY_KEY);location.reload();}
 function startClock(){function tick(){document.getElementById('clock').textContent=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}tick();setInterval(tick,1000);}
 document.getElementById('pw-input').addEventListener('keydown',e=>{if(e.key==='Enter')tryLogin();});
-function openSettings(){document.getElementById('s-stripe').value=localStorage.getItem('hp_stripe_key')||'';document.getElementById('s-telnyx').value=localStorage.getItem('hp_telnyx_key')||'';document.getElementById('s-github').value=localStorage.getItem('hp_github_pat')||'';document.getElementById('s-location').value=localStorage.getItem('hp_location')||'';document.getElementById('s-homebridge-ip').value=localStorage.getItem('hp_homebridge_ip')||'192.168.22.199:8581';document.getElementById('s-homebridge-user').value=localStorage.getItem('hp_homebridge_user')||'';document.getElementById('s-homebridge-pass').value=localStorage.getItem('hp_homebridge_pass')||'';document.getElementById('s-cloudconvert').value=localStorage.getItem('hp_cloudconvert_key')||'';document.getElementById('settings-modal').style.display='flex';}
+function openSettings(){document.getElementById('s-stripe').value=localStorage.getItem('hp_stripe_key')||'';document.getElementById('s-telnyx').value=localStorage.getItem('hp_telnyx_key')||'';document.getElementById('s-github').value=localStorage.getItem('hp_github_pat')||'';document.getElementById('s-location').value=localStorage.getItem('hp_location')||'';document.getElementById('s-homebridge-ip').value=localStorage.getItem('hp_homebridge_ip')||'192.168.22.199:8581';document.getElementById('s-homebridge-user').value=localStorage.getItem('hp_homebridge_user')||'';document.getElementById('s-homebridge-pass').value=localStorage.getItem('hp_homebridge_pass')||'';document.getElementById('s-cloudconvert').value=localStorage.getItem('hp_cloudconvert_key')||'';document.getElementById('s-gemini').value=localStorage.getItem('hp_gemini_key')||'';document.getElementById('settings-modal').style.display='flex';}
 function closeSettings(){document.getElementById('settings-modal').style.display='none';}
-function saveSettings(){const s=document.getElementById('s-stripe').value.trim(),t=document.getElementById('s-telnyx').value.trim(),g=document.getElementById('s-github').value.trim(),l=document.getElementById('s-location').value.trim(),hi=document.getElementById('s-homebridge-ip').value.trim(),hu=document.getElementById('s-homebridge-user').value.trim(),hpw=document.getElementById('s-homebridge-pass').value.trim(),cc=document.getElementById('s-cloudconvert').value.trim();if(s)localStorage.setItem('hp_stripe_key',s);if(t)localStorage.setItem('hp_telnyx_key',t);if(g)localStorage.setItem('hp_github_pat',g);if(l)localStorage.setItem('hp_location',l);if(hi)localStorage.setItem('hp_homebridge_ip',hi);if(hu)localStorage.setItem('hp_homebridge_user',hu);if(hpw)localStorage.setItem('hp_homebridge_pass',hpw);if(cc)localStorage.setItem('hp_cloudconvert_key',cc);closeSettings();loadMRR();loadFaxVolume();loadWeather();loadChangelog();updateLocalIpDisplay();}
+function saveSettings(){const s=document.getElementById('s-stripe').value.trim(),t=document.getElementById('s-telnyx').value.trim(),g=document.getElementById('s-github').value.trim(),l=document.getElementById('s-location').value.trim(),hi=document.getElementById('s-homebridge-ip').value.trim(),hu=document.getElementById('s-homebridge-user').value.trim(),hpw=document.getElementById('s-homebridge-pass').value.trim(),cc=document.getElementById('s-cloudconvert').value.trim(),gm=document.getElementById('s-gemini').value.trim();if(s)localStorage.setItem('hp_stripe_key',s);if(t)localStorage.setItem('hp_telnyx_key',t);if(g)localStorage.setItem('hp_github_pat',g);if(l)localStorage.setItem('hp_location',l);if(hi)localStorage.setItem('hp_homebridge_ip',hi);if(hu)localStorage.setItem('hp_homebridge_user',hu);if(hpw)localStorage.setItem('hp_homebridge_pass',hpw);if(cc)localStorage.setItem('hp_cloudconvert_key',cc);if(gm)localStorage.setItem('hp_gemini_key',gm);closeSettings();loadMRR();loadFaxVolume();loadWeather();loadChangelog();updateLocalIpDisplay();}
 async function loadWeather(){try{const loc=localStorage.getItem('hp_location')||'Pembroke MA';const g=await fetch('https://geocoding-api.open-meteo.com/v1/search?name='+encodeURIComponent(loc)+'&count=1');const gd=await g.json();const{latitude:lat,longitude:lon}=gd.results?.[0]||{latitude:42.07,longitude:-70.80};const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=America/New_York');const d=await r.json();const c=d.current;document.getElementById('weather-content').innerHTML='<div class="weather-main">'+weatherEmoji(c.weathercode)+' '+Math.round(c.temperature_2m)+'&deg;F</div><div class="weather-desc">'+weatherDesc(c.weathercode)+'</div><div class="weather-row"><span>&#128168; '+Math.round(c.windspeed_10m)+' mph</span><span>&#128167; '+c.relativehumidity_2m+'%</span></div>';}catch(e){document.getElementById('weather-content').innerHTML='<div class="weather-desc">Unavailable</div>';}}
 function weatherEmoji(c){if(c===0)return'&#9728;&#65039;';if(c<=2)return'&#9925;';if(c<=3)return'&#9729;&#65039;';if(c<=49)return'&#127787;&#65039;';if(c<=67)return'&#127783;&#65039;';if(c<=77)return'&#10052;&#65039;';if(c<=82)return'&#127782;&#65039;';if(c<=99)return'&#9928;&#65039;';return'&#127777;&#65039;';}
 function weatherDesc(c){const m={0:'Clear',1:'Mostly clear',2:'Partly cloudy',3:'Overcast',45:'Foggy',48:'Icy fog',51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',71:'Light snow',73:'Snow',75:'Heavy snow',77:'Snow grains',80:'Light showers',81:'Showers',82:'Heavy showers',95:'Thunderstorm',96:'Thunderstorm + hail',99:'Severe thunderstorm'};return m[c]||'Mixed conditions';}
@@ -444,6 +498,24 @@ function exportChangelog(){const all=[...changelog,...ghCommits].sort((a,b)=>new
 function clearChangelog(){if(!confirm('Clear manual entries? GitHub commits will still show.'))return;changelog=[];localStorage.removeItem('hp_changelog');renderChangelog();}
 function openHomebridge(){const ip=localStorage.getItem('hp_homebridge_ip')||'192.168.22.199:8581';window.open('http://'+ip,'_blank');}
 function updateLocalIpDisplay(){const hbIp=localStorage.getItem('hp_homebridge_ip')||'192.168.22.199:8581';const hbEl=document.getElementById('ip-homebridge');if(hbEl)hbEl.textContent=hbIp;const unboundEl=document.getElementById('ip-unbound');if(unboundEl)unboundEl.textContent=hbIp.split(':')[0]+':5335';}
+// Search
+const SEARCH_INDEX=[];
+function buildSearchIndex(){document.querySelectorAll('.card').forEach(card=>{const a=card.closest('a[href]')||card;const name=card.querySelector('.card-name')?.textContent||'';const desc=card.querySelector('.card-desc')?.textContent||'';const icon=card.querySelector('.card-icon')?.innerHTML||'';const href=a.getAttribute('href')||'';const onclick=a.getAttribute('onclick')||'';if(name)SEARCH_INDEX.push({name,desc,icon,href,onclick});});}
+function openSearch(){document.getElementById('search-overlay').classList.add('open');const inp=document.getElementById('search-input');inp.value='';filterSearch('');setTimeout(()=>inp.focus(),60);}
+function closeSearch(){document.getElementById('search-overlay').classList.remove('open');}
+function filterSearch(q){const res=document.getElementById('search-results');if(!q.trim()){res.innerHTML='<div class="search-empty">Start typing to search links...</div>';return;}const hits=SEARCH_INDEX.filter(i=>i.name.toLowerCase().includes(q.toLowerCase())||i.desc.toLowerCase().includes(q.toLowerCase()));if(!hits.length){res.innerHTML='<div class="search-empty">No results for "'+q+'"</div>';return;}res.innerHTML=hits.slice(0,8).map((h,i)=>`<a class="search-result" href="${h.href||'#'}" ${h.href&&h.href!=='#'?'target="_blank"':''} ${h.onclick?'onclick="'+h.onclick+'"':''} tabindex="0"><span class="search-result-icon">${h.icon}</span><div><div class="search-result-name">${h.name}</div><div class="search-result-desc">${h.desc}</div></div></a>`).join('');}
+function searchKeydown(e){if(e.key==='Escape')closeSearch();}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeSearch();if(document.getElementById('chat-panel').classList.contains('open'))toggleChat();}if((e.key==='k'&&(e.metaKey||e.ctrlKey))){e.preventDefault();openSearch();}});
+
+// Chat
+let chatHistory=[];
+let chatOpen=false;
+function toggleChat(){chatOpen=!chatOpen;document.getElementById('chat-panel').classList.toggle('open',chatOpen);if(chatOpen)setTimeout(()=>document.getElementById('chat-input').focus(),200);}
+function appendMsg(role,text){const msgs=document.getElementById('chat-messages');const div=document.createElement('div');div.className='chat-msg '+role;div.textContent=text;msgs.appendChild(div);msgs.scrollTop=msgs.scrollHeight;return div;}
+async function sendChat(){const inp=document.getElementById('chat-input');const text=inp.value.trim();if(!text)return;const key=localStorage.getItem('hp_gemini_key');if(!key){appendMsg('ai','No Gemini API key set — add it in ⚙ settings → Gemini API Key.');return;}inp.value='';document.getElementById('chat-send').disabled=true;appendMsg('user',text);chatHistory.push({role:'user',parts:[{text}]});const msgs=document.getElementById('chat-messages');const typing=document.createElement('div');typing.className='chat-typing';typing.textContent='···';msgs.appendChild(typing);msgs.scrollTop=msgs.scrollHeight;
+try{const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key='+key,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system_instruction:{parts:[{text:'You are a concise assistant for Harbor Privacy — a privacy-focused DNS and services company. You help the operator manage services like AdGuard Home DNS, Harbor Booking, Harbor Fax, Career Tools, and infrastructure on Oracle Cloud. Be brief and practical.'}]},contents:chatHistory})});const d=await r.json();if(d.error)throw new Error(d.error.message);const reply=d.candidates?.[0]?.content?.parts?.[0]?.text||'No response.';chatHistory.push({role:'model',parts:[{text:reply}]});typing.remove();appendMsg('ai',reply);}catch(e){typing.remove();appendMsg('ai','Error: '+e.message);}
+document.getElementById('chat-send').disabled=false;document.getElementById('chat-input').focus();}
+
 checkAuth();
 </script>
 </body>
