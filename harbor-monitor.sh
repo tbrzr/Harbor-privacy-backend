@@ -78,6 +78,7 @@ check_http "Harbor Dashboard" "https://dashboard.harborprivacy.com/login" "harbo
 check_http "Harbor DoH" "https://doh.harborprivacy.com/resolve?name=google.com&type=A" "Harbor Privacy"
 check_http "Harbor Fax Site" "https://fax.harborprivacy.com" "harbor"
 check_http "Harbor Fax Payments" "https://fax.harborprivacy.com/fax/health" '"stripe":"ok"'
+check_http "Brazer Family" "https://start.harborprivacy.com" "Brazer"
 
 # DNS
 DNS_FAIL="/tmp/fail_dns"
