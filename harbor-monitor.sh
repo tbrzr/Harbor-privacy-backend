@@ -1,15 +1,12 @@
-#!/bin/bash
 NTFY_TOPIC="harbor-brazer-monitor"
 NTFY_URL="https://ntfy.sh/$NTFY_TOPIC"
 
 alert() {
   local title=$1
   local msg=$2
-  curl -s -X POST "$NTFY_URL" \
-    -H "Title: $title" \
-    -H "Priority: urgent" \
-    -H "Tags: warning,harbor" \
-    -d "$msg" > /dev/null
+  local tags=${3:-"warning,harbor"}
+  local priority=${4:-urgent}
+  curl -s -X POST "$NTFY_URL"     -H "Title: $title"     -H "Priority: $priority"     -H "Tags: $tags"     -d "$msg" > /dev/null
 }
 
 check_http() {
@@ -26,9 +23,13 @@ check_http() {
     COUNT=$((COUNT + 1))
     echo $COUNT > "$fail_file"
     if [ "$COUNT" -ge 2 ]; then
-      alert "Harbor Alert -- $name DOWN" "$name returned HTTP $response. Body: ${body:0:200}"
+      alert "🔴 Harbor Down -- $name" "$name returned HTTP $response. Body: ${body:0:200}"
     fi
   else
+    PREV=$(cat "$fail_file" 2>/dev/null || echo 0)
+    if [ "$PREV" -ge 2 ]; then
+      alert "✅ Harbor Recovered -- $name" "$name is back up and responding." "white_check_mark,harbor" "default"
+    fi
     echo 0 > "$fail_file"
   fi
 }
@@ -42,17 +43,21 @@ check_service() {
     COUNT=$((COUNT + 1))
     echo $COUNT > "$fail_file"
     if [ "$COUNT" -ge 2 ]; then
-      alert "Harbor Alert -- $name DOWN" "$name service is not running on VM3. Attempting restart."
+      alert "🔴 Harbor Down -- $name" "$name is not running on VM3. Attempting restart."
       systemctl restart "$service"
       sleep 5
       if systemctl is-active --quiet "$service"; then
-        alert "Harbor Alert -- $name Recovered" "$name restarted successfully on VM3."
+        alert "✅ Harbor Recovered -- $name" "$name restarted successfully on VM3." "white_check_mark,harbor" "default"
         echo 0 > "$fail_file"
       else
-        alert "Harbor Alert -- $name FAILED" "$name failed to restart on VM3."
+        alert "❌ Harbor FAILED -- $name" "$name failed to restart on VM3."
       fi
     fi
   else
+    PREV=$(cat "$fail_file" 2>/dev/null || echo 0)
+    if [ "$PREV" -ge 2 ]; then
+      alert "✅ Harbor Recovered -- $name" "$name is back up and running on VM3." "white_check_mark,harbor" "default"
+    fi
     echo 0 > "$fail_file"
   fi
 }
@@ -80,7 +85,7 @@ if ! dig @127.0.0.1 google.com +time=3 +tries=1 > /dev/null 2>&1; then
   COUNT=$((COUNT + 1))
   echo $COUNT > "$DNS_FAIL"
   if [ "$COUNT" -ge 2 ]; then
-    alert "Harbor Alert -- DNS Down" "AGH DNS not responding on VM3."
+    alert "🔴 Harbor Down -- DNS" "AGH DNS not responding on VM3."
     echo 0 > "$DNS_FAIL"
   fi
 else
@@ -90,5 +95,5 @@ fi
 # Disk
 DISK=$(df / | awk 'NR==2 {print $5}' | tr -d '%')
 if [ "$DISK" -gt 80 ]; then
-  alert "Harbor Alert -- Disk ${DISK}%" "Disk usage at ${DISK}% on VM3."
+  alert "⚠️ Harbor Alert -- Disk ${DISK}%" "Disk usage at ${DISK}% on VM3."
 fi
