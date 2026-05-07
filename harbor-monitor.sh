@@ -1,3 +1,4 @@
+#!/bin/bash
 NTFY_TOPIC="harbor-brazer-monitor"
 NTFY_URL="https://ntfy.sh/$NTFY_TOPIC"
 
@@ -15,7 +16,7 @@ check_http() {
   local expected=$3
   local fail_file="/tmp/fail_http_${name// /_}"
   local tmpfile=$(mktemp)
-  local response=$(curl -s -L -o "$tmpfile" -w "%{http_code}" --max-time 10 "$url" 2>/dev/null)
+  local response=$(curl -s -L -o "$tmpfile" -w "%{http_code}" --max-time 15 "$url" 2>/dev/null)
   local body=$(cat "$tmpfile")
   rm -f "$tmpfile"
   if [ "$response" != "200" ] || [[ "$body" != *"$expected"* ]]; then
@@ -80,7 +81,7 @@ check_http "Harbor Fax Payments" "https://fax.harborprivacy.com/fax/health" '"st
 
 # DNS
 DNS_FAIL="/tmp/fail_dns"
-if ! dig @127.0.0.1 google.com +time=3 +tries=1 > /dev/null 2>&1; then
+if ! dig @127.0.0.1 google.com +time=5 +tries=2 > /dev/null 2>&1; then
   COUNT=$(cat "$DNS_FAIL" 2>/dev/null || echo 0)
   COUNT=$((COUNT + 1))
   echo $COUNT > "$DNS_FAIL"
