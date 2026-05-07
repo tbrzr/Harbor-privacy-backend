@@ -66,7 +66,7 @@ async function main() {
   title.textColor = ACCENT
   titleRow.addSpacer()
   const ts = titleRow.addText(new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }))
-  ts.font = Font.monospacedSystemFont(10)
+  ts.font = Font.regularMonospacedSystemFont(10)
   ts.textColor = MUTED
 
   w.addSpacer(6)
@@ -87,7 +87,7 @@ async function main() {
     dot.textColor = serverResults[i].ok ? ACCENT : DANGER
 
     const lbl = col.addText(s.label)
-    lbl.font = Font.monospacedSystemFont(8)
+    lbl.font = Font.regularMonospacedSystemFont(8)
     lbl.textColor = MUTED
   })
 
@@ -100,7 +100,7 @@ async function main() {
   vm1dot.font = Font.systemFont(10)
   vm1dot.textColor = vm1Ok ? ACCENT : (vm1Age < 30 ? WARN : DANGER)
   const vm1lbl = vm1col.addText("VM1")
-  vm1lbl.font = Font.monospacedSystemFont(8)
+  vm1lbl.font = Font.regularMonospacedSystemFont(8)
   vm1lbl.textColor = MUTED
 
   dotsStack.addSpacer()
@@ -117,7 +117,7 @@ async function main() {
     chip.layoutVertically()
     chip.spacing = 1
     const lbl = chip.addText(label)
-    lbl.font = Font.monospacedSystemFont(8)
+    lbl.font = Font.regularMonospacedSystemFont(8)
     lbl.textColor = MUTED
     const val = chip.addText(`${banned}ban ${failed}fail`)
     val.font = Font.boldMonospacedSystemFont(9)

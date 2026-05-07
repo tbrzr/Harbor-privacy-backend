@@ -34,14 +34,14 @@ title.font = Font.boldMonospacedSystemFont(10)
 title.textColor = ACCENT
 hdr.addSpacer()
 const ts = hdr.addText("next 7d")
-ts.font = Font.monospacedSystemFont(9)
+ts.font = Font.regularMonospacedSystemFont(9)
 ts.textColor = MUTED
 
 w.addSpacer(8)
 
 if (d.error) {
   const err = w.addText(d.error)
-  err.font = Font.monospacedSystemFont(10)
+  err.font = Font.regularMonospacedSystemFont(10)
   err.textColor = URGENT
 } else {
   const bills = d.urgent_bills || []
@@ -67,7 +67,7 @@ if (d.error) {
       daysEl.textColor = daysColor
       if (b.amount) {
         const amt = w.addText("$" + b.amount + "/mo")
-        amt.font = Font.monospacedSystemFont(9)
+        amt.font = Font.regularMonospacedSystemFont(9)
         amt.textColor = MUTED
       }
       w.addSpacer(4)

@@ -41,7 +41,7 @@ w.addSpacer(8)
 
 if (d.error) {
   const err = w.addText(d.error)
-  err.font = Font.monospacedSystemFont(11)
+  err.font = Font.regularMonospacedSystemFont(11)
   err.textColor = DANGER
 } else {
   const val = w.addText(String(d.thisMonth))
@@ -51,7 +51,7 @@ if (d.error) {
   w.addSpacer(2)
 
   const label = w.addText("faxes this month")
-  label.font = Font.monospacedSystemFont(11)
+  label.font = Font.regularMonospacedSystemFont(11)
   label.textColor = MUTED
 
   w.addSpacer(6)
@@ -59,13 +59,13 @@ if (d.error) {
   const diff = d.thisMonth - d.lastMonth
   const diffStr = (diff >= 0 ? "+" : "") + diff + " vs last month (" + d.lastMonth + ")"
   const cmp = w.addText(diffStr)
-  cmp.font = Font.monospacedSystemFont(10)
+  cmp.font = Font.regularMonospacedSystemFont(10)
   cmp.textColor = diff >= 0 ? GREEN : DANGER
 }
 
 w.addSpacer()
 const ts = w.addText("updated " + new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}))
-ts.font = Font.monospacedSystemFont(9)
+ts.font = Font.regularMonospacedSystemFont(9)
 ts.textColor = new Color("#3a4a48")
 
 Script.setWidget(w)

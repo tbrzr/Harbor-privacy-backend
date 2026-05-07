@@ -34,14 +34,14 @@ title.font = Font.boldMonospacedSystemFont(10)
 title.textColor = ACCENT
 hdr.addSpacer()
 const ts = hdr.addText(new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}))
-ts.font = Font.monospacedSystemFont(9)
+ts.font = Font.regularMonospacedSystemFont(9)
 ts.textColor = MUTED
 
 w.addSpacer(8)
 
 if (d.error) {
   const err = w.addText(d.error)
-  err.font = Font.monospacedSystemFont(10)
+  err.font = Font.regularMonospacedSystemFont(10)
   err.textColor = URGENT
 } else {
   const updates = d.updates || []
@@ -68,7 +68,7 @@ if (d.error) {
       msg.textColor = TEXT
       msg.lineLimit = 2
       const meta = w.addText(u.timestamp)
-      meta.font = Font.monospacedSystemFont(9)
+      meta.font = Font.regularMonospacedSystemFont(9)
       meta.textColor = MUTED
       w.addSpacer(6)
     }

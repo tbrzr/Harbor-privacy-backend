@@ -48,7 +48,7 @@ w.addSpacer(8)
 
 if (d.error) {
   const err = w.addText(d.error)
-  err.font = Font.monospacedSystemFont(11)
+  err.font = Font.regularMonospacedSystemFont(11)
   err.textColor = DANGER
 } else {
   const mrrVal = w.addText("$" + d.mrr)
@@ -59,20 +59,20 @@ if (d.error) {
   w.addSpacer(4)
 
   const sub = w.addText(d.subs + " active subs · MRR")
-  sub.font = Font.monospacedSystemFont(11)
+  sub.font = Font.regularMonospacedSystemFont(11)
   sub.textColor = MUTED
 
   w.addSpacer(6)
 
   const plan = w.addText("top: " + d.topPlan + " (" + d.topCount + ")")
-  plan.font = Font.monospacedSystemFont(10)
+  plan.font = Font.regularMonospacedSystemFont(10)
   plan.textColor = new Color("#6b8a87")
   plan.lineLimit = 1
 }
 
 w.addSpacer()
 const ts = w.addText("updated " + new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}))
-ts.font = Font.monospacedSystemFont(9)
+ts.font = Font.regularMonospacedSystemFont(9)
 ts.textColor = new Color("#3a4a48")
 
 Script.setWidget(w)

@@ -42,14 +42,14 @@ t.font = Font.boldMonospacedSystemFont(10)
 t.textColor = ACCENT
 hdr.addSpacer()
 const ts = hdr.addText(new Date().toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"}))
-ts.font = Font.monospacedSystemFont(9)
+ts.font = Font.regularMonospacedSystemFont(9)
 ts.textColor = MUTED
 
 w.addSpacer(8)
 
 if (d.error) {
   const err = w.addText(d.error)
-  err.font = Font.monospacedSystemFont(10)
+  err.font = Font.regularMonospacedSystemFont(10)
   err.textColor = URGENT
 } else {
   const reminders = d.reminders || []
@@ -73,7 +73,7 @@ if (d.error) {
       txt.lineLimit = 1
       row.addSpacer()
       const dt = row.addText(fmtDt(r.datetime))
-      dt.font = Font.monospacedSystemFont(9)
+      dt.font = Font.regularMonospacedSystemFont(9)
       dt.textColor = MUTED
       w.addSpacer(2)
     }
