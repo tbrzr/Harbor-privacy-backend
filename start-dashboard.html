@@ -406,7 +406,8 @@ function renderF2bBlock(d,label){
 }
 async function loadFail2ban(){
   const el=document.getElementById('f2b-content');
-  const [r3,r1]=await Promise.allSettled([fetch('/fail2ban.json?_='+Date.now()),fetch('/vm1-fail2ban.json?_='+Date.now())]);
+  const F2B_KEY='Zdxm6giU-EjMHIR8uOt2GK0ibTEbq2cm';
+  const [r3,r1]=await Promise.allSettled([fetch('/fail2ban.json?k='+F2B_KEY+'&_='+Date.now()),fetch('/vm1-fail2ban.json?k='+F2B_KEY+'&_='+Date.now())]);
   let html='';
   if(r3.status==='fulfilled'&&r3.value.ok){try{html+=renderF2bBlock(await r3.value.json(),'VM3');}catch(e){html+='<div style="color:var(--danger);font-family:\'DM Mono\',monospace;font-size:11px">VM3 parse error</div>';}}
   else{html+='<div style="color:var(--danger);font-family:\'DM Mono\',monospace;font-size:11px">VM3 unavailable</div>';}

@@ -3,6 +3,7 @@
 // Widget param: leave blank for all services
 
 const BASE = "https://start.harborprivacy.com"
+const F2B_KEY = "Zdxm6giU-EjMHIR8uOt2GK0ibTEbq2cm"
 const ACCENT = new Color("#00e5c0")
 const DANGER = new Color("#ff4e4e")
 const WARN   = new Color("#f59e0b")
@@ -35,7 +36,7 @@ async function ping(server) {
 
 async function fetchJSON(path) {
   try {
-    const req = new Request(BASE + path + "?_=" + Date.now())
+    const req = new Request(BASE + path + "?k=" + F2B_KEY + "&_=" + Date.now())
     return await req.loadJSON()
   } catch { return null }
 }
