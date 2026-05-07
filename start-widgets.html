@@ -161,7 +161,7 @@ document.getElementById('pw').addEventListener('keydown',e=>{if(e.key==='Enter')
 
 async function copyWidget(file, btn, isBrazer) {
   try {
-    const r = await fetch('/start/' + file + '?_=' + Date.now())
+    const r = await fetch('/' + file + '?_=' + Date.now())
     let src = await r.text()
     src = src.replace('YOUR_BRAZER_WIDGET_KEY', BRAZER_KEY)
     src = src.replace(/\?k=YOUR_BRAZER_WIDGET_KEY/g, '?k=' + BRAZER_KEY)
