@@ -123,9 +123,10 @@ init_db()
 def ntfy(title, body, priority="default", tags="fax"):
     try:
         requests.post(
-            f"https://ntfy.sh/{NTFY_TOPIC}",
+            "https://ntfy.harborprivacy.com/harbor-alerts",
             data=body.encode(),
-            headers={"Title": title, "Priority": priority, "Tags": tags},
+            headers={"Title": title, "Priority": priority, "Tags": tags,
+                     "Authorization": "Basic REDACTED_CREDENTIAL"},
             timeout=5,
         )
     except Exception:
@@ -733,6 +734,7 @@ def telnyx_webhook():
     return "ok", 200
 
 
+@app.route("/health")
 @app.route("/fax/health")
 def fax_health():
     try:

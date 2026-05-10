@@ -26,7 +26,7 @@ Harbor Privacy Customer Dashboard
 dashboard.harborprivacy.com
 """
 
-import os, json, secrets
+import os, json, secrets, logging
 from datetime import datetime, timedelta
 from functools import wraps
 from io import BytesIO
@@ -40,6 +40,7 @@ import requests
 from flask import Flask, request, jsonify, render_template_string, redirect, make_response, session
 
 app = Flask(__name__)
+log = logging.getLogger(__name__)
 
 @app.after_request
 def add_no_cache(response):
@@ -1531,7 +1532,7 @@ def admin():
         <div><span class="badge {% if cl and cl.parental_enabled %}badge-on{% else %}badge-off{% endif %}">{% if cl and cl.parental_enabled %}ON{% else %}OFF{% endif %}</span></div>
         <div style="display:flex;gap:6px;align-items:center;">
           <a href="/admin/customer/{{ c.client_id }}" class="btn btn-sm" style="padding:4px 10px;font-size:10px;">View →</a>
-          {% if c.client_id != "harbor7066" %}
+          {% if c.client_id not in ["harbor7066", "admintim1003"] and c.email not in ["admin@harborprivacy.com", "tim@harborprivacy.com"] %}
           <button class="btn btn-sm" style="background:rgba(255,107,107,0.12);color:#ff6b6b;border-color:rgba(255,107,107,0.3);" onclick="deleteCustomer('{{ c.client_id }}','{{ c.name }}',this)">✕</button>
           {% endif %}
         </div>
@@ -1543,6 +1544,31 @@ def admin():
     {% endif %}
   </div>
 </div>
+<script>
+async function deleteCustomer(cid, name, btn){
+  if (!btn.dataset.confirmed) {
+    btn.dataset.confirmed = '1';
+    btn.textContent = 'Sure?';
+    btn.style.background = 'rgba(255,78,78,0.3)';
+    return;
+  }
+  btn.textContent = '...';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/admin/delete-customer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid})});
+    const d = await r.json();
+    if(d.ok){
+      btn.closest('.customer-row').remove();
+    } else {
+      btn.textContent = 'Error';
+      btn.disabled = false;
+    }
+  } catch(e) {
+    btn.textContent = 'Error';
+    btn.disabled = false;
+  }
+}
+</script>
 </html>"""
     return render_template_string(html, customers=customers,
         total_queries=total_queries, block_pct=block_pct,
@@ -2090,11 +2116,15 @@ function submitCode(){
   window.location.href='/admin/customer/'+CID+'?code='+code;
 }
 async function deleteCustomer(cid, name, btn){
-  btn.textContent = 'Sure?';
-  btn.style.background = 'rgba(255,78,78,0.3)';
-  btn.onclick = async function(){
-    btn.textContent = '...';
-    btn.disabled = true;
+  if (!btn.dataset.confirmed) {
+    btn.dataset.confirmed = '1';
+    btn.textContent = 'Sure?';
+    btn.style.background = 'rgba(255,78,78,0.3)';
+    return;
+  }
+  btn.textContent = '...';
+  btn.disabled = true;
+  try {
     const r = await fetch('/api/admin/delete-customer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid})});
     const d = await r.json();
     if(d.ok){
@@ -2103,7 +2133,10 @@ async function deleteCustomer(cid, name, btn){
       btn.textContent = 'Error';
       btn.disabled = false;
     }
-  };
+  } catch(e) {
+    btn.textContent = 'Error';
+    btn.disabled = false;
+  }
 }
 async function togglePlan(cid, plan, btn){
   btn.textContent='...';btn.disabled=true;
@@ -2704,19 +2737,17 @@ def api_addon():
 @admin_required
 def admin_delete_customer():
     data = request.get_json()
-    protected = ["admin@harborprivacy.com", "tim@harborprivacy.com"]
-    customers = load_customers()
-    target = next((c for c in customers if c.get("client_id") == data.get("client_id")), None)
-    if target and target.get("email") in protected:
-        return jsonify({"ok": False, "error": "Cannot delete protected account"})
-    data = request.get_json()
+    PROTECTED_EMAILS = {"admin@harborprivacy.com", "tim@harborprivacy.com"}
+    PROTECTED_IDS = {"harbor7066", "admintim1003"}
     client_id = data.get("client_id", "")
+    if client_id in PROTECTED_IDS:
+        return jsonify({"ok": False, "error": "Cannot delete protected account"})
     customers = load_customers()
     customer = next((c for c in customers if c.get("client_id") == client_id), None)
     if not customer:
         return jsonify({"ok": False, "error": "Customer not found"})
-    if client_id in ["harbor7066"]:
-        return jsonify({"ok": False, "error": "Cannot delete owner account"})
+    if customer.get("email") in PROTECTED_EMAILS:
+        return jsonify({"ok": False, "error": "Cannot delete protected account"})
     try:
         import sys, requests as _req
         sys.path.insert(0, "/home/ubuntu/harbor-backend")
@@ -3288,6 +3319,23 @@ def begin_trial():
         email = (data.get("email") or request.form.get("email", "")).strip().lower()
         if not email or "@" not in email:
             return jsonify({"error": "Valid email required"}), 400
+
+        DISPOSABLE_DOMAINS = {
+            "immenseignite.info","mailinator.com","guerrillamail.com","tempmail.com",
+            "throwam.com","trashmail.com","sharklasers.com","guerrillamailblock.com",
+            "grr.la","guerrillamail.info","guerrillamail.biz","guerrillamail.de",
+            "guerrillamail.net","guerrillamail.org","spam4.me","yopmail.com",
+            "yopmail.fr","cool.fr.nf","jetable.fr.nf","nospam.ze.tc","nomail.xl.cx",
+            "mega.zik.dj","speed.1s.fr","courriel.fr.nf","moncourrier.fr.nf",
+            "monemail.fr.nf","monmail.fr.nf","dispostable.com","maildrop.cc",
+            "spamgourmet.com","spamgourmet.net","spamgourmet.org","trashmail.at",
+            "trashmail.io","trashmail.me","trashmail.net","trashmail.org",
+            "discard.email","spamspot.com","tempr.email","discardmail.com",
+            "discardmail.de","spamcon.org","0-mail.com","mt2009.com","shieldedmail.com",
+        }
+        email_domain = email.split("@")[-1]
+        if email_domain in DISPOSABLE_DOMAINS:
+            return jsonify({"error": "Please use a permanent email address."}), 400
 
         # Check for duplicate
         try:
@@ -4063,6 +4111,10 @@ loadStatus();
 </script>
 </body>
 </html>"""
+
+@app.route("/health")
+def health():
+    return {"status": "ok"}
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=int(os.environ.get("DASHBOARD_PORT", 7000)), debug=False)
