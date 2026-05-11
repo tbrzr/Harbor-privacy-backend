@@ -67,6 +67,38 @@ FROM_EMAIL = os.environ.get("FROM_EMAIL", "info@mail.harborprivacy.com")
 ADMIN_EMAIL = "admin@harborprivacy.com"
 HOME_STATUS_TOKEN = os.environ.get("HOME_STATUS_TOKEN", "")
 HOME_STATUS_FILE  = "/home/ubuntu/harbor-home-status.json"
+TURNSTILE_SECRET  = os.environ.get("TURNSTILE_SECRET_KEY", "")
+SIGNUP_STATS_FILE = "/home/ubuntu/harbor-backend/signup-stats.json"
+
+def _load_signup_stats():
+    try:
+        with open(SIGNUP_STATS_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {"bots_blocked": 0}
+
+def _inc_bots_blocked():
+    stats = _load_signup_stats()
+    stats["bots_blocked"] = stats.get("bots_blocked", 0) + 1
+    try:
+        with open(SIGNUP_STATS_FILE, "w") as f:
+            json.dump(stats, f)
+    except Exception:
+        pass
+
+def _verify_turnstile(token, ip):
+    if not TURNSTILE_SECRET:
+        return True
+    if not token:
+        return False
+    try:
+        import urllib.request as _ur, urllib.parse as _up, json as _jj
+        data = _up.urlencode({"secret": TURNSTILE_SECRET, "response": token, "remoteip": ip}).encode()
+        req = _ur.Request("https://challenges.cloudflare.com/turnstile/v0/siteverify", data=data, method="POST")
+        with _ur.urlopen(req, timeout=5) as resp:
+            return _jj.loads(resp.read()).get("success", False)
+    except Exception:
+        return False
 
 # ── DATA ──────────────────────────────────────────────────
 
@@ -1575,6 +1607,24 @@ async function deleteCustomer(cid, name, btn){
         get_client=get_client, active="admin")
 
 
+@app.route("/api/signup-stats")
+def signup_stats():
+    try:
+        with open("/home/ubuntu/harbor-backend/harbor-customers.json") as f:
+            signups = sum(1 for line in f if line.strip())
+    except Exception:
+        signups = 0
+    dash_stats = _load_signup_stats()
+    try:
+        with open("/home/ubuntu/harbor-booking/signup-stats.json") as f:
+            booking_stats = json.load(f)
+    except Exception:
+        booking_stats = {}
+    bots = dash_stats.get("bots_blocked", 0) + booking_stats.get("bots_blocked", 0)
+    resp = jsonify({"signups": signups, "bots_blocked": bots})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
 @app.route("/api/agh-status")
 def agh_status():
     try:
@@ -1628,6 +1678,16 @@ def home_status_get():
                 data["stale"] = True
     except:
         data = {"homebridge": {"ok": False, "ms": 0}, "unbound": {"ok": False, "ms": 0}, "updated": None}
+    import subprocess, time as _time
+    t0 = _time.time() * 1000
+    try:
+        r = subprocess.run(["dig", "@127.0.0.1", "-p", "5335", "+time=2", "+tries=1",
+                            "harborprivacy.com", "A", "+short"],
+                           capture_output=True, timeout=3)
+        hu_ok = r.returncode == 0 and bool(r.stdout.strip())
+    except Exception:
+        hu_ok = False
+    data["harbor_unbound"] = {"ok": hu_ok, "ms": int(_time.time() * 1000 - t0)}
     resp = jsonify(data)
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp
@@ -2717,8 +2777,9 @@ def api_addon():
         if ok:
             update_customer_harbor_kids_flag(client_id, True)
             try:
-                import subprocess
-                subprocess.Popen(["python3", "-c", f"import sys; sys.path.insert(0,'/home/ubuntu/harbor-backend'); from webhook import save_ios_kids_profile, generate_android_page, add_to_allowed_clients; save_ios_kids_profile('{kids_id}', 'Harbor Kids'); generate_android_page('{kids_id}'); add_to_allowed_clients('{kids_id}')"])
+                import subprocess, re as _re
+                if _re.match(r'^[a-zA-Z0-9_-]+$', kids_id):
+                    subprocess.Popen(["python3", "-c", f"import sys; sys.path.insert(0,'/home/ubuntu/harbor-backend'); from webhook import save_ios_kids_profile, generate_android_page, add_to_allowed_clients; save_ios_kids_profile('{kids_id}', 'Harbor Kids'); generate_android_page('{kids_id}'); add_to_allowed_clients('{kids_id}')"])
             except Exception as ex:
                 log.error(f"kids profile gen error: {ex}")
         return jsonify({"ok": ok, "kids_id": kids_id})
@@ -2908,8 +2969,9 @@ def api_admin_addon():
         if ok:
             update_customer_harbor_kids_flag(client_id, True)
             try:
-                import subprocess
-                subprocess.Popen(["python3", "-c", f"import sys; sys.path.insert(0,'/home/ubuntu/harbor-backend'); from webhook import save_ios_kids_profile, generate_android_page, add_to_allowed_clients; save_ios_kids_profile('{kids_id}', 'Harbor Kids'); generate_android_page('{kids_id}'); add_to_allowed_clients('{kids_id}')"])
+                import subprocess, re as _re
+                if _re.match(r'^[a-zA-Z0-9_-]+$', kids_id):
+                    subprocess.Popen(["python3", "-c", f"import sys; sys.path.insert(0,'/home/ubuntu/harbor-backend'); from webhook import save_ios_kids_profile, generate_android_page, add_to_allowed_clients; save_ios_kids_profile('{kids_id}', 'Harbor Kids'); generate_android_page('{kids_id}'); add_to_allowed_clients('{kids_id}')"])
             except Exception as ex:
                 log.error(f"kids profile gen error: {ex}")
         return jsonify({"ok": ok, "kids_id": kids_id})
@@ -3336,6 +3398,12 @@ def begin_trial():
         email_domain = email.split("@")[-1]
         if email_domain in DISPOSABLE_DOMAINS:
             return jsonify({"error": "Please use a permanent email address."}), 400
+
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+        token = data.get("cf_turnstile_response") or request.form.get("cf-turnstile-response", "")
+        if not _verify_turnstile(token, ip):
+            _inc_bots_blocked()
+            return jsonify({"error": "CAPTCHA verification failed. Please try again."}), 400
 
         # Check for duplicate
         try:

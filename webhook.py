@@ -782,6 +782,7 @@ def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url
 <p style="border-top:1px solid #1e2a2d;padding-top:24px;color:#6b8a87;">Questions? Reply to this email or text <strong style="color:#e8f0ef;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a></p>
 </div>'''
         send_email(email, "Your Harbor Privacy free trial is ready", html)
+        return
     else:
         html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
 <h1 style="font-family:Georgia,serif;font-weight:400;">Installation Confirmed</h1>
