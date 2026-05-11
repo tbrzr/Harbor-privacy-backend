@@ -32,6 +32,7 @@ TELNYX_API_KEY          = os.environ["TELNYX_API_KEY"]
 TELNYX_CONNECTION_ID    = os.environ["TELNYX_CONNECTION_ID"]
 TELNYX_FROM_NUMBER      = os.environ["TELNYX_FROM_NUMBER"]
 NTFY_TOPIC              = os.environ.get("NTFY_TOPIC", "harbor-brazer-monitor")
+NTFY_AUTH               = os.environ.get("NTFY_AUTH", "")
 RESEND_API_KEY          = os.environ.get("RESEND_API_KEY", "")
 FROM_EMAIL              = os.environ.get("FROM_EMAIL", "info@mail.harborprivacy.com")
 BASE_URL                = os.environ.get("BASE_URL", "https://fax.harborprivacy.com")
@@ -126,7 +127,7 @@ def ntfy(title, body, priority="default", tags="fax"):
             "https://ntfy.harborprivacy.com/harbor-alerts",
             data=body.encode(),
             headers={"Title": title, "Priority": priority, "Tags": tags,
-                     "Authorization": "Basic REDACTED_CREDENTIAL"},
+                     **({"Authorization": f"Basic {NTFY_AUTH}"} if NTFY_AUTH else {})},
             timeout=5,
         )
     except Exception:
