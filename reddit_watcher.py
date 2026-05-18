@@ -97,21 +97,21 @@ def send_email(posts):
         rows += f"""
         <tr>
           <td style="padding:12px;border-bottom:1px solid #1e2a2d;">
-            <a href="{p['link']}" style="color:#00e5c0;font-family:monospace;font-size:13px;text-decoration:none;">{p['title']}</a><br>
-            <span style="color:#6b8a87;font-size:11px;font-family:monospace;">r/{p['subreddit']}</span>
+            <a href="{p['link']}" style="color:#1f5d6b;font-family:monospace;font-size:13px;text-decoration:none;">{p['title']}</a><br>
+            <span style="color:#6b7a72;font-size:11px;font-family:monospace;">r/{p['subreddit']}</span>
           </td>
         </tr>"""
 
     html = f"""
-    <div style="background:#0a0e0f;padding:32px;font-family:sans-serif;">
+    <div style="background:#fbf7f0;padding:32px;font-family:sans-serif;">
       <div style="max-width:600px;margin:0 auto;">
-        <p style="font-family:monospace;font-size:12px;color:#00e5c0;letter-spacing:0.2em;">HARBOR PRIVACY</p>
-        <h2 style="color:#e8f0ef;font-size:20px;margin-bottom:8px;">Reddit Leads — {datetime.now().strftime("%b %d, %Y %I:%M %p")}</h2>
-        <p style="color:#6b8a87;font-size:13px;margin-bottom:24px;">{len(posts)} new posts matching your keywords</p>
-        <table style="width:100%;border-collapse:collapse;border:1px solid #1e2a2d;">
+        <p style="font-family:monospace;font-size:12px;color:#1f5d6b;letter-spacing:0.2em;">HARBOR PRIVACY</p>
+        <h2 style="color:#1a2420;font-size:20px;margin-bottom:8px;">Reddit Leads — {datetime.now().strftime("%b %d, %Y %I:%M %p")}</h2>
+        <p style="color:#6b7a72;font-size:13px;margin-bottom:24px;">{len(posts)} new posts matching your keywords</p>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e6dfd2;">
           {rows}
         </table>
-        <p style="color:#6b8a87;font-size:11px;font-family:monospace;margin-top:24px;">Reply naturally as a dad who solved this problem. No pitching.</p>
+        <p style="color:#6b7a72;font-size:11px;font-family:monospace;margin-top:24px;">Reply naturally as a dad who solved this problem. No pitching.</p>
       </div>
     </div>"""
 

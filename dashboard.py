@@ -1,24 +1,42 @@
-# ============================================================
-# Harbor Privacy Dashboard -- dashboard.py
-# ============================================================
-# Single-file Flask app. Intentionally monolithic for now.
+# ════════════════════════════════════════════════════════════
+#  HARBOR PRIVACY DASHBOARD -- dashboard.py
+# ════════════════════════════════════════════════════════════
+#  Single-file Flask app on port 7000 (dashboard.harborprivacy.com)
 #
-# FUTURE REFACTOR ROADMAP (do on staging branch, not main):
-#   auth.py          -- login, logout, session, admin_required decorator
-#   customers.py     -- load/save customers, get_client, has_family_addon
-#   dns.py           -- AdGuard API calls, get_client_rules, get_client_stats
-#   social.py        -- /social route, _build_post_prompt, social_generate
-#   admin.py         -- /admin, /admin/customer routes
-#   dashboard.py     -- /dashboard, /settings, customer-facing routes
-#   templates/       -- move HTML strings to Jinja2 template files
+#  ─── TABLE OF CONTENTS ─────────────────────────────────────
+#   01  CONFIG & APP INIT          (~ll 40-70)
+#   02  CSRF GUARD                 (~ll 60-115)
+#   03  SIGNUP STATS / TURNSTILE   (~ll 115-150)
+#   04  DATA: users / customers    (~ll 150-240)
+#   05  SUPPORT CODES / RATE LIMIT (~ll 240-330)
+#   06  ADGUARD (AGH) HELPERS      (~ll 330-560)
+#   07  AUTH (token + decorators)  (~ll 560-600)
+#   08  EMAIL / FAILURE LOG        (~ll 600-640)
+#   09  SHARED STYLE + NAV         (~ll 640-820)
+#   10  ROUTES: AUTH               (~ll 820-1120)
+#   11  ROUTES: CUSTOMER DASHBOARD (~ll 1120-1640)
+#   12  ROUTES: ADMIN              (~ll 1640-2410)
+#   13  ROUTES: SETTINGS           (~ll 2410-2640)
+#   14  ROUTES: PASSWORD RESET     (~ll 2640-2730)
+#   15  ROUTES: API (customer)     (~ll 2730-3160)
+#   16  ROUTES: API (admin)        (~ll 3160-3220)
+#   17  ROUTES: ADMIN LOGS         (~ll 3220-3260)
+#   18  ROUTES: SOCIAL             (~ll 3260-3500)
+#   19  ROUTES: TRIAL /begin       (~ll 3500-3590)
+#   20  ROUTES: SOCIAL AUTOPOST    (~ll 3590-4340)
+#   21  ROUTES: START MAGIC        (~ll 4340-4410)
+#   22  HEALTH                     (~ll 4410+)
 #
-# CRITICAL VARIABLE ORDER -- DO NOT CHANGE:
-#   In admin_customer() and the main customer route (~line 920):
-#   plan_type MUST be defined BEFORE harbor_kids or NameError occurs.
-#   Both now have defensive guards but do not remove or reorder them.
-#
-# PRE-RESTART: always run ~/check-dashboard.sh instead of systemctl restart
-# ============================================================
+#  ─── HARD RULES ─────────────────────────────────────────────
+#   * plan_type MUST be defined BEFORE harbor_kids in both
+#     admin_customer() and main customer dashboard() route.
+#   * Do not modify lines near 920 / 1747 without reading those
+#     sections fully.
+#   * Section banners below mark logical owners. Helpers belong
+#     in their section; routes should not import from sibling
+#     route sections.
+#   * Pre-restart: ~/check-dashboard.sh
+# ════════════════════════════════════════════════════════════
 
 #!/usr/bin/env python3
 """
@@ -49,12 +67,60 @@ def add_no_cache(response):
         response.headers['Pragma'] = 'no-cache'
         response.headers['Expires'] = '0'
     return response
-app.secret_key = os.environ.get("FLASK_SECRET", "harbor-privacy-secret-2026")
+app.secret_key = os.environ["FLASK_SECRET"]
 from werkzeug.middleware.proxy_fix import ProxyFix
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = True
 app.config["SESSION_COOKIE_HTTPONLY"] = True
+
+# ── CSRF GUARD ────────────────────────────────────────────
+# Require X-CSRF header (or csrf field) on POST/PUT/DELETE for session-auth
+# endpoints. Exempt public flows that have their own protection.
+CSRF_EXEMPT_PREFIXES = (
+    "/begin",                # Turnstile + rate limit
+    "/login", "/forgot", "/reset", "/setup",  # Turnstile / token in URL
+    "/api/start-",           # has own magic token
+    "/api/start-magic", "/api/start-verify",
+    "/api/home-status",      # HOME_STATUS_TOKEN
+    "/api/home-beacon",      # public script
+    "/api/windows/",         # own code flow
+    "/api/dns-analytics",    # public ingest, rate-limited
+    "/api/social/autopost",  # X-Autopost-Secret
+    "/api/agh-status",       # GET
+)
+
+@app.before_request
+def _csrf_guard():
+    if request.method not in ("POST", "PUT", "DELETE", "PATCH"):
+        return
+    p = request.path or ""
+    for pref in CSRF_EXEMPT_PREFIXES:
+        if p == pref or p.startswith(pref):
+            return
+    expected = session.get("csrf")
+    if not expected:
+        # Logged-out POST to a guarded route — let the route's own auth reject it
+        return
+    sent = request.headers.get("X-CSRF") or ""
+    if not sent and request.form:
+        sent = request.form.get("csrf", "")
+    if not sent and request.is_json:
+        try:
+            sent = (request.get_json(silent=True) or {}).get("csrf", "")
+        except Exception:
+            sent = ""
+    if not sent or not secrets.compare_digest(str(sent), str(expected)):
+        log.warning(f"CSRF rejected path={p} ua={request.headers.get('User-Agent','')[:80]}")
+        return jsonify({"error": "csrf"}), 403
+
+@app.context_processor
+def _inject_csrf():
+    tok = session.get("csrf")
+    if not tok:
+        tok = secrets.token_urlsafe(32)
+        session["csrf"] = tok
+    return {"csrf_token": tok}
 
 SECRET_KEY = os.environ.get("DASHBOARD_SECRET", "change-me")
 ADGUARD_URL = os.environ.get("ADGUARD_URL", "http://127.0.0.1:8080")
@@ -100,98 +166,24 @@ def _verify_turnstile(token, ip):
     except Exception:
         return False
 
-# ── DATA ──────────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════
+# SECTION 04 — DATA: users / customers
+# Owns: load_users, save_users, get_user, load_customers,
+#       save_customers, find_customer, update_customer_email,
+#       has_family_addon
+# State files: USERS_DB, CUSTOMERS_LOG
+# ════════════════════════════════════════════════════════════
 
-def load_users():
-    try:
-        with open(USERS_DB) as f:
-            return json.load(f)
-    except:
-        return {}
+from harbor_lib.data import (
+    load_users, save_users, get_user,
+    save_customers, load_customers,
+    update_customer_email, find_customer, has_family_addon,
+)
 
-def save_users(users):
-    with open(USERS_DB, 'w') as f:
-        json.dump(users, f, indent=2)
-
-def get_user(email):
-    return load_users().get(email.lower())
-
-def save_customers(customers):
-    try:
-        with open(CUSTOMERS_LOG, "w") as fh:
-            for c in customers:
-                fh.write(json.dumps(c) + "\n")
-        return True
-    except Exception as e:
-        print("save_customers error: " + str(e))
-        return False
-
-def load_customers():
-    customers = []
-    try:
-        with open(CUSTOMERS_LOG) as f:
-            for line in f:
-                try:
-                    r = json.loads(line.strip())
-                    if r.get("status") == "active":
-                        customers.append(r)
-                except:
-                    pass
-    except:
-        pass
-    return customers
-
-def update_customer_email(old_email, new_email):
-    lines = []
-    updated = False
-    try:
-        with open(CUSTOMERS_LOG) as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    c = json.loads(line)
-                    if c.get("email", "").lower() == old_email.lower():
-                        c["email"] = new_email.lower()
-                        updated = True
-                    lines.append(json.dumps(c))
-                except:
-                    lines.append(line)
-        if updated:
-            with open(CUSTOMERS_LOG, 'w') as f:
-                f.write("\n".join(lines) + "\n")
-        return updated
-    except:
-        return False
-
-def find_customer(email):
-    for c in load_customers():
-        if c.get("email", "").lower() == email.lower():
-            return c
-    return None
-
-def has_family_addon(client_id):
-    """Check if customer has active Family Safe addon by checking AdGuard client metadata"""
-    client = get_client(client_id)
-    if not client:
-        return False
-    # Check if parental was enabled via paid addon (tag in client name or metadata)
-    # We use the customer log to check for family addon
-    try:
-        with open(CUSTOMERS_LOG) as f:
-            for line in f:
-                try:
-                    r = json.loads(line.strip())
-                    if r.get("client_id") == client_id and r.get("family_safe") == True:
-                        return True
-                except:
-                    pass
-    except:
-        pass
-    return False
-
-# ── SUPPORT CODES ────────────────────────────────────────
+# ════════════════════════════════════════════════════════════
+# SECTION 05 — SUPPORT CODES / RATE LIMIT
+# Owns: support code gen/verify/revoke, login attempt tracking
+# ════════════════════════════════════════════════════════════
 import secrets, time as _time
 SUPPORT_CODES_FILE = "/var/log/harbor-support-codes.json"
 
@@ -276,222 +268,48 @@ def revoke_support_code(client_id):
     codes.pop(client_id, None)
     _save_codes(codes)
 
-# ── ADGUARD ──────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════
+# SECTION 06 — ADGUARD HELPERS
+# Owns: all calls to AdGuard Home REST API (port 8080)
+# Failures degrade to cached snapshot in agh-snapshot.json
+# Timeout: AGH_TIMEOUT (default 4s)
+# ════════════════════════════════════════════════════════════
 
-def agh_get(path):
-    try:
-        r = requests.get(f"{ADGUARD_URL}{path}", auth=(ADGUARD_USER, ADGUARD_PASS), timeout=10)
-        return r.json() if r.status_code == 200 else {}
-    except:
-        return {}
+from harbor_lib.agh import (
+    agh_get, agh_post,
+    get_allowed_clients, get_client, is_client_allowed,
+    get_stats, get_client_stats,
+    get_all_blocked_services, get_client_blocked_services,
+    PROFILES,
+    save_profile_snapshot, save_active_profile,
+    set_client_blocked_services,
+    add_custom_rule, get_client_rules, remove_custom_rule,
+)
+from harbor_lib.config import AGH_TIMEOUT, AGH_SNAPSHOT_FILE
 
-def agh_post(path, data):
-    try:
-        r = requests.post(f"{ADGUARD_URL}{path}", json=data, auth=(ADGUARD_USER, ADGUARD_PASS), timeout=10)
-        return r.status_code == 200
-    except:
-        return False
+# ════════════════════════════════════════════════════════════
+# SECTION 07 — AUTH
+# Owns: make_token, verify_token, @login_required, @admin_required
+# Uses JWT signed with SECRET_KEY, session cookie + bearer
+# ════════════════════════════════════════════════════════════
 
-def get_allowed_clients():
-    access = agh_get("/control/access/list")
-    return access.get("allowed_clients", [])
+from harbor_lib.auth import make_token, verify_token
 
-def get_client(client_id):
-    clients = agh_get("/control/clients")
-    for c in (clients.get("clients") or []):
-        if client_id in c.get("ids", []):
-            return c
-    return {}
+def _setup_token_for(email):
+    """Stateless HMAC setup token bound to a customer record.
+    Becomes invalid implicitly once the user appears in users[]."""
+    import hmac, hashlib
+    c = find_customer(email)
+    if not c: return None
+    msg = f"{email.lower()}:{c.get('date','')}".encode()
+    key = app.secret_key if isinstance(app.secret_key, bytes) else app.secret_key.encode()
+    return hmac.new(key, msg, hashlib.sha256).hexdigest()[:32]
 
-def is_client_allowed(client_id):
-    return client_id in get_allowed_clients()
+def _verify_setup_token(token, email):
+    import hmac
+    expected = _setup_token_for(email)
+    return bool(expected) and hmac.compare_digest(token, expected)
 
-def get_stats():
-    return agh_get("/control/stats")
-
-def get_client_stats(client_id):
-    """Pull per-client stats from AdGuard stats API"""
-    try:
-        stats = agh_get("/control/stats")
-        # Get total queries for this client
-        top_clients = stats.get("top_clients", [])
-        total = 0
-        for entry in top_clients:
-            if client_id in entry:
-                total = entry[client_id]
-                break
-        # Get global block rate and apply to client
-        global_total = stats.get("num_dns_queries", 0)
-        global_blocked = stats.get("num_blocked_filtering", 0) + stats.get("num_replaced_safebrowsing", 0) + stats.get("num_replaced_parental", 0)
-        global_pct = round(global_blocked / max(global_total, 1) * 100, 1)
-        # Estimate blocked for this client
-        blocked = round(total * global_pct / 100)
-        pct = global_pct
-        # Top blocked domains globally
-        top_blocked_raw = stats.get("top_blocked_domains", [])[:5]
-        top_blocked = [{"name": list(d.keys())[0], "count": list(d.values())[0]} for d in top_blocked_raw if d]
-        return {"total": total, "blocked": blocked, "pct": pct, "top_blocked": []}
-    except:
-        return {"total": 0, "blocked": 0, "pct": 0, "top_blocked": []}
-
-def get_all_blocked_services():
-    data = agh_get("/control/blocked_services/all")
-    services = data.get("blocked_services", [])
-    groups = {}
-    for s in services:
-        g = s.get("group_id", "other")
-        if g not in groups:
-            groups[g] = []
-        groups[g].append({"id": s["id"], "name": s["name"]})
-    return groups
-
-def get_client_blocked_services(client_id):
-    client = get_client(client_id)
-    if not client:
-        return []
-    return client.get("blocked_services") or []
-
-PROFILES = {
-    "kid": {
-        "name": "Kid Mode",
-        "icon": "👧",
-        "desc": "Blocks social media, adult content, dating apps, gambling and streaming",
-        "services": ["tiktok","snapchat","instagram","twitter","facebook","reddit","tumblr",
-                     "tinder","discord","youtube","twitch","4chan","9gag",
-                     "amino","bigo_live","vk","wechat","telegram","whatsapp","viber","signal",
-                     "dailymotion","vimeo","bluesky","clubhouse","wizz","chatgpt","deepseek",
-                     "copilot","claude","betano","betfair","betway","blaze"]
-    },
-    "work": {
-        "name": "Work Focus",
-        "icon": "💼",
-        "desc": "Blocks social media, streaming and gaming to keep you focused",
-        "services": ["tiktok","snapchat","instagram","twitter","facebook","reddit","youtube",
-                     "twitch","netflix","disneyplus","amazon_streaming","spotify","spotify_video",
-                     "steam","discord","dailymotion","vimeo","crunchyroll","plex","pluto_tv",
-                     "apple_streaming","tidal","soundcloud","deezer","bilibili",
-                     "activision_blizzard","battle_net","epic_games","electronic_arts",
-                     "riot_games","roblox","rockstar_games","ubisoft","xboxlive"]
-    },
-    "gaming": {
-        "name": "Gaming Mode",
-        "icon": "🎮",
-        "desc": "Blocks social media and distractions, leaves gaming services open",
-        "services": ["tiktok","snapchat","instagram","twitter","facebook","reddit","youtube",
-                     "amazon_streaming","netflix","disneyplus","tinder","tumblr",
-                     "dailymotion","vimeo","bilibili","shein","temu","betano","betfair","betway"]
-    }
-}
-
-def save_profile_snapshot(client_id, services):
-    """Save current services as custom snapshot before applying a profile"""
-    lines = []
-    updated = False
-    try:
-        with open(CUSTOMERS_LOG) as f:
-            for line in f:
-                line = line.strip()
-                if not line: continue
-                try:
-                    r = json.loads(line)
-                    if r.get("client_id") == client_id:
-                        r["custom_services_snapshot"] = services
-                        updated = True
-                    lines.append(json.dumps(r))
-                except:
-                    lines.append(line)
-        if updated:
-            with open(CUSTOMERS_LOG, "w") as f:
-                f.write("\n".join(lines) + "\n")
-    except Exception as e:
-        print(f"Snapshot save error: {e}")
-
-def save_active_profile(client_id, profile_name):
-    """Save the active profile name to customer record"""
-    lines = []
-    try:
-        with open(CUSTOMERS_LOG) as f:
-            for line in f:
-                line = line.strip()
-                if not line: continue
-                try:
-                    r = json.loads(line)
-                    if r.get("client_id") == client_id:
-                        r["active_profile"] = profile_name
-                    lines.append(json.dumps(r))
-                except:
-                    lines.append(line)
-        with open(CUSTOMERS_LOG, "w") as f:
-            f.write("\n".join(lines) + "\n")
-    except Exception as e:
-        print(f"Profile save error: {e}")
-
-def set_client_blocked_services(client_id, services):
-    client = get_client(client_id)
-    if not client:
-        with open("/tmp/profile_debug.txt", "a") as dbg:
-            dbg.write(f"set_client_blocked: no client found for {client_id}\n")
-        return False
-    updated = {**client, "blocked_services": services, "use_global_blocked_services": False}
-    try:
-        r = requests.post(f"{ADGUARD_URL}/control/clients/update", json={"name": client.get("name", client_id), "data": updated}, auth=(ADGUARD_USER, ADGUARD_PASS), timeout=10)
-        with open("/tmp/profile_debug.txt", "a") as dbg:
-            dbg.write(f"set_client_blocked: status={r.status_code} response={r.text[:100]}\n")
-        return r.status_code == 200
-    except Exception as e:
-        with open("/tmp/profile_debug.txt", "a") as dbg:
-            dbg.write(f"set_client_blocked error: {e}\n")
-        return False
-
-def add_custom_rule(client_id, domain, block=True):
-    prefix = "||" if block else "@@||"
-    rule = f"{prefix}{domain}^$client={client_id}"
-    try:
-        data = agh_get("/control/filtering/status")
-        rules = data.get("user_rules", [])
-        if rule not in rules:
-            rules.append(rule)
-            return agh_post("/control/filtering/set_rules", {"rules": rules})
-        return True
-    except Exception as e:
-        log.error(f"add_custom_rule error: {e}")
-        return False
-
-def get_client_rules(client_id):
-    try:
-        data = agh_get("/control/filtering/status")
-        rules = data.get("user_rules", [])
-        return [r for r in rules if f"$client={client_id}" in r]
-    except:
-        return []
-
-def remove_custom_rule(client_id, rule):
-    # rule passed in may or may not have $client= suffix
-    full_rule = rule if f"$client={client_id}" in rule else f"{rule}$client={client_id}"
-    try:
-        data = agh_get("/control/filtering/status")
-        rules = data.get("user_rules", [])
-        new_rules = [r for r in rules if r != full_rule and r != rule]
-        return agh_post("/control/filtering/set_rules", {"rules": new_rules})
-    except Exception as e:
-        log.error(f"remove_custom_rule error: {e}")
-        return False
-    return agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": {**client, "filtering_rules": rules}})
-
-# ── AUTH ──────────────────────────────────────────────────
-
-def make_token(email, is_admin=False):
-    return jwt.encode({
-        "email": email,
-        "admin": is_admin,
-        "exp": datetime.utcnow() + timedelta(hours=8)
-    }, SECRET_KEY, algorithm="HS256")
-
-def verify_token(token):
-    try:
-        return jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
-    except:
-        return None
 
 def login_required(f):
     @wraps(f)
@@ -521,16 +339,20 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
-def send_email(to, subject, html):
-    try:
-        requests.post("https://api.resend.com/emails",
-            headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
-            json={"from": f"Harbor Privacy <{FROM_EMAIL}>", "to": [to], "subject": subject, "html": html},
-            timeout=10)
-    except:
-        pass
+# ════════════════════════════════════════════════════════════
+# SECTION 08 — EMAIL
+# Owns: send_email (Resend API), email-failures.json log
+# Larger templates live in webhook.py (send_welcome_email etc.)
+# ════════════════════════════════════════════════════════════
 
-# ── SHARED STYLE ──────────────────────────────────────────
+from harbor_lib.email import send_email, record_email_failure as _record_email_failure
+from harbor_lib.config import EMAIL_FAILURES_FILE
+
+# ════════════════════════════════════════════════════════════
+# SECTION 09 — SHARED STYLE + NAV
+# Owns: STYLE (HTML head + CSS), NAV_CUSTOMER, NAV_ADMIN
+# Every render_template_string prepends STYLE + a NAV
+# ════════════════════════════════════════════════════════════
 
 STYLE = """<!DOCTYPE html>
 <html lang="en">
@@ -556,12 +378,12 @@ STYLE = """<!DOCTYPE html>
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.7;min-height:100vh;}
   body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:0.3;pointer-events:none;z-index:0;}
-  nav{padding:16px 32px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;background:var(--surface);}
-  .logo{font-family:'DM Mono',monospace;font-size:15px;color:var(--accent);letter-spacing:0.1em;text-decoration:none;}
+  nav{padding:16px 32px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;background:linear-gradient(180deg,#111618 0%,#0c1213 100%);backdrop-filter:saturate(140%) blur(4px);}
+  .logo{font-family:'DM Mono',monospace;font-size:14px;color:var(--accent);letter-spacing:0.1em;text-decoration:none;white-space:nowrap;}
   .logo span{color:var(--muted);}
   .nav-links{display:flex;gap:8px;align-items:center;flex-wrap:wrap;row-gap:6px;}
-  .nav-links a{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.06em;transition:color 0.15s;}
-  .nav-links a:hover,.nav-links a.active{color:var(--accent);}
+  .nav-links a{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.06em;padding:6px 10px;border-radius:6px;transition:color 0.15s,background 0.15s;}
+  .nav-links a:hover,.nav-links a.active{color:var(--accent);background:rgba(0,229,192,0.06);}
   .wrap{max-width:960px;margin:0 auto;padding:48px 32px 80px;position:relative;z-index:1;}
   .wrap-sm{max-width:500px;margin:0 auto;padding:60px 32px;position:relative;z-index:1;}
   .card{background:var(--surface);border:1px solid var(--border);padding:32px;margin-bottom:20px;}
@@ -641,6 +463,25 @@ STYLE = """<!DOCTYPE html>
   }
 </style>
 <script>
+// CSRF: auto-attach X-CSRF header on same-origin state-changing fetches
+(function(){
+  var TOKEN = "{{ csrf_token }}";
+  window.__CSRF = TOKEN;
+  var _f = window.fetch;
+  window.fetch = function(url, opts){
+    opts = opts || {};
+    var m = (opts.method || 'GET').toUpperCase();
+    if (m === 'POST' || m === 'PUT' || m === 'DELETE' || m === 'PATCH') {
+      var u = String(url || '');
+      if (u.charAt(0) === '/' || u.indexOf(location.origin) === 0) {
+        opts.headers = opts.headers || {};
+        if (!opts.headers['X-CSRF'] && !opts.headers['x-csrf']) opts.headers['X-CSRF'] = TOKEN;
+        if (opts.credentials === undefined) opts.credentials = 'same-origin';
+      }
+    }
+    return _f(url, opts);
+  };
+})();
 function toggleGroup(btn){var body=btn.nextElementSibling;var arrow=btn.querySelector('.group-arrow');if(body.style.display==='none'){body.style.display='block';arrow.innerHTML='&#9650;';}else{body.style.display='none';arrow.innerHTML='&#9660;';}}
 var TIMEOUT=30*60*1000,WARNING=25*60*1000,timer,warnTimer,warned=false;
 function resetTimer(){clearTimeout(timer);clearTimeout(warnTimer);warned=false;var w=document.getElementById("timeout-warning");if(w)w.style.display="none";warnTimer=setTimeout(showWarning,WARNING);timer=setTimeout(function(){window.location.href="/logout";},TIMEOUT);}
@@ -654,7 +495,7 @@ window.addEventListener("load",resetTimer);
 """
 
 NAV_CUSTOMER = """
-<div id="timeout-warning" style="display:none;position:fixed;bottom:24px;right:24px;background:#111618;border:1px solid #00e5c0;padding:20px 24px;z-index:9999;font-family:monospace;font-size:12px;color:#e8f0ef;flex-direction:column;gap:12px;max-width:300px;"><span>You will be logged out in 5 minutes due to inactivity.</span><button onclick="resetTimer()" style="background:#00e5c0;color:#0a0e0f;border:none;padding:8px 16px;cursor:pointer;font-family:monospace;font-size:11px;">Stay Logged In</button></div>
+<div id="timeout-warning" style="display:none;position:fixed;bottom:24px;right:24px;background:#f4eee2;border:1px solid #1f5d6b;padding:20px 24px;z-index:9999;font-family:monospace;font-size:12px;color:#1a2420;flex-direction:column;gap:12px;max-width:300px;"><span>You will be logged out in 5 minutes due to inactivity.</span><button onclick="resetTimer()" style="background:#1f5d6b;color:#ffffff;border:none;padding:8px 16px;cursor:pointer;font-family:monospace;font-size:11px;">Stay Logged In</button></div>
 <nav style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);">
     <a href="/dashboard" class="logo">harbor<span>/</span>privacy</a>
@@ -675,7 +516,7 @@ NAV_CUSTOMER = """
 </nav>"""
 
 NAV_ADMIN = """
-<div id="timeout-warning" style="display:none;position:fixed;bottom:24px;right:24px;background:#111618;border:1px solid #00e5c0;padding:20px 24px;z-index:9999;font-family:monospace;font-size:12px;color:#e8f0ef;flex-direction:column;gap:12px;max-width:300px;"><span>You will be logged out in 5 minutes due to inactivity.</span><button onclick="resetTimer()" style="background:#00e5c0;color:#0a0e0f;border:none;padding:8px 16px;cursor:pointer;font-family:monospace;font-size:11px;">Stay Logged In</button></div>
+<div id="timeout-warning" style="display:none;position:fixed;bottom:24px;right:24px;background:#f4eee2;border:1px solid #1f5d6b;padding:20px 24px;z-index:9999;font-family:monospace;font-size:12px;color:#1a2420;flex-direction:column;gap:12px;max-width:300px;"><span>You will be logged out in 5 minutes due to inactivity.</span><button onclick="resetTimer()" style="background:#1f5d6b;color:#ffffff;border:none;padding:8px 16px;cursor:pointer;font-family:monospace;font-size:11px;">Stay Logged In</button></div>
 <nav style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);">
     <a href="/admin" class="logo">harbor<span>/</span>privacy</a>
@@ -690,7 +531,11 @@ NAV_ADMIN = """
   </div>
 </nav>"""
 
-# ── ROUTES: AUTH ──────────────────────────────────────────
+# ════════════════════════════════════════════════════════════
+# SECTION 10 — ROUTES: AUTH
+# /login, /logout, /setup, /dns-whoami, /dns-check, /setup/2fa-prompt
+# Public Turnstile-protected pages — exempt from CSRF guard
+# ════════════════════════════════════════════════════════════
 
 @app.route("/")
 def index():
@@ -731,8 +576,12 @@ def login():
                 else:
                     customer = find_customer(email)
                     if customer:
-                        # Customer but no account yet - go to setup
-                        return redirect(f"/setup?email={email}")
+                        # Customer but no account yet — DO NOT bare-redirect (would let
+                        # anyone who knows the email claim the account). They must use
+                        # the setup link in the welcome email, which carries an HMAC token.
+                        error = ("Check your welcome email for the 'Set Up Your Account' link. "
+                                 "Lost it? Email support@harborprivacy.com")
+                        step = "1"
                     else:
                         error = "No Harbor Privacy subscription found for this email. Need help? Email support@harborprivacy.com"
                         step = "1"
@@ -918,14 +767,40 @@ def dns_check():
 
 @app.route("/setup", methods=["GET", "POST"])
 def setup():
-    email = request.args.get("email", "") or request.form.get("email", "")
+    # Three valid access paths:
+    #   1. Authed via hp_token cookie (just clicked /confirm-trial — auto-login)
+    #   2. ?st=<HMAC token> matching the customer record (from welcome email)
+    #   3. ?admin=1 + ADMIN_EMAIL (legacy first-time admin setup)
+    # Bare ?email=X with no proof is REJECTED to close the takeover window.
     is_admin = request.args.get("admin", "0") == "1" or request.form.get("is_admin", "0") == "1"
+
+    cookie_email = None
+    _tok = request.cookies.get("hp_token")
+    if _tok:
+        _p = verify_token(_tok)
+        if _p: cookie_email = (_p.get("email") or "").lower()
+
+    raw_email = (request.args.get("email", "") or request.form.get("email", "")).strip().lower()
+    st = (request.args.get("st", "") or request.form.get("st", "")).strip()
+
+    if cookie_email:
+        email = cookie_email
+    elif is_admin and raw_email == ADMIN_EMAIL.lower():
+        email = ADMIN_EMAIL
+    elif raw_email and st and _verify_setup_token(st, raw_email):
+        email = raw_email
+    else:
+        return redirect("/login")
+
+    # Already has a password? Don't allow re-set via this route.
+    if load_users().get(email) and not is_admin:
+        return redirect("/login")
+
     error = None
 
     if request.method == "POST":
         password = request.form.get("password", "")
         password2 = request.form.get("password2", "")
-        email = request.form.get("email", "").lower().strip()
         is_admin = request.form.get("is_admin", "0") == "1"
 
         if not is_admin and not find_customer(email):
@@ -989,7 +864,11 @@ def logout():
     resp.delete_cookie("hp_token")
     return resp
 
-# ── CUSTOMER DASHBOARD ────────────────────────────────────
+# ════════════════════════════════════════════════════════════
+# SECTION 11 — ROUTES: CUSTOMER DASHBOARD
+# /dashboard — main authenticated customer page
+# CRITICAL: plan_type must be set before harbor_kids (~line 1700)
+# ════════════════════════════════════════════════════════════
 
 @app.route("/dashboard")
 @login_required
@@ -1124,7 +1003,7 @@ def dashboard():
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;flex-wrap:wrap;gap:16px;">
     <div>
       <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">Your Dashboard</p>
-      <h1>{{ name }} {% if is_founder %}<span class="badge" style="background:#00e5c0;color:#0a0e0f;font-size:10px;vertical-align:middle;">FOUNDER</span>{% endif %}</h1>
+      <h1>{{ name }} {% if is_founder %}<span class="badge" style="background:#1f5d6b;color:#ffffff;font-size:10px;vertical-align:middle;">FOUNDER</span>{% endif %}</h1>
     </div>
     {% if is_active %}
     <div style="text-align:right;">
@@ -1151,7 +1030,7 @@ def dashboard():
   {% endif %}
 
   {% if not is_active %}
-  <div class="locked-overlay" style="border-color:var(--accent);background:#00e5c008;margin-bottom:32px;">
+  <div class="locked-overlay" style="border-color:var(--accent);background:#1f5d6b08;margin-bottom:32px;">
     <div class="locked-icon">⚠</div>
     <div class="locked-text">
       <strong>No active Harbor Remote subscription found</strong>
@@ -1209,7 +1088,7 @@ def dashboard():
       {% if is_founder %}
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">TIER</span>
-        <span class="badge" style="background:#00e5c0;color:#0a0e0f;">FOUNDER</span>
+        <span class="badge" style="background:#1f5d6b;color:#ffffff;">FOUNDER</span>
       </div>
       {% endif %}
       {% if has_family %}
@@ -1508,7 +1387,12 @@ async function removeRule(rule){
         is_founder=is_founder, top_blocked=top_blocked, customer=customer,
         service_groups=service_groups, blocked_services=blocked_services, active="dashboard")
 
-# ── ADMIN DASHBOARD ───────────────────────────────────────
+# ════════════════════════════════════════════════════════════
+# SECTION 12 — ROUTES: ADMIN DASHBOARD
+# /admin, /admin/customer/<id>, /admin/analytics, /admin/links
+# Also /api/admin/* (split between sections 16-17)
+# CRITICAL: plan_type before harbor_kids in admin_customer too
+# ════════════════════════════════════════════════════════════
 
 @app.route("/admin")
 @admin_required
@@ -1520,6 +1404,14 @@ def admin():
     total_queries = stats.get("num_dns_queries", 0)
     total_blocked = stats.get("num_blocked_filtering", 0)
     block_pct = round(total_blocked / max(total_queries, 1) * 100, 1)
+
+    # Fetch all AGH clients ONCE and build a lookup map to avoid the per-row
+    # get_client() call that was hitting AGH 276+ times per page render.
+    all_clients = (agh_get("/control/clients") or {}).get("clients") or []
+    clients_map = {}
+    for _cl in all_clients:
+        for _cid in (_cl.get("ids") or []):
+            clients_map[_cid] = _cl
 
     html = STYLE + NAV_ADMIN + """
 <div class="wrap">
@@ -1552,7 +1444,7 @@ def admin():
         <span>ACTIONS</span>
       </div>
       {% for c in customers %}
-      {% set cl = get_client(c.client_id) %}
+      {% set cl = clients_map.get(c.client_id, {}) %}
       <div class="customer-row" {% if c.status == 'failed' %}style="border-left:3px solid #ff4e4e;background:rgba(255,78,78,0.05);"{% endif %}>
         <div>
           <div style="font-size:14px;color:var(--text);">{{ c.name }}{% if c.status == 'failed' %} <span style="font-family:'DM Mono',monospace;font-size:10px;color:#ff4e4e;letter-spacing:0.1em;">⚠ PROVISION FAILED</span>{% endif %}</div>
@@ -1604,7 +1496,7 @@ async function deleteCustomer(cid, name, btn){
 </html>"""
     return render_template_string(html, customers=customers,
         total_queries=total_queries, block_pct=block_pct,
-        get_client=get_client, active="admin")
+        clients_map=clients_map, get_client=get_client, active="admin")
 
 
 @app.route("/api/signup-stats")
@@ -1841,7 +1733,7 @@ def admin_links():
       <input type="text" id="new-icon" placeholder="Icon (emoji or symbol)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px;font-family:'DM Mono',monospace;font-size:12px;">
       <input type="text" id="new-url" placeholder="https://..." style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px;font-family:'DM Mono',monospace;font-size:12px;">
       <label style="display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">
-        <input type="checkbox" id="new-featured" style="width:16px;height:16px;accent-color:#00e5c0;flex-shrink:0;margin:0;"> Featured (teal highlight)
+        <input type="checkbox" id="new-featured" style="width:16px;height:16px;accent-color:#1f5d6b;flex-shrink:0;margin:0;"> Featured (teal highlight)
       </label>
       <button id="add-link-btn" class="btn">Add Link</button>
       <div id="add-status" style="font-family:'DM Mono',monospace;font-size:11px;"></div>
@@ -1996,7 +1888,7 @@ def admin_customer(client_id):
       {% if is_founder %}
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">TIER</span>
-        <span class="badge" style="background:#00e5c0;color:#0a0e0f;">FOUNDER</span>
+        <span class="badge" style="background:#1f5d6b;color:#ffffff;">FOUNDER</span>
       </div>
       {% endif %}
     </div>
@@ -2280,7 +2172,11 @@ async function removeRule(rule){
         service_groups=service_groups, blocked_services=blocked_services,
         code_valid=code_valid, active="admin")
 
-# ── SETTINGS ──────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════
+# SECTION 13 — ROUTES: SETTINGS
+# /settings, /settings/password, /settings/2fa/*, /settings/data-request
+# All require @login_required + CSRF token in form
+# ════════════════════════════════════════════════════════════
 
 @app.route("/settings", methods=["GET"])
 @login_required
@@ -2316,6 +2212,7 @@ def settings():
   <div class="card">
     <div class="card-label">Change Password</div>
     <form method="POST" action="/settings/password">
+      <input type="hidden" name="csrf" value="{{ csrf_token }}">
       <input type="password" name="current" placeholder="Current password" required>
       <input type="password" name="new_pw" placeholder="New password (min 8 characters)" required minlength="8">
       <input type="password" name="confirm" placeholder="Confirm new password" required>
@@ -2331,6 +2228,7 @@ def settings():
     {% else %}
     <p style="color:var(--accent);font-family:'DM Mono',monospace;font-size:13px;margin-bottom:16px;">&#10003; Two-factor authentication is enabled.</p>
     <form method="POST" action="/settings/2fa/disable" style="display:flex;gap:12px;flex-wrap:wrap;">
+      <input type="hidden" name="csrf" value="{{ csrf_token }}">
       <input type="password" name="password" placeholder="Enter password to disable" required style="margin:0;flex:1;">
       <button type="submit" class="btn btn-danger">Disable 2FA</button>
     </form>
@@ -2446,6 +2344,7 @@ def setup_2fa():
   <p style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:8px;letter-spacing:0.1em;">CAN'T SCAN? ENTER THIS CODE MANUALLY:</p>
   <div style="background:var(--bg);border:1px solid var(--border);padding:12px 16px;font-family:'DM Mono',monospace;font-size:14px;color:var(--accent);letter-spacing:0.2em;word-break:break-all;margin-bottom:24px;">{{ secret }}</div>
   <form method="POST" action="/settings/2fa/enable">
+    <input type="hidden" name="csrf" value="{{ csrf_token }}">
     <input type="hidden" name="secret" value="{{ secret }}">
     <input type="text" name="code" placeholder="Enter 6-digit code to confirm" maxlength="6" required autofocus>
     <button type="submit" class="btn" style="width:100%;">Enable 2FA →</button>
@@ -2487,9 +2386,9 @@ def data_request():
     email = request.user_email
     customer = find_customer(email)
     user = get_user(email)
-    html_body = f"""<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
-<h2 style="font-family:Georgia,serif;font-weight:400;color:#00e5c0;">Your Harbor Privacy Data Report</h2>
-<p style="color:#6b8a87;font-size:13px;">Generated: {datetime.utcnow().isoformat()} UTC</p>
+    html_body = f"""<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h2 style="font-family:Georgia,serif;font-weight:400;color:#1f5d6b;">Your Harbor Privacy Data Report</h2>
+<p style="color:#6b7a72;font-size:13px;">Generated: {datetime.utcnow().isoformat()} UTC</p>
 <hr style="border-color:#1e2a2d;margin:20px 0;">
 <p><strong>Email:</strong> {email}</p>
 <p><strong>Name:</strong> {customer.get('name','') if customer else 'N/A'}</p>
@@ -2502,12 +2401,15 @@ def data_request():
 <p><strong>Browsing History:</strong> None retained.</p>
 <p><strong>Payment Data:</strong> Handled by Stripe. Harbor Privacy does not store card details.</p>
 <hr style="border-color:#1e2a2d;margin:20px 0;">
-<p style="color:#6b8a87;font-size:13px;">Questions? Email support@harborprivacy.com</p>
+<p style="color:#6b7a72;font-size:13px;">Questions? Email support@harborprivacy.com</p>
 </div>"""
     send_email(email, "Your Harbor Privacy Data Report", html_body)
     return redirect("/settings?msg=Your+data+report+has+been+sent+to+your+email.&ok=1")
 
-# ── PASSWORD RESET ────────────────────────────────────────
+# ════════════════════════════════════════════════════════════
+# SECTION 14 — ROUTES: PASSWORD RESET
+# /forgot, /reset — public, token-based, CSRF-exempt
+# ════════════════════════════════════════════════════════════
 
 @app.route("/forgot", methods=["GET", "POST"])
 def forgot():
@@ -2524,7 +2426,7 @@ def forgot():
             save_users(users)
             reset_url = f"https://dashboard.harborprivacy.com/reset?token={token}"
             send_email(email, "Reset your Harbor Privacy password",
-                f'<div style="font-family:sans-serif;background:#0a0e0f;color:#e8f0ef;padding:32px;"><h2 style="font-family:Georgia,serif;font-weight:400;">Password Reset</h2><p>Click below to reset your password. This link expires in 1 hour.</p><p><a href="{reset_url}" style="color:#00e5c0;">{reset_url}</a></p><p style="color:#6b8a87;font-size:13px;">If you did not request this, ignore this email.</p></div>')
+                f'<div style="font-family:sans-serif;background:#fbf7f0;color:#1a2420;padding:32px;"><h2 style="font-family:Georgia,serif;font-weight:400;">Password Reset</h2><p>Click below to reset your password. This link expires in 1 hour.</p><p><a href="{reset_url}" style="color:#1f5d6b;">{reset_url}</a></p><p style="color:#6b7a72;font-size:13px;">If you did not request this, ignore this email.</p></div>')
         sent = True
 
     html = STYLE + """
@@ -2593,7 +2495,12 @@ def reset():
 </html>"""
     return render_template_string(html, token=token, error=error)
 
-# ── API ───────────────────────────────────────────────────
+# ════════════════════════════════════════════════════════════
+# SECTION 15 — ROUTES: CUSTOMER API
+# /api/pause, /api/profile, /api/addon, /api/service, /api/rule,
+# /api/support-code, /api/weekly-email, /api/windows/*
+# All POST require CSRF (except /api/windows/* per exempt list)
+# ════════════════════════════════════════════════════════════
 
 
 import random as _random
@@ -2611,7 +2518,7 @@ def windows_send_code():
     import time as _time
     code = str(_random.randint(100000, 999999))
     WINDOWS_APP_CODES[email] = {"code": code, "expires": _time.time() + 600}
-    html = f'<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;"><h2 style="font-family:Georgia,serif;font-weight:400;">Your Harbor Privacy Login Code</h2><p>Use this code to sign in to the Harbor Privacy Windows app:</p><p style="background:#111618;border-left:3px solid #00e5c0;padding:20px;font-family:monospace;font-size:36px;color:#00e5c0;letter-spacing:0.4em;text-align:center;">{code}</p><p style="color:#6b8a87;font-size:13px;">Expires in 10 minutes.</p><p style="color:#6b8a87;font-size:13px;">- Tim | harborprivacy.com</p></div>'
+    html = f'<div style="font-family:sans-serif;max-width:560px;color:#1a2420;"><h2 style="font-family:Georgia,serif;font-weight:400;">Your Harbor Privacy Login Code</h2><p>Use this code to sign in to the Harbor Privacy Windows app:</p><p style="background:#f4eee2;border-left:3px solid #1f5d6b;padding:20px;font-family:monospace;font-size:36px;color:#1f5d6b;letter-spacing:0.4em;text-align:center;">{code}</p><p style="color:#6b7a72;font-size:13px;">Expires in 10 minutes.</p><p style="color:#6b7a72;font-size:13px;">- Tim | harborprivacy.com</p></div>'
     send_email(email, "Your Harbor Privacy Login Code", html)
     app.logger.info(f"Windows app code sent to {email}")
     return jsonify({"ok": True})
@@ -2777,9 +2684,12 @@ def api_addon():
         if ok:
             update_customer_harbor_kids_flag(client_id, True)
             try:
-                import subprocess, re as _re
+                import re as _re
                 if _re.match(r'^[a-zA-Z0-9_-]+$', kids_id):
-                    subprocess.Popen(["python3", "-c", f"import sys; sys.path.insert(0,'/home/ubuntu/harbor-backend'); from webhook import save_ios_kids_profile, generate_android_page, add_to_allowed_clients; save_ios_kids_profile('{kids_id}', 'Harbor Kids'); generate_android_page('{kids_id}'); add_to_allowed_clients('{kids_id}')"])
+                    from webhook import save_ios_kids_profile, generate_android_page, add_to_allowed_clients
+                    save_ios_kids_profile(kids_id, "Harbor Kids")
+                    generate_android_page(kids_id)
+                    add_to_allowed_clients(kids_id)
             except Exception as ex:
                 log.error(f"kids profile gen error: {ex}")
         return jsonify({"ok": ok, "kids_id": kids_id})
@@ -2969,9 +2879,12 @@ def api_admin_addon():
         if ok:
             update_customer_harbor_kids_flag(client_id, True)
             try:
-                import subprocess, re as _re
+                import re as _re
                 if _re.match(r'^[a-zA-Z0-9_-]+$', kids_id):
-                    subprocess.Popen(["python3", "-c", f"import sys; sys.path.insert(0,'/home/ubuntu/harbor-backend'); from webhook import save_ios_kids_profile, generate_android_page, add_to_allowed_clients; save_ios_kids_profile('{kids_id}', 'Harbor Kids'); generate_android_page('{kids_id}'); add_to_allowed_clients('{kids_id}')"])
+                    from webhook import save_ios_kids_profile, generate_android_page, add_to_allowed_clients
+                    save_ios_kids_profile(kids_id, "Harbor Kids")
+                    generate_android_page(kids_id)
+                    add_to_allowed_clients(kids_id)
             except Exception as ex:
                 log.error(f"kids profile gen error: {ex}")
         return jsonify({"ok": ok, "kids_id": kids_id})
@@ -3023,6 +2936,15 @@ def api_rule():
         domain = data.get("domain", "").strip().lower()
         return jsonify({"ok": add_custom_rule(client_id, domain, data.get("block", True))})
     return jsonify({"ok": remove_custom_rule(client_id, data.get("rule", ""))})
+
+# ════════════════════════════════════════════════════════════
+# SECTION 16 — ROUTES: ADMIN API
+# /api/admin/update-email, /api/admin/toggle-plan,
+# /api/admin/service, /api/admin/rule, /api/admin/delete-customer,
+# /api/admin/resend-welcome, /api/admin/reprovision,
+# /api/admin/addon, /api/admin/revoke-code, /api/admin/links
+# All POST require @admin_required + CSRF
+# ════════════════════════════════════════════════════════════
 
 @app.route("/api/admin/update-email", methods=["POST"])
 @admin_required
@@ -3079,6 +3001,11 @@ def api_admin_rule():
     return jsonify({"ok": remove_custom_rule(client_id, data.get("rule", ""))})
 
 
+# ════════════════════════════════════════════════════════════
+# SECTION 17 — ROUTES: ADMIN LOGS
+# /admin/logs, /admin/logs/stream — tail of webhook + dashboard logs
+# ════════════════════════════════════════════════════════════
+
 @app.route("/admin/logs")
 @admin_required
 def admin_logs():
@@ -3096,7 +3023,7 @@ def admin_logs():
         elif "WARNING" in line:
             colored.append(f'<span style="color:#f5a623">{line}</span>')
         elif any(x in line for x in ["reprovision","welcome","stripe","email"]):
-            colored.append(f'<span style="color:#00e5c0">{line}</span>')
+            colored.append(f'<span style="color:#1f5d6b">{line}</span>')
         else:
             colored.append(f'<span style="color:#a8c5c1">{line}</span>')
     log_html = "\n".join(colored)
@@ -3115,6 +3042,13 @@ def admin_logs_stream():
     from flask import Response
     return Response(result.stdout, mimetype="text/plain")
 
+
+# ════════════════════════════════════════════════════════════
+# SECTION 18 — ROUTES: SOCIAL (admin tool)
+# /social UI, /api/social/generate, /api/social/post-to-make,
+# /api/social/status, /api/social/toggle
+# Helpers: _build_post_prompt, _generate_image_claude/openai
+# ════════════════════════════════════════════════════════════
 
 @app.route("/social")
 @admin_required
@@ -3241,7 +3175,7 @@ Style: very dark background (#0a0e0f), teal accent color (#00e5c0), clean geomet
         r = _req.post("https://api.anthropic.com/v1/messages",
             headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY",""), "anthropic-version": "2023-06-01", "content-type": "application/json"},
             json={
-                "model": "claude-opus-4-5-20251101",
+                "model": "claude-opus-4-7",
                 "max_tokens": 1024,
                 "messages": [{"role": "user", "content": [
                     {"type": "text", "text": img_prompt},
@@ -3370,76 +3304,387 @@ def social_generate():
         "headline": headline
     })
 
+# ════════════════════════════════════════════════════════════
+# SECTION 19 — ROUTES: TRIAL SIGNUP /begin
+# Public Turnstile-protected endpoint. Creates AGH client,
+# iOS profile, Android page, QR, then sends welcome email.
+# Dedup welcome via webhook.is_processed("welcome:{email}").
+# ════════════════════════════════════════════════════════════
+
 @app.route("/begin", methods=["POST"])
 def begin_trial():
+    """Trial signup — now a 2-step flow:
+       1. /begin       validate + send confirmation email (NO provisioning yet)
+       2. /confirm-trial/<token>   actually creates the AGH client + sends welcome
+    """
     import json as _json
-    from webhook import (generate_client_id, create_adguard_client, save_ios_profile,
-                         log_customer, send_welcome_email, add_to_allowed_clients,
-                         generate_android_page, generate_qr_code, schedule_wipe)
+    import re as _re_email
+    import secrets as _secrets, time as _time
     try:
         data = request.get_json(silent=True) or {}
         email = (data.get("email") or request.form.get("email", "")).strip().lower()
-        if not email or "@" not in email:
+        EMAIL_RE = _re_email.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
+        if not email or not EMAIL_RE.match(email) or len(email) > 254:
             return jsonify({"error": "Valid email required"}), 400
 
-        DISPOSABLE_DOMAINS = {
-            "immenseignite.info","mailinator.com","guerrillamail.com","tempmail.com",
-            "throwam.com","trashmail.com","sharklasers.com","guerrillamailblock.com",
-            "grr.la","guerrillamail.info","guerrillamail.biz","guerrillamail.de",
-            "guerrillamail.net","guerrillamail.org","spam4.me","yopmail.com",
-            "yopmail.fr","cool.fr.nf","jetable.fr.nf","nospam.ze.tc","nomail.xl.cx",
-            "mega.zik.dj","speed.1s.fr","courriel.fr.nf","moncourrier.fr.nf",
-            "monemail.fr.nf","monmail.fr.nf","dispostable.com","maildrop.cc",
-            "spamgourmet.com","spamgourmet.net","spamgourmet.org","trashmail.at",
-            "trashmail.io","trashmail.me","trashmail.net","trashmail.org",
-            "discard.email","spamspot.com","tempr.email","discardmail.com",
-            "discardmail.de","spamcon.org","0-mail.com","mt2009.com","shieldedmail.com",
-        }
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+
+        # Per-IP signup rate limit: max 3 attempts per hour
+        if not _signup_rate_ok(ip, limit=1, window=3600):
+            if request.is_json:
+                return jsonify({"ok": False, "error": "rate_limited",
+                                "redirect": "https://adblock.harborprivacy.com/slow-down.html"}), 429
+            return redirect("https://adblock.harborprivacy.com/slow-down.html")
+
+        # Disposable domain block
+        try:
+            with open("/home/ubuntu/harbor-backend/disposable-domains.txt") as _df:
+                DISPOSABLE_DOMAINS = {ln.strip().lower() for ln in _df if ln.strip() and not ln.startswith("#")}
+        except Exception:
+            DISPOSABLE_DOMAINS = set()
         email_domain = email.split("@")[-1]
         if email_domain in DISPOSABLE_DOMAINS:
             return jsonify({"error": "Please use a permanent email address."}), 400
 
-        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
-        token = data.get("cf_turnstile_response") or request.form.get("cf-turnstile-response", "")
-        if not _verify_turnstile(token, ip):
+        # Honeypot - real browsers leave hidden field empty, bots fill everything
+        if (data.get("website") or request.form.get("website", "")).strip():
+            log.warning(f"honeypot tripped from {ip} for {email}")
             _inc_bots_blocked()
+            return jsonify({"ok": True, "message": "Check your email to confirm your signup."})
+        # Min form-fill time - bots submit instantly
+        try:
+            fts = int(data.get("fts") or request.form.get("fts", "0"))
+        except Exception:
+            fts = 0
+        if fts and (int(_time.time()*1000) - fts) < 3000:
+            log.warning(f"fast-submit bot from {ip} for {email}")
+            _inc_bots_blocked()
+            return jsonify({"ok": True, "message": "Check your email to confirm your signup."})
+
+        # Turnstile (defense in depth — known to be solver-bypassable but still helpful)
+        ts = data.get("cf_turnstile_response") or request.form.get("cf-turnstile-response", "")
+        if not _verify_turnstile(ts, ip):
+            _inc_bots_blocked()
+            record_failed_login(ip)
             return jsonify({"error": "CAPTCHA verification failed. Please try again."}), 400
 
-        # Check for duplicate
+        # Duplicate check — now reads the REAL customer log
         try:
-            with open("/home/ubuntu/harbor-backend/harbor-customers.json") as f:
-                customers = _json.load(f)
-        except Exception:
-            customers = {}
-        for cid, c in customers.items():
-            if c.get("email", "").lower() == email:
-                return jsonify({"error": "An account with that email already exists."}), 409
+            with open("/var/log/harbor-customers.json") as f:
+                for ln in f:
+                    try:
+                        c = _json.loads(ln)
+                    except Exception: continue
+                    if c.get("email", "").lower() == email and c.get("status") == "active":
+                        if request.is_json:
+                            return jsonify({"ok": False, "error": "already_exists",
+                                            "redirect": "https://adblock.harborprivacy.com/already-member.html"}), 409
+                        return redirect("https://adblock.harborprivacy.com/already-member.html")
+        except Exception: pass
 
-        name = email.split("@")[0].capitalize()
-        client_id = generate_client_id(name, email)
-        plan = "trial"
-        plan_type = "light"
+        # Don't provision yet. Issue a pending-signup record + confirmation email.
+        token = _secrets.token_urlsafe(32)
+        _save_pending_signup(token, email=email, ip=ip,
+                             created_at=int(_time.time()))
+        _send_signup_confirmation(email, token)
+        _record_signup_attempt(ip)
 
-        # Build AdGuard client
-        create_adguard_client(client_id, name)
-        add_to_allowed_clients(client_id)
-        save_ios_profile(client_id, name)
-        generate_android_page(client_id)
-        generate_qr_code(client_id)
-
-        profile_url = f"https://harborprivacy.com/profiles/{client_id}.mobileconfig"
-        log_customer(client_id, name, email, plan, stripe_customer_id="",
-                     plan_type=plan_type, is_trial=True, status="active")
-        schedule_wipe(client_id, delay=30 * 24 * 3600)
-        send_welcome_email(email, name, client_id, plan, profile_url=profile_url, plan_type=plan_type)
-
-        # JSON for fetch() calls, redirect for direct form POST
         if request.is_json:
-            return jsonify({"ok": True, "message": "Check your email for setup instructions."})
-        return redirect("https://harborprivacy.com/welcome.html")
+            return jsonify({"ok": True,
+                            "message": "Check your email to confirm your signup."})
+        return redirect("https://harborprivacy.com/confirm-your-email.html")
     except Exception as e:
         log.error(f"/begin error: {e}")
         return jsonify({"error": "Something went wrong. Please try again."}), 500
+
+
+# ── Signup-rate-limit + pending-signups helpers ─────────────
+_SIGNUP_ATTEMPTS = {}      # ip -> [ts, ts, ...]  rolling hour
+_PENDING_FILE = "/var/log/harbor-pending-signups.json"
+
+def _signup_rate_ok(ip, limit=3, window=3600):
+    import time as _t
+    now = _t.time()
+    rec = [t for t in _SIGNUP_ATTEMPTS.get(ip, []) if (now - t) < window]
+    _SIGNUP_ATTEMPTS[ip] = rec
+    return len(rec) < limit
+
+def _record_signup_attempt(ip):
+    import time as _t
+    _SIGNUP_ATTEMPTS.setdefault(ip, []).append(_t.time())
+
+def _save_pending_signup(token, **fields):
+    import json as _json, os
+    pending = _load_pending()
+    pending[token] = fields
+    # Prune expired (>24h)
+    import time as _t
+    now = _t.time()
+    pending = {k: v for k, v in pending.items() if (now - v.get("created_at", 0)) < 24*3600}
+    try:
+        with open(_PENDING_FILE, "w") as f:
+            _json.dump(pending, f)
+        os.chmod(_PENDING_FILE, 0o600)
+    except Exception as e:
+        log.error(f"pending save: {e}")
+
+def _load_pending():
+    import json as _json
+    try:
+        with open(_PENDING_FILE) as f:
+            return _json.load(f)
+    except Exception:
+        return {}
+
+def _send_signup_confirmation(email, token):
+    """Send the click-to-confirm email. Until they click, no AGH client gets created."""
+    from webhook import send_email
+    confirm_url = f"https://adblock.harborprivacy.com/confirm-trial/{token}"
+    html = f"""<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;color:#1a2420;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;">Confirm your Harbor Privacy account</h1>
+<p>Hi there,</p>
+<p>Tap the button below to activate your 30-day free trial. The link expires in 24 hours.</p>
+<p style="margin:24px 0;"><a href="{confirm_url}" style="display:inline-block;background:#1f5d6b;color:#ffffff;padding:14px 28px;text-decoration:none;font-weight:600;letter-spacing:.02em;border-radius:8px;font-size:15px;">Activate my trial &rarr;</a></p>
+<p style="font-size:13px;color:#6b7a72;">Or paste this link into your browser:<br><span style="font-family:'DM Mono',monospace;font-size:12px;word-break:break-all;color:#1f5d6b;">{confirm_url}</span></p>
+<p style="font-size:13px;color:#6b7a72;margin-top:24px;">Didn't sign up? You can safely ignore this email.</p>
+</div>"""
+    send_email(email, "Confirm your Harbor Privacy account", html)
+
+
+@app.route("/confirm-trial/<token>")
+def confirm_trial(token):
+    """Activate a pending trial: provision AGH client + send welcome email."""
+    import json as _json, time as _t
+    from webhook import (generate_client_id, create_adguard_client, save_ios_profile,
+                         log_customer, send_welcome_email, add_to_allowed_clients,
+                         generate_android_page, generate_qr_code, schedule_wipe)
+    # Atomic claim FIRST — defends against email-scanner prefetch races
+    # (Gmail, Outlook ATP, Mimecast, Proofpoint all prefetch link contents).
+    pending = _load_pending()
+    entry = pending.pop(token, None)
+    if not entry:
+        return "Confirmation link expired or already used.", 410
+    try:
+        with open(_PENDING_FILE, "w") as _f:
+            _json.dump(pending, _f)
+    except Exception: pass
+    if _t.time() - entry.get("created_at", 0) > 24 * 3600:
+        return "This link expired. Please sign up again.", 410
+
+    email = entry["email"]
+    # Double-check no one snuck a duplicate provisioning through
+    try:
+        with open("/var/log/harbor-customers.json") as f:
+            for ln in f:
+                try:
+                    c = _json.loads(ln)
+                except Exception: continue
+                if c.get("email", "").lower() == email and c.get("status") == "active":
+                    pending.pop(token, None)
+                    _json.dump(pending, open(_PENDING_FILE, "w"))
+                    return redirect("https://adblock.harborprivacy.com/already-member.html")
+    except Exception: pass
+
+    name = email.split("@")[0].capitalize()
+    client_id = generate_client_id(name, email)
+    plan = "trial"; plan_type = "light"
+
+    create_adguard_client(client_id, name)
+    add_to_allowed_clients(client_id)
+    save_ios_profile(client_id, name)
+    generate_android_page(client_id)
+    generate_qr_code(client_id)
+
+    profile_url = f"https://harborprivacy.com/profiles/{client_id}.mobileconfig"
+    log_customer(client_id, name, email, plan, stripe_customer_id="",
+                 plan_type=plan_type, is_trial=True, status="active")
+    schedule_wipe(client_id, delay=30 * 24 * 3600)
+    setup_url = f"https://dashboard.harborprivacy.com/setup?email={email}&st={_setup_token_for(email) or ''}"
+    send_welcome_email(email, name, client_id, plan,
+                       profile_url=profile_url, plan_type=plan_type,
+                       setup_url=setup_url)
+
+    # Token was already claimed above; redirect to /setup on the dashboard
+    # subdomain. Cookie alone wouldn't cross subdomains so we also set
+    # domain=.harborprivacy.com, and the URL carries email+st (HMAC) as a
+    # fallback if the cookie is stripped en route.
+    st = _setup_token_for(email) or ""
+    auth = make_token(email, is_admin=False)
+    setup_redirect = f"https://dashboard.harborprivacy.com/setup?email={email}&st={st}"
+    resp = make_response(redirect(setup_redirect))
+    resp.set_cookie("hp_token", auth, domain=".harborprivacy.com",
+                    httponly=True, secure=True, samesite="Lax", max_age=86400)
+    return resp
+
+
+
+# ── ROUTES: CONTACT FORM ────────────────────────────────────
+_CONTACT_ATTEMPTS = {}  # ip -> [ts...]
+def _contact_rate_ok(ip, limit=3, window=3600):
+    import time as _t
+    now = _t.time()
+    rec = [t for t in _CONTACT_ATTEMPTS.get(ip, []) if (now - t) < window]
+    _CONTACT_ATTEMPTS[ip] = rec
+    return len(rec) < limit
+
+@app.route("/api/contact", methods=["POST", "OPTIONS"])
+def api_contact():
+    import time as _t, re as _re
+    if request.method == "OPTIONS":
+        r = make_response("", 204)
+        r.headers["Access-Control-Allow-Origin"] = "*"
+        r.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        r.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return r
+    data = request.get_json(silent=True) or request.form
+    name = (data.get("name") or "").strip()[:120]
+    email = (data.get("email") or "").strip().lower()[:254]
+    phone = (data.get("phone") or "").strip()[:40]
+    message = (data.get("message") or "").strip()[:5000]
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+
+    EMAIL_RE = _re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
+    if not name or not email or not EMAIL_RE.match(email) or not message:
+        return jsonify({"ok": False, "error": "Name, email, and message required."}), 400
+    if not _contact_rate_ok(ip):
+        return jsonify({"ok": False, "error": "Too many messages. Try again in an hour."}), 429
+    # Honeypot
+    if (data.get("website") or "").strip():
+        log.warning(f"contact honeypot tripped from {ip}")
+        return jsonify({"ok": True})  # silent success
+    # Min fill time
+    try: fts = int(data.get("fts") or 0)
+    except: fts = 0
+    if fts and (int(_t.time()*1000) - fts) < 3000:
+        log.warning(f"contact fast-submit from {ip}")
+        return jsonify({"ok": True})
+
+    from webhook import send_email
+    safe = lambda x: x.replace("<", "&lt;").replace(">", "&gt;")
+    body = (f"<div style=\"font-family:sans-serif\">"
+            f"<h3>New contact message</h3>"
+            f"<p><b>Name:</b> {safe(name)}<br>"
+            f"<b>Email:</b> {safe(email)}<br>"
+            f"<b>Phone:</b> {safe(phone) or '(none)'}<br>"
+            f"<b>IP:</b> {ip}</p>"
+            f"<hr><pre style=\"white-space:pre-wrap;font-family:inherit\">{safe(message)}</pre>"
+            f"</div>")
+    ok = send_email("support@harborprivacy.com", f"Contact: {name}", body)
+    resp = jsonify({"ok": bool(ok)})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp, (200 if ok else 500)
+
+
+
+# ── ROUTES: SECURITY + SYSTEM INFO WIDGETS ──────────────────
+_SEC_CACHE = {"ts": 0, "data": None}
+_SYS_CACHE = {"ts": 0, "data": None}
+
+def _run_cscli(*args):
+    import subprocess, json as _json
+    try:
+        r = subprocess.run(["sudo", "/usr/bin/cscli", *args, "-o", "json"],
+                           capture_output=True, timeout=8, text=True)
+        return _json.loads(r.stdout) if r.stdout.strip() else []
+    except Exception:
+        return []
+
+@app.route("/api/security-status")
+def api_security_status():
+    import time as _t
+    now = _t.time()
+    if _SEC_CACHE["data"] and (now - _SEC_CACHE["ts"]) < 30:
+        d = _SEC_CACHE["data"]
+    else:
+        decisions = _run_cscli("decisions", "list")
+        alerts_24h = _run_cscli("alerts", "list", "--since", "24h")
+        # Decisions list returns nested structure
+        bans = []
+        for a in decisions:
+            for dec in a.get("decisions", []):
+                if dec.get("type") == "ban":
+                    bans.append({
+                        "ip": dec.get("value"),
+                        "scenario": dec.get("scenario", "").replace("crowdsecurity/", ""),
+                        "country": a.get("source", {}).get("cn", "?"),
+                        "duration": dec.get("duration", "")[:8],
+                    })
+        # Scenario counts in last 24h
+        scn = {}
+        for a in alerts_24h:
+            name = (a.get("scenario") or "").replace("crowdsecurity/", "")
+            if name: scn[name] = scn.get(name, 0) + 1
+        top_scenarios = sorted(scn.items(), key=lambda x: -x[1])[:5]
+        d = {
+            "active_bans": len(bans),
+            "bans": bans[:8],
+            "alerts_24h": len(alerts_24h),
+            "top_scenarios": top_scenarios,
+            "updated": int(now),
+        }
+        _SEC_CACHE.update({"ts": now, "data": d})
+    resp = jsonify(d)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+@app.route("/api/system-info")
+def api_system_info():
+    import time as _t, os as _os, shutil as _sh, subprocess as _sp
+    now = _t.time()
+    if _SYS_CACHE["data"] and (now - _SYS_CACHE["ts"]) < 15:
+        d = _SYS_CACHE["data"]
+    else:
+        # uptime
+        try:
+            with open("/proc/uptime") as f: up_sec = float(f.read().split()[0])
+        except: up_sec = 0
+        days = int(up_sec // 86400); hours = int((up_sec % 86400) // 3600); mins = int((up_sec % 3600) // 60)
+        uptime_str = (f"{days}d " if days else "") + f"{hours}h {mins}m"
+        # load
+        try: la = _os.getloadavg()
+        except: la = (0, 0, 0)
+        # memory
+        mem = {}
+        try:
+            for ln in open("/proc/meminfo"):
+                k, v = ln.split(":")
+                mem[k.strip()] = int(v.split()[0]) * 1024
+        except: pass
+        mem_total = mem.get("MemTotal", 1); mem_avail = mem.get("MemAvailable", 0)
+        mem_used_pct = round((mem_total - mem_avail) / mem_total * 100, 1)
+        # disk
+        try:
+            du = _sh.disk_usage("/")
+            disk_pct = round(du.used / du.total * 100, 1)
+            disk_used_gb = round(du.used / 1024**3, 1); disk_total_gb = round(du.total / 1024**3, 1)
+        except: disk_pct = 0; disk_used_gb = disk_total_gb = 0
+        # services
+        services = ["harbor-dashboard","harbor-booking","harbor-fax","harbor-webhook",
+                    "harbor-career","brazer-dashboard","nginx","crowdsec",
+                    "crowdsec-firewall-bouncer","fail2ban","AdGuardHome"]
+        svc = {}
+        for sv in services:
+            try:
+                r = _sp.run(["systemctl","is-active",sv],capture_output=True,timeout=2,text=True)
+                svc[sv] = r.stdout.strip()
+            except: svc[sv] = "?"
+        d = {
+            "uptime": uptime_str,
+            "load": {"1m": round(la[0],2), "5m": round(la[1],2), "15m": round(la[2],2)},
+            "mem_pct": mem_used_pct,
+            "mem_used_gb": round((mem_total - mem_avail) / 1024**3, 1),
+            "mem_total_gb": round(mem_total / 1024**3, 1),
+            "disk_pct": disk_pct,
+            "disk_used_gb": disk_used_gb,
+            "disk_total_gb": disk_total_gb,
+            "services": svc,
+            "updated": int(now),
+        }
+        _SYS_CACHE.update({"ts": now, "data": d})
+    resp = jsonify(d)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
 
 @app.route("/api/social/post-to-make", methods=["POST"])
 @admin_required
@@ -3462,11 +3707,21 @@ def post_to_make():
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
+# ════════════════════════════════════════════════════════════
+# SECTION 20 — ROUTES: SOCIAL AUTOPOST
+# /api/social/autopost — cron-fired, protected by AUTOPOST_SECRET
+# Cycles through brands (harbor/career/fax/booking) and topics
+# ════════════════════════════════════════════════════════════
+
 @app.route("/api/social/autopost", methods=["POST"])
 def social_autopost():
     import requests as _req, json as _json
     secret = request.headers.get("X-Autopost-Secret", "")
-    if secret != os.environ.get("AUTOPOST_SECRET", "harbor-autopost-secret"):
+    expected = os.environ.get("AUTOPOST_SECRET", "")
+    if not expected:
+        log.error("AUTOPOST_SECRET not set — rejecting autopost")
+        return jsonify({"error": "server misconfigured"}), 503
+    if not secrets.compare_digest(secret, expected):
         return jsonify({"error": "unauthorized"}), 401
     import random as _random
     _brand_cycle = ["harbor", "career", "fax", "booking"]
@@ -4179,6 +4434,96 @@ loadStatus();
 </script>
 </body>
 </html>"""
+
+# ============================================================
+# start.harborprivacy.com magic-link auth
+# ============================================================
+START_TOKENS_PATH = "/var/log/harbor-start-tokens.json"
+HARBOR_HOME_IPS = {"75.67.22.175"}
+START_TOKEN_TTL = 90 * 24 * 3600
+START_RECIPIENT = "admin@harborprivacy.com"
+_START_RATELIMIT = {}
+
+def _load_start_tokens():
+    try:
+        with open(START_TOKENS_PATH) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _save_start_tokens(d):
+    try:
+        with open(START_TOKENS_PATH, "w") as f:
+            json.dump(d, f)
+    except Exception:
+        pass
+
+def _start_cors(resp):
+    resp.headers["Access-Control-Allow-Origin"] = "https://start.harborprivacy.com"
+    resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    resp.headers["Vary"] = "Origin"
+    return resp
+
+def _client_ip():
+    return request.headers.get("X-Real-IP") or request.headers.get("X-Forwarded-For", "").split(",")[0].strip() or request.remote_addr or ""
+
+# ════════════════════════════════════════════════════════════
+# SECTION 21 — ROUTES: START MAGIC (brazer startpage auth)
+# /api/start-magic, /api/start-verify
+# Magic-link email auth for start.brazer.us
+# CSRF-exempt (own token in URL)
+# ════════════════════════════════════════════════════════════
+
+@app.route("/api/start-magic", methods=["POST", "OPTIONS"])
+def api_start_magic():
+    if request.method == "OPTIONS":
+        return _start_cors(make_response("", 204))
+    ip = _client_ip()
+    now = int(_time.time())
+    last = _START_RATELIMIT.get(ip, 0)
+    if now - last < 300:
+        return _start_cors(jsonify({"ok": False, "error": "rate_limited"}))
+    data = request.get_json(silent=True) or {}
+    ts = data.get("cf_turnstile_response") or data.get("turnstile") or ""
+    if not _verify_turnstile(ts, ip):
+        return _start_cors(jsonify({"ok": False, "error": "captcha"}))
+    tokens = _load_start_tokens()
+    tokens = {k: v for k, v in tokens.items() if v.get("expires", 0) > now}
+    token = secrets.token_urlsafe(32)
+    tokens[token] = {"created": now, "expires": now + START_TOKEN_TTL, "ip": ip}
+    _save_start_tokens(tokens)
+    _START_RATELIMIT[ip] = now
+    link = f"https://start.harborprivacy.com/?access={token}"
+    html = f'<p>Click to access start.harborprivacy.com (valid 90 days):</p><p><a href="{link}">{link}</a></p><p style="color:#666;font-size:12px">Requested from IP {ip}</p>'
+    send_email(START_RECIPIENT, "Harbor Start access link", html)
+    return _start_cors(jsonify({"ok": True}))
+
+@app.route("/api/start-verify", methods=["POST", "OPTIONS"])
+def api_start_verify():
+    if request.method == "OPTIONS":
+        return _start_cors(make_response("", 204))
+    data = request.get_json(silent=True) or {}
+    token = data.get("token", "")
+    ip = _client_ip()
+    now = int(_time.time())
+    tokens = _load_start_tokens()
+    entry = tokens.get(token)
+    if not entry or entry.get("expires", 0) < now:
+        if token in tokens:
+            del tokens[token]
+            _save_start_tokens(tokens)
+        return _start_cors(jsonify({"ok": False}))
+    if ip in HARBOR_HOME_IPS:
+        entry["expires"] = now + START_TOKEN_TTL
+        tokens[token] = entry
+        _save_start_tokens(tokens)
+    return _start_cors(jsonify({"ok": True, "expires": entry["expires"]}))
+
+# ════════════════════════════════════════════════════════════
+# SECTION 22 — HEALTH
+# /health — simple "ok" for monitoring
+# ════════════════════════════════════════════════════════════
 
 @app.route("/health")
 def health():

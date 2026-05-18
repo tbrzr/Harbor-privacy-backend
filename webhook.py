@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-import os, json, hmac, hashlib, logging, re, random, string, uuid, requests, threading
+import os, json, hmac, hashlib, logging, re, random, string, sys, uuid, requests, threading
+sys.path.insert(0, "/home/ubuntu/harbor-shared")
+from email_brand import wrap as brand_wrap, BRAND_PRIVACY
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime
 
@@ -237,25 +239,25 @@ def generate_android_page(client_id):
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
 <style>
 *{{box-sizing:border-box;margin:0;padding:0;}}
-body{{background:#0a0e0f;color:#e8f0ef;font-family:'Space Grotesk',sans-serif;padding:32px 20px;max-width:480px;margin:0 auto;}}
+body{{background:#fbf7f0;color:#1a2420;font-family:'Space Grotesk',sans-serif;padding:32px 20px;max-width:480px;margin:0 auto;}}
 h1{{font-size:28px;font-weight:700;margin-bottom:8px;}}
-.accent{{color:#00e5c0;}}
-.note{{font-family:'DM Mono',monospace;font-size:11px;color:#6b8a87;margin-bottom:32px;}}
-.card{{background:#111618;border:1px solid #1e2a2d;padding:24px;margin-bottom:16px;}}
-.label{{font-family:'DM Mono',monospace;font-size:10px;color:#00e5c0;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:12px;}}
-.addr{{background:#0a0e0f;border-left:3px solid #00e5c0;padding:16px;font-family:'DM Mono',monospace;font-size:13px;color:#00e5c0;word-break:break-all;margin-bottom:12px;}}
-.addr-secondary{{background:#0a0e0f;border-left:3px solid #1e2a2d;padding:14px;font-family:'DM Mono',monospace;font-size:12px;color:#6b8a87;word-break:break-all;margin-bottom:12px;}}
-.sublabel{{font-family:'DM Mono',monospace;font-size:9px;color:#6b8a87;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:6px;}}
-.btn{{display:block;text-align:center;background:#00e5c0;color:#0a0e0f;padding:12px 20px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.08em;text-decoration:none;margin-bottom:8px;cursor:pointer;border:none;width:100%;}}
-.btn-outline{{background:transparent;border:1px solid #1e2a2d;color:#6b8a87;display:block;text-align:center;}}
+.accent{{color:#1f5d6b;}}
+.note{{font-family:'DM Mono',monospace;font-size:11px;color:#6b7a72;margin-bottom:32px;}}
+.card{{background:#f4eee2;border:1px solid #e6dfd2;padding:24px;margin-bottom:16px;}}
+.label{{font-family:'DM Mono',monospace;font-size:10px;color:#1f5d6b;letter-spacing:0.2em;text-transform:uppercase;margin-bottom:12px;}}
+.addr{{background:#fbf7f0;border-left:3px solid #1f5d6b;padding:16px;font-family:'DM Mono',monospace;font-size:13px;color:#1f5d6b;word-break:break-all;margin-bottom:12px;}}
+.addr-secondary{{background:#fbf7f0;border-left:3px solid #e6dfd2;padding:14px;font-family:'DM Mono',monospace;font-size:12px;color:#6b7a72;word-break:break-all;margin-bottom:12px;}}
+.sublabel{{font-family:'DM Mono',monospace;font-size:9px;color:#6b7a72;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:6px;}}
+.btn{{display:block;text-align:center;background:#1f5d6b;color:#ffffff;padding:12px 20px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.08em;text-decoration:none;margin-bottom:8px;cursor:pointer;border:none;width:100%;}}
+.btn-outline{{background:transparent;border:1px solid #e6dfd2;color:#6b7a72;display:block;text-align:center;}}
 .step{{display:flex;gap:16px;margin-bottom:16px;}}
-.step-num{{font-family:'DM Mono',monospace;font-size:20px;color:#00e5c0;flex-shrink:0;width:32px;}}
-.step-text{{font-size:14px;color:#6b8a87;line-height:1.6;}}
+.step-num{{font-family:'DM Mono',monospace;font-size:20px;color:#1f5d6b;flex-shrink:0;width:32px;}}
+.step-text{{font-size:14px;color:#6b7a72;line-height:1.6;}}
 .qr-img{{display:block;margin:0 auto;width:200px;height:200px;border:4px solid #1e2a2d;}}
 </style>
 </head>
 <body>
-<a href="https://harborprivacy.com" style="font-family:'DM Mono',monospace;font-size:12px;color:#6b8a87;text-decoration:none;display:block;margin-bottom:32px;">harbor/privacy</a>
+<a href="https://harborprivacy.com" style="font-family:'DM Mono',monospace;font-size:12px;color:#6b7a72;text-decoration:none;display:block;margin-bottom:32px;">harbor/privacy</a>
 <h1>Android <span class="accent">Setup</span></h1>
 <p class="note">No app required — uses Android's built-in Private DNS</p>
 <div class="card">
@@ -269,17 +271,17 @@ h1{{font-size:28px;font-weight:700;margin-bottom:8px;}}
 </div>
 <div class="card">
   <div class="label">Setup Instructions (Android Native)</div>
-  <div class="step"><div class="step-num">01</div><div class="step-text">Open <strong style="color:#e8f0ef;">Settings</strong> on your Android phone</div></div>
-  <div class="step"><div class="step-num">02</div><div class="step-text">Go to <strong style="color:#e8f0ef;">Network &amp; Internet → Private DNS</strong></div></div>
-  <div class="step"><div class="step-num">03</div><div class="step-text">Select <strong style="color:#e8f0ef;">Private DNS provider hostname</strong></div></div>
-  <div class="step"><div class="step-num">04</div><div class="step-text">Paste your hostname above and tap <strong style="color:#e8f0ef;">Save</strong></div></div>
+  <div class="step"><div class="step-num">01</div><div class="step-text">Open <strong style="color:#1a2420;">Settings</strong> on your Android phone</div></div>
+  <div class="step"><div class="step-num">02</div><div class="step-text">Go to <strong style="color:#1a2420;">Network &amp; Internet → Private DNS</strong></div></div>
+  <div class="step"><div class="step-num">03</div><div class="step-text">Select <strong style="color:#1a2420;">Private DNS provider hostname</strong></div></div>
+  <div class="step"><div class="step-num">04</div><div class="step-text">Paste your hostname above and tap <strong style="color:#1a2420;">Save</strong></div></div>
   <a href="android-app://com.android.settings#android.settings.PRIVATE_DNS_SETTINGS" class="btn btn-outline" style="margin-top:16px;" onclick="window.location='intent:#Intent;action=android.settings.PRIVATE_DNS_SETTINGS;end';return false;">Open Android DNS Settings</a>
 </div>
 <div class="card">
   <div class="label">Scan QR Code</div>
   <img src="{qr_url}" class="qr-img" alt="QR Code" onerror="this.style.display='none';document.getElementById('qr-err').style.display='block'">
-  <div id="qr-err" style="display:none;text-align:center;padding:20px;font-family:'DM Mono',monospace;font-size:11px;color:#6b8a87;">QR code not available yet — use Copy Hostname above</div>
-  <p style="font-family:'DM Mono',monospace;font-size:11px;color:#6b8a87;text-align:center;margin-top:12px;">Scan to copy your Private DNS hostname</p>
+  <div id="qr-err" style="display:none;text-align:center;padding:20px;font-family:'DM Mono',monospace;font-size:11px;color:#6b7a72;">QR code not available yet — use Copy Hostname above</div>
+  <p style="font-family:'DM Mono',monospace;font-size:11px;color:#6b7a72;text-align:center;margin-top:12px;">Scan to copy your Private DNS hostname</p>
 </div>
 </body>
 </html>"""
@@ -460,28 +462,55 @@ def log_customer(client_id, name, email, plan, stripe_customer_id="", plan_type=
     open(CUSTOMERS_LOG, "a").write(json.dumps(entry) + "\n")
 
 EMAIL_FOOTER = """
-<div style="margin-top:32px;padding-top:20px;border-top:1px solid #1e2a2d;color:#6b8a87;font-size:11px;font-family:sans-serif;line-height:1.6;">
+<div style="margin-top:32px;padding-top:20px;border-top:1px solid #e6dfd2;color:#6b7a72;font-size:11px;font-family:sans-serif;line-height:1.6;">
   This is a transactional email related to your Harbor Privacy subscription. You will not receive unsolicited marketing emails.<br>
   Harbor Privacy &nbsp;&middot;&nbsp; Pembroke, MA 02359 &nbsp;&middot;&nbsp;
-  <a href="https://harborprivacy.com/nologs" style="color:#6b8a87;">Privacy Policy</a> &nbsp;&middot;&nbsp;
-  <a href="https://harborprivacy.com" style="color:#6b8a87;">harborprivacy.com</a>
+  <a href="https://harborprivacy.com/nologs" style="color:#6b7a72;">Privacy Policy</a> &nbsp;&middot;&nbsp;
+  <a href="https://harborprivacy.com" style="color:#6b7a72;">harborprivacy.com</a>
 </div>
 """
 
-def send_email(to, subject, html):
+EMAIL_FAILURES_FILE = "/home/ubuntu/harbor-backend/email-failures.json"
+
+def _record_email_failure(to, subject, error):
     try:
-        full_html = html + EMAIL_FOOTER
+        try:
+            with open(EMAIL_FAILURES_FILE) as f:
+                fails = json.load(f)
+        except Exception:
+            fails = []
+        fails.append({
+            "ts": datetime.utcnow().isoformat() + "Z",
+            "to": to, "subject": subject, "error": str(error)[:500],
+        })
+        fails = fails[-200:]
+        with open(EMAIL_FAILURES_FILE, "w") as f:
+            json.dump(fails, f)
+    except Exception as e:
+        log.error(f"email failure log write error: {e}")
+
+def send_email(to, subject, html):
+    if not RESEND_API_KEY:
+        log.error(f"send_email skipped (no RESEND_API_KEY): to={to} subject={subject!r}")
+        _record_email_failure(to, subject, "RESEND_API_KEY not set")
+        return False
+    try:
+        # Wrap in the shared Harbor brand shell unless the content is already a full HTML doc.
+        body = html if "<!DOCTYPE" in (html or "")[:50] else brand_wrap(html, brand=BRAND_PRIVACY)
         r = requests.post("https://api.resend.com/emails",
             headers={"Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"},
-            json={"from": f"Harbor Privacy <{FROM_EMAIL}>", "to": [to], "subject": subject, "html": full_html},
+            json={"from": f"Harbor Privacy <{FROM_EMAIL}>", "to": [to], "subject": subject,
+                  "html": body, "reply_to": "support@harborprivacy.com"},
             timeout=10)
         if r.status_code == 200:
             log.info(f"Email sent to {to}")
             return True
         log.error(f"Resend failed: {r.status_code} {r.text}")
+        _record_email_failure(to, subject, f"Resend {r.status_code}: {r.text[:300]}")
         return False
     except Exception as e:
         log.error(f"Email error: {e}")
+        _record_email_failure(to, subject, e)
         return False
 
 def enable_family_safe(client_id):
@@ -650,33 +679,33 @@ def update_customer_harbor_kids_off(email):
 
 def send_family_safe_email(email, name, enabled):
     action = "activated" if enabled else "deactivated"
-    html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
-<h2 style="font-family:Georgia,serif;font-weight:400;">Family Safe {action.title()}</h2>
+    html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h2 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Family Safe {action.title()}</h2>
 <p>Hi {name},</p>
 <p>Your Family Safe add-on has been {action}. SafeSearch enforcement and adult content blocking are now {"enabled" if enabled else "disabled"} on your Harbor Privacy account.</p>
-<p style="color:#6b8a87;font-size:13px;">Manage your settings at <a href="https://dashboard.harborprivacy.com" style="color:#00e5c0;">dashboard.harborprivacy.com</a></p>
+<p style="color:#6b7a72;font-size:13px;">Manage your settings at <a href="https://dashboard.harborprivacy.com" style="color:#1f5d6b;">dashboard.harborprivacy.com</a></p>
 </div>'''
     send_email(email, f"Harbor Privacy - Family Safe {action.title()}", html)
 
 def send_harbor_kids_email(email, name, client_id):
     kids_id = f"{client_id}kid1"
-    html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
-<h2 style="font-family:Georgia,serif;font-weight:400;">Your Harbor Kids Setup is Ready</h2>
+    html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h2 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Your Harbor Kids Setup is Ready</h2>
 <p>Hi {name},</p>
 <p>Harbor Kids is now active on your account. Here's everything you need to get your child's device protected — it takes about 5 minutes per device.</p>
-<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">YOUR HARBOR KIDS PROFILE ID</h3>
-<p style="background:#111618;border-left:3px solid #00e5c0;padding:16px;font-family:monospace;font-size:14px;color:#00e5c0;">{kids_id}</p>
-<p style="color:#6b8a87;font-size:13px;">You'll see this in your dashboard under active clients.</p>
-<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">WHAT HARBOR KIDS BLOCKS</h3>
-<p style="color:#6b8a87;font-size:13px;">Adult content, gambling, violence, malware, phishing, and invasive ad networks — all filtered before they reach your child's screen.</p>
-<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">SET UP YOUR CHILD'S DEVICE</h3>
-<p style="color:#6b8a87;font-size:13px;">The full setup guide covers iPhone, iPad, Mac, Windows, and Android — including how to lock the protection so your child can't remove it without your password.</p>
-<p><a href="https://harborprivacy.com/docs/harbor-kids" style="display:inline-block;background:#00e5c0;color:#0a0e0f;padding:12px 24px;text-decoration:none;font-family:monospace;font-size:13px;">View Setup Guide &#8594;</a></p>
-<p style="color:#6b8a87;font-size:13px;margin-top:24px;">If anything your child needs gets blocked, reply here and I'll whitelist it for their profile — usually fixed within a few hours.</p>
-<div style="border-top:1px solid #1e2a2d;padding-top:20px;margin-top:20px;">
-<a href="https://dashboard.harborprivacy.com" style="display:inline-block;border:1px solid #00e5c0;color:#00e5c0;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Your Dashboard &#8594;</a>
+<h3 style="color:#1f5d6b;font-family:monospace;font-size:13px;">YOUR HARBOR KIDS PROFILE ID</h3>
+<p style="background:#f4eee2;border-left:3px solid #1f5d6b;padding:16px;font-family:monospace;font-size:14px;color:#1f5d6b;">{kids_id}</p>
+<p style="color:#6b7a72;font-size:13px;">You'll see this in your dashboard under active clients.</p>
+<h3 style="color:#1f5d6b;font-family:monospace;font-size:13px;">WHAT HARBOR KIDS BLOCKS</h3>
+<p style="color:#6b7a72;font-size:13px;">Adult content, gambling, violence, malware, phishing, and invasive ad networks — all filtered before they reach your child's screen.</p>
+<h3 style="color:#1f5d6b;font-family:monospace;font-size:13px;">SET UP YOUR CHILD'S DEVICE</h3>
+<p style="color:#6b7a72;font-size:13px;">The full setup guide covers iPhone, iPad, Mac, Windows, and Android — including how to lock the protection so your child can't remove it without your password.</p>
+<p><a href="https://harborprivacy.com/docs/harbor-kids" style="display:inline-block;background:#1f5d6b;color:#ffffff;padding:12px 24px;text-decoration:none;font-family:monospace;font-size:13px;">View Setup Guide &#8594;</a></p>
+<p style="color:#6b7a72;font-size:13px;margin-top:24px;">If anything your child needs gets blocked, reply here and I'll whitelist it for their profile — usually fixed within a few hours.</p>
+<div style="border-top:1px solid #e6dfd2;padding-top:20px;margin-top:20px;">
+<a href="https://dashboard.harborprivacy.com" style="display:inline-block;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Your Dashboard &#8594;</a>
 </div>
-<p style="padding-top:24px;color:#6b8a87;">Questions? Reply or text <strong style="color:#e8f0ef;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a></p>
+<p style="padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
 </div>'''
     send_email(email, "Your Harbor Kids Setup is Ready", html)
 
@@ -694,115 +723,115 @@ def find_customer_by_email(email):
         pass
     return None
 
-def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url="", plan_type=None):
+def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url="", plan_type=None, setup_url=""):
     doh = f"https://{DOH_BASE}/{client_id}"
 
     if plan_type == "harbor-remote-light":
-        html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
-<h1 style="font-family:Georgia,serif;font-weight:400;">Welcome to Harbor Light</h1>
+        html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Welcome to Harbor Light</h1>
 <p>Hi {name},</p>
 <p>Your personal DNS privacy address is ready. Add it to your devices to start blocking ads and trackers.</p>
-<h2 style="font-family:Georgia,serif;font-weight:400;">Your Personal DoH Address</h2>
-<p style="background:#111618;border-left:3px solid #00e5c0;padding:16px;font-family:monospace;font-size:14px;color:#00e5c0;word-break:break-all;">{doh}</p>
-<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">iPhone / iPad</h3>
-<p style="color:#6b8a87;font-size:13px;">Settings &gt; General &gt; VPN &amp; Device Management &gt; Install Profile</p>
-<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">Android</h3>
-<ol style="color:#6b8a87;"><li>Settings &gt; Network and Internet &gt; Private DNS</li><li>Enter: <strong style="color:#e8f0ef;">{doh}</strong></li><li>Save</li></ol>
-<div style="background:#111618;border:1px solid #00e5c0;padding:20px;margin:24px 0;">
-<p style="font-family:monospace;font-size:11px;color:#00e5c0;letter-spacing:0.1em;margin-bottom:8px;">WANT MORE CONTROL?</p>
-<p style="color:#e8f0ef;margin-bottom:12px;">Upgrade to Harbor Remote for the full dashboard, stats, custom rules and more.</p>
-<a href="https://buy.stripe.com/cNi3cugZ1dlR07380T6kg0e" style="background:#00e5c0;color:#0a0e0f;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Upgrade to Remote $5.99/mo</a>
+<h2 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Your Personal DoH Address</h2>
+<p style="background:#f4eee2;border-left:3px solid #1f5d6b;padding:16px;font-family:monospace;font-size:14px;color:#1f5d6b;word-break:break-all;">{doh}</p>
+<h3 style="color:#1f5d6b;font-family:monospace;font-size:13px;">iPhone / iPad</h3>
+<p style="color:#6b7a72;font-size:13px;">Settings &gt; General &gt; VPN &amp; Device Management &gt; Install Profile</p>
+<h3 style="color:#1f5d6b;font-family:monospace;font-size:13px;">Android</h3>
+<ol style="color:#6b7a72;"><li>Settings &gt; Network and Internet &gt; Private DNS</li><li>Enter: <strong style="color:#1a2420;">{doh}</strong></li><li>Save</li></ol>
+<div style="background:#f4eee2;border:1px solid #1f5d6b;padding:20px;margin:24px 0;">
+<p style="font-family:monospace;font-size:11px;color:#1f5d6b;letter-spacing:0.1em;margin-bottom:8px;">WANT MORE CONTROL?</p>
+<p style="color:#1a2420;margin-bottom:12px;">Upgrade to Harbor Remote for the full dashboard, stats, custom rules and more.</p>
+<a href="https://buy.stripe.com/cNi3cugZ1dlR07380T6kg0e" style="background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Upgrade to Remote $5.99/mo</a>
 </div>
-<div style="border-top:1px solid #1e2a2d;padding-top:20px;margin-top:20px;">
-<a href="https://dashboard.harborprivacy.com" style="display:inline-block;border:1px solid #00e5c0;color:#00e5c0;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Your Dashboard</a>
+<div style="border-top:1px solid #e6dfd2;padding-top:20px;margin-top:20px;">
+<a href="https://dashboard.harborprivacy.com" style="display:inline-block;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Your Dashboard</a>
 </div>
-<p style="padding-top:24px;color:#6b8a87;">Questions? Reply or text <strong style="color:#e8f0ef;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a></p>
+<p style="padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
 </div>'''
         send_email(email, "Welcome to Harbor Light - Your DNS Privacy Address", html)
         return
 
     if plan == "remote":
         dot_host = f"{client_id}.doh.harborprivacy.com"
-        ios_btn = f'<p><a href="{profile_url}" style="display:inline-block;background:#00e5c0;color:#0a0e0f;padding:12px 24px;text-decoration:none;font-family:monospace;font-size:13px;">Download iOS DNS Profile</a></p><p style="font-size:12px;color:#6b8a87;">Tap on iPhone/iPad then Settings > General > VPN & Device Management > Install</p>' if profile_url else "<p style='color:#6b8a87;'>iOS profile will be sent separately.</p>"
-        html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
-<h1 style="font-family:Georgia,serif;font-weight:400;">Your Harbor Privacy Setup</h1>
+        ios_btn = f'<p><a href="{profile_url}" style="display:inline-block;background:#1f5d6b;color:#ffffff;padding:12px 24px;text-decoration:none;font-family:monospace;font-size:13px;">Download iOS DNS Profile</a></p><p style="font-size:12px;color:#6b7a72;">Tap on iPhone/iPad then Settings > General > VPN & Device Management > Install</p>' if profile_url else "<p style='color:#6b7a72;'>iOS profile will be sent separately.</p>"
+        html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Your Harbor Privacy Setup</h1>
 <p>Hi {name},</p><p>Your private DNS endpoint is ready.</p>
-<h2 style="font-family:Georgia,serif;font-weight:400;">Your Personal DNS Addresses</h2>
-<p style="font-family:monospace;font-size:10px;color:#6b8a87;letter-spacing:0.1em;margin-bottom:4px;">ANDROID PRIVATE DNS HOSTNAME</p>
-<p style="background:#111618;border-left:3px solid #00e5c0;padding:16px;font-family:monospace;font-size:14px;color:#00e5c0;word-break:break-all;margin-bottom:16px;">{dot_host}</p>
-<p style="font-family:monospace;font-size:10px;color:#6b8a87;letter-spacing:0.1em;margin-bottom:4px;">DNS OVER HTTPS (BROWSERS &amp; OTHER APPS)</p>
-<p style="background:#111618;border-left:3px solid #1e2a2d;padding:14px;font-family:monospace;font-size:13px;color:#6b8a87;word-break:break-all;margin-bottom:16px;">{doh}</p>
-<div style="background:#111618;border:1px solid #00e5c0;padding:20px;margin-bottom:24px;"><p style="font-family:monospace;font-size:11px;color:#00e5c0;letter-spacing:0.1em;margin-bottom:8px;">SAVE 44% — UPGRADE TO ANNUAL</p><p style="color:#e8f0ef;margin-bottom:12px;">Lock in your rate for a full year at $39.99. Use code <strong>FOUNDERS10</strong> for 50% off while it lasts.</p><a href="https://buy.stripe.com/9B69AS6knepVbPL2Gz6kg09?prefilled_email={email}" style="background:#00e5c0;color:#0a0e0f;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Upgrade to Annual &#8594;</a></div><h2 style="font-family:Georgia,serif;font-weight:400;">Setup Instructions</h2>
-<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">iPhone / iPad</h3><p style="color:#6b8a87;font-size:13px;margin-bottom:12px;"><strong style="color:#e8f0ef;">Note:</strong> When installing the profile you may see an "Unsigned" notice. This is normal for small businesses and is safe to install. The profile only configures your DNS settings and nothing else.</p>{ios_btn}
-<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">Android / Pixel</h3>
-<p style="color:#6b8a87;font-size:13px;margin-bottom:12px;">Android has built-in Private DNS — no app needed. Takes 30 seconds.</p>
-<ol style="color:#6b8a87;font-size:13px;margin-bottom:16px;"><li>Go to <strong style="color:#e8f0ef;">Settings → Network &amp; Internet → Private DNS</strong></li><li>Select <strong style="color:#e8f0ef;">Private DNS provider hostname</strong></li><li>Enter: <strong style="color:#e8f0ef;">{dot_host}</strong></li><li>Tap Save</li></ol>
-<p><a href="https://harborprivacy.com/setup/android/{client_id}.html" style="display:inline-block;background:transparent;border:1px solid #00e5c0;color:#00e5c0;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Android Setup Guide + QR Code &#8594;</a></p>
-<div style="border-top:1px solid #1e2a2d;margin-top:32px;padding-top:24px;">
-<h3 style="color:#6b8a87;font-family:monospace;font-size:11px;letter-spacing:0.1em;">IF YOU EVER CANCEL - HOW TO REMOVE HARBOR PRIVACY</h3>
-<p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">iPhone/iPad:</strong> Settings > General > VPN and Device Management > Harbor Privacy DNS > Remove Profile</p>
-<p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">Android/Pixel:</strong> Settings > Network and Internet > Private DNS > set to Off or Automatic</p>
-<p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">Other Routers:</strong> Router admin panel > DNS settings > set to Automatic > save and reboot</p>
+<h2 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Your Personal DNS Addresses</h2>
+<p style="font-family:monospace;font-size:10px;color:#6b7a72;letter-spacing:0.1em;margin-bottom:4px;">ANDROID PRIVATE DNS HOSTNAME</p>
+<p style="background:#f4eee2;border-left:3px solid #1f5d6b;padding:16px;font-family:monospace;font-size:14px;color:#1f5d6b;word-break:break-all;margin-bottom:16px;">{dot_host}</p>
+<p style="font-family:monospace;font-size:10px;color:#6b7a72;letter-spacing:0.1em;margin-bottom:4px;">DNS OVER HTTPS (BROWSERS &amp; OTHER APPS)</p>
+<p style="background:#f4eee2;border-left:3px solid #e6dfd2;padding:14px;font-family:monospace;font-size:13px;color:#6b7a72;word-break:break-all;margin-bottom:16px;">{doh}</p>
+<div style="background:#f4eee2;border:1px solid #1f5d6b;padding:20px;margin-bottom:24px;"><p style="font-family:monospace;font-size:11px;color:#1f5d6b;letter-spacing:0.1em;margin-bottom:8px;">SAVE 44% — UPGRADE TO ANNUAL</p><p style="color:#1a2420;margin-bottom:12px;">Lock in your rate for a full year at $39.99. Use code <strong>FOUNDERS10</strong> for 50% off while it lasts.</p><a href="https://buy.stripe.com/9B69AS6knepVbPL2Gz6kg09?prefilled_email={email}" style="background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Upgrade to Annual &#8594;</a></div><h2 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Setup Instructions</h2>
+<h3 style="color:#1f5d6b;font-family:monospace;font-size:13px;">iPhone / iPad</h3><p style="color:#6b7a72;font-size:13px;margin-bottom:12px;"><strong style="color:#1a2420;">Note:</strong> When installing the profile you may see an "Unsigned" notice. This is normal for small businesses and is safe to install. The profile only configures your DNS settings and nothing else.</p>{ios_btn}
+<h3 style="color:#1f5d6b;font-family:monospace;font-size:13px;">Android / Pixel</h3>
+<p style="color:#6b7a72;font-size:13px;margin-bottom:12px;">Android has built-in Private DNS — no app needed. Takes 30 seconds.</p>
+<ol style="color:#6b7a72;font-size:13px;margin-bottom:16px;"><li>Go to <strong style="color:#1a2420;">Settings → Network &amp; Internet → Private DNS</strong></li><li>Select <strong style="color:#1a2420;">Private DNS provider hostname</strong></li><li>Enter: <strong style="color:#1a2420;">{dot_host}</strong></li><li>Tap Save</li></ol>
+<p><a href="https://harborprivacy.com/setup/android/{client_id}.html" style="display:inline-block;background:transparent;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Android Setup Guide + QR Code &#8594;</a></p>
+<div style="border-top:1px solid #e6dfd2;margin-top:32px;padding-top:24px;">
+<h3 style="color:#6b7a72;font-family:monospace;font-size:11px;letter-spacing:0.1em;">IF YOU EVER CANCEL - HOW TO REMOVE HARBOR PRIVACY</h3>
+<p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">iPhone/iPad:</strong> Settings > General > VPN and Device Management > Harbor Privacy DNS > Remove Profile</p>
+<p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">Android/Pixel:</strong> Settings > Network and Internet > Private DNS > set to Off or Automatic</p>
+<p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">Other Routers:</strong> Router admin panel > DNS settings > set to Automatic > save and reboot</p>
 </div>
-</p><div style="border-top:1px solid #1e2a2d;padding-top:20px;margin-top:20px;">{('<a href="' + invoice_url + '" style="display:inline-block;background:#00e5c0;color:#0a0e0f;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;margin-right:8px;">View Invoice &#8594;</a>') if invoice_url else ''}<a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" style="display:inline-block;border:1px solid #00e5c0;color:#00e5c0;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Manage Subscription &#8594;</a></div><p style="padding-top:24px;color:#6b8a87;">Questions? Reply or text <strong style="color:#e8f0ef;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a></p>
+</p><div style="border-top:1px solid #e6dfd2;padding-top:20px;margin-top:20px;">{('<a href="' + invoice_url + '" style="display:inline-block;background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;margin-right:8px;">View Invoice &#8594;</a>') if invoice_url else ''}<a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" style="display:inline-block;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Manage Subscription &#8594;</a></div><p style="padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
 </div>'''
     elif plan == "trial":
         dot_host = f"{client_id}.doh.harborprivacy.com"
-        ios_btn = f'<p><a href="{profile_url}" style="display:inline-block;background:#00e5c0;color:#0a0e0f;padding:12px 24px;text-decoration:none;font-family:monospace;font-size:13px;">Download iOS DNS Profile</a></p><p style="font-size:12px;color:#6b8a87;">Tap on iPhone/iPad then Settings > General > VPN &amp; Device Management > Install</p>' if profile_url else ""
-        dashboard_url = f"https://dashboard.harborprivacy.com/login?email={email}&client_id={client_id}"
-        html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
-<h1 style="font-family:Georgia,serif;font-weight:400;">Your 30-Day Free Trial is Ready</h1>
+        ios_btn = f'<p><a href="{profile_url}" style="display:inline-block;background:#1f5d6b;color:#ffffff;padding:12px 24px;text-decoration:none;font-family:monospace;font-size:13px;">Download iOS DNS Profile</a></p><p style="font-size:12px;color:#6b7a72;">Tap on iPhone/iPad then Settings > General > VPN &amp; Device Management > Install</p>' if profile_url else ""
+        dashboard_url = setup_url or f"https://dashboard.harborprivacy.com/login?email={email}&client_id={client_id}"
+        html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Your 30-Day Free Trial is Ready</h1>
 <p>Hi {name},</p>
 <p>Your Harbor Privacy account is set up and your private DNS is active. Here's everything you need to get started.</p>
-<h2 style="font-family:Georgia,serif;font-weight:400;">Your Personal DNS Address</h2>
-<p style="font-family:monospace;font-size:10px;color:#6b8a87;letter-spacing:0.1em;margin-bottom:4px;">ANDROID PRIVATE DNS HOSTNAME</p>
-<p style="background:#111618;border-left:3px solid #00e5c0;padding:16px;font-family:monospace;font-size:14px;color:#00e5c0;word-break:break-all;margin-bottom:16px;">{dot_host}</p>
-<p style="font-family:monospace;font-size:10px;color:#6b8a87;letter-spacing:0.1em;margin-bottom:4px;">DNS OVER HTTPS</p>
-<p style="background:#111618;border-left:3px solid #1e2a2d;padding:14px;font-family:monospace;font-size:13px;color:#6b8a87;word-break:break-all;margin-bottom:24px;">{doh}</p>
-<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">iPhone / iPad</h3>
-<p style="color:#6b8a87;font-size:13px;margin-bottom:12px;"><strong style="color:#e8f0ef;">Note:</strong> You may see an "Unsigned" notice when installing -- this is normal and safe. The profile only sets your DNS.</p>
+<h2 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Your Personal DNS Address</h2>
+<p style="font-family:monospace;font-size:10px;color:#6b7a72;letter-spacing:0.1em;margin-bottom:4px;">ANDROID PRIVATE DNS HOSTNAME</p>
+<p style="background:#f4eee2;border-left:3px solid #1f5d6b;padding:16px;font-family:monospace;font-size:14px;color:#1f5d6b;word-break:break-all;margin-bottom:16px;">{dot_host}</p>
+<p style="font-family:monospace;font-size:10px;color:#6b7a72;letter-spacing:0.1em;margin-bottom:4px;">DNS OVER HTTPS</p>
+<p style="background:#f4eee2;border-left:3px solid #e6dfd2;padding:14px;font-family:monospace;font-size:13px;color:#6b7a72;word-break:break-all;margin-bottom:24px;">{doh}</p>
+<h3 style="color:#1f5d6b;font-family:monospace;font-size:13px;">iPhone / iPad</h3>
+<p style="color:#6b7a72;font-size:13px;margin-bottom:12px;"><strong style="color:#1a2420;">Note:</strong> You may see an "Unsigned" notice when installing -- this is normal and safe. The profile only sets your DNS.</p>
 {ios_btn}
-<h3 style="color:#00e5c0;font-family:monospace;font-size:13px;">Android</h3>
-<ol style="color:#6b8a87;font-size:13px;margin-bottom:16px;">
+<h3 style="color:#1f5d6b;font-family:monospace;font-size:13px;">Android</h3>
+<ol style="color:#6b7a72;font-size:13px;margin-bottom:16px;">
 <li>Settings &rarr; Network &amp; Internet &rarr; Private DNS</li>
-<li>Select <strong style="color:#e8f0ef;">Private DNS provider hostname</strong></li>
-<li>Enter: <strong style="color:#e8f0ef;">{dot_host}</strong></li>
+<li>Select <strong style="color:#1a2420;">Private DNS provider hostname</strong></li>
+<li>Enter: <strong style="color:#1a2420;">{dot_host}</strong></li>
 <li>Tap Save</li>
 </ol>
-<p><a href="https://harborprivacy.com/setup/android/{client_id}.html" style="display:inline-block;background:transparent;border:1px solid #00e5c0;color:#00e5c0;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Android Setup Guide + QR Code &rarr;</a></p>
-<div style="background:#111618;border:1px solid #00e5c0;padding:20px;margin:28px 0;">
-<p style="font-family:monospace;font-size:11px;color:#00e5c0;letter-spacing:0.1em;margin-bottom:8px;">YOUR DASHBOARD</p>
-<p style="color:#e8f0ef;margin-bottom:16px;">View your DNS stats, manage settings, and upgrade when you're ready.</p>
-<a href="{dashboard_url}" style="background:#00e5c0;color:#0a0e0f;padding:12px 24px;text-decoration:none;font-family:monospace;font-size:12px;font-weight:700;">Sign In to Dashboard &rarr;</a>
+<p><a href="https://harborprivacy.com/setup/android/{client_id}.html" style="display:inline-block;background:transparent;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Android Setup Guide + QR Code &rarr;</a></p>
+<div style="background:#f4eee2;border:1px solid #1f5d6b;padding:20px;margin:28px 0;">
+<p style="font-family:monospace;font-size:11px;color:#1f5d6b;letter-spacing:0.1em;margin-bottom:8px;">YOUR DASHBOARD</p>
+<p style="color:#1a2420;margin-bottom:16px;">View your DNS stats, manage settings, and upgrade when you're ready.</p>
+<a href="{dashboard_url}" style="background:#1f5d6b;color:#ffffff;padding:12px 24px;text-decoration:none;font-family:monospace;font-size:12px;font-weight:700;">Set Up Your Account &rarr;</a>
 </div>
-<div style="background:#111618;border:1px solid #1e2a2d;padding:20px;margin-bottom:24px;">
-<p style="font-family:monospace;font-size:11px;color:#6b8a87;letter-spacing:0.1em;margin-bottom:8px;">AFTER YOUR TRIAL</p>
-<p style="color:#6b8a87;font-size:13px;">Harbor Light is $3.99/mo after your 30-day trial. No credit card needed today -- you'll get a reminder before it ends.</p>
+<div style="background:#f4eee2;border:1px solid #e6dfd2;padding:20px;margin-bottom:24px;">
+<p style="font-family:monospace;font-size:11px;color:#6b7a72;letter-spacing:0.1em;margin-bottom:8px;">AFTER YOUR TRIAL</p>
+<p style="color:#6b7a72;font-size:13px;">Harbor Light is $3.99/mo after your 30-day trial. No credit card needed today -- you'll get a reminder before it ends.</p>
 </div>
-<p style="border-top:1px solid #1e2a2d;padding-top:24px;color:#6b8a87;">Questions? Reply to this email or text <strong style="color:#e8f0ef;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a></p>
+<p style="border-top:1px solid #e6dfd2;padding-top:24px;color:#6b7a72;">Questions? Reply to this email or text <strong style="color:#1a2420;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
 </div>'''
         send_email(email, "Your Harbor Privacy free trial is ready", html)
         return
     else:
-        html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
-<h1 style="font-family:Georgia,serif;font-weight:400;">Installation Confirmed</h1>
+        html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Installation Confirmed</h1>
 <p>Hi {name},</p><p>Thanks for booking. I will be in touch within 24 hours to schedule your visit.</p>
-<p style="border-top:1px solid #1e2a2d;padding-top:24px;color:#6b8a87;">Questions? Reply or text <strong style="color:#e8f0ef;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a></p>
+<p style="border-top:1px solid #e6dfd2;padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
 </div>'''
     send_email(email, "Welcome to Harbor Privacy - Your Setup Instructions", html)
 
 def send_cancellation_email(email, name):
-    html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
-<h1 style="font-family:Georgia,serif;font-weight:400;">Subscription Ended</h1>
+    html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Subscription Ended</h1>
 <p>Hi {name},</p>
 <p>Your Harbor Privacy subscription has been cancelled. DNS access will be deactivated in 1 hour.</p>
-<h2 style="font-family:Georgia,serif;font-weight:400;">Remove Harbor Privacy from your devices</h2>
-<p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">iPhone/iPad:</strong> Settings > General > VPN and Device Management > Harbor Privacy DNS > Remove Profile</p>
-<p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">Android/Pixel:</strong> Settings > Network and Internet > Private DNS > set to Off or Automatic</p>
-<p style="color:#6b8a87;font-size:13px;"><strong style="color:#e8f0ef;">Other Routers:</strong> Router admin panel > DNS settings > set to Automatic > save and reboot</p>
-<p style="margin-top:16px;color:#6b8a87;">Need help? Reply to this email and I will walk you through it.</p>
-<p>Resubscribe at <a href="https://harborprivacy.com/pricing" style="color:#00e5c0;">harborprivacy.com/pricing</a></p>
-<p style="border-top:1px solid #1e2a2d;padding-top:24px;color:#6b8a87;">- Tim<br><a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a></p>
+<h2 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Remove Harbor Privacy from your devices</h2>
+<p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">iPhone/iPad:</strong> Settings > General > VPN and Device Management > Harbor Privacy DNS > Remove Profile</p>
+<p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">Android/Pixel:</strong> Settings > Network and Internet > Private DNS > set to Off or Automatic</p>
+<p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">Other Routers:</strong> Router admin panel > DNS settings > set to Automatic > save and reboot</p>
+<p style="margin-top:16px;color:#6b7a72;">Need help? Reply to this email and I will walk you through it.</p>
+<p>Resubscribe at <a href="https://harborprivacy.com/pricing" style="color:#1f5d6b;">harborprivacy.com/pricing</a></p>
+<p style="border-top:1px solid #e6dfd2;padding-top:24px;color:#6b7a72;">- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
 </div>'''
     send_email(email, "Your Harbor Privacy subscription has ended", html)
 
@@ -902,7 +931,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
                         plan_type = meta.get("plan_type", plan)
                         is_trial = s.get("payment_status", "") == "no_payment_required"
                         try:
-                            send_welcome_email(email, name, client_id, plan, profile_url, invoice_url, plan_type=plan_type)
+                            welcome_key = f"welcome:{email.lower()}"
+                            if is_processed(welcome_key):
+                                log.info(f"Welcome already sent for {email}, skipping")
+                            else:
+                                send_welcome_email(email, name, client_id, plan, profile_url, invoice_url, plan_type=plan_type)
+                                mark_processed(welcome_key)
                             log_customer(client_id, name, email, plan, stripe_id, plan_type=plan_type, is_trial=is_trial)
                             cancel_wipe(client_id)
                             mark_processed(session_id)
@@ -911,7 +945,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                             log.error(f"Provisioning failed for {email}: {pe}")
                             log_customer(client_id, name, email, plan, stripe_id, plan_type=plan_type, is_trial=is_trial, status="failed")
                             mark_processed(session_id)
-                            fail_html = f"""<div style="font-family:sans-serif;background:#0a0e0f;color:#e8f0ef;padding:32px;">
+                            fail_html = f"""<div style="font-family:sans-serif;background:#fbf7f0;color:#1a2420;padding:32px;">
 <h2 style="color:#ff4e4e;">Provisioning Failed</h2>
 <p><strong>Email:</strong> {email}</p>
 <p><strong>Name:</strong> {name}</p>
@@ -959,7 +993,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
                                 profile_url = save_ios_profile(client_id, customer_name)
                                 generate_qr_code(client_id)
                                 generate_android_page(client_id)
-                                send_welcome_email(customer_email, customer_name, client_id, "remote", profile_url, invoice.get("hosted_invoice_url",""), plan_type=plan_type)
+                                welcome_key = f"welcome:{customer_email.lower()}"
+                                if is_processed(welcome_key):
+                                    log.info(f"Welcome already sent for {customer_email}, skipping")
+                                else:
+                                    send_welcome_email(customer_email, customer_name, client_id, "remote", profile_url, invoice.get("hosted_invoice_url",""), plan_type=plan_type)
+                                    mark_processed(welcome_key)
                                 log_customer(client_id, customer_name, customer_email, "remote", stripe_id, plan_type=plan_type, is_trial=is_trial)
                                 mark_processed(invoice_id)
                                 log.info(f"Provisioned via invoice: {customer_email} ({client_id})")

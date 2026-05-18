@@ -8,3 +8,12 @@ harbor-dashboard-users.json.bak
 harbor-dns-analytics.json.bak
 links.json.bak
 *.db
+
+# Timestamped backups (auto-created during patches)
+*.bak.*
+dashboard.py.bak*
+webhook.py.bak*
+# Runtime data files
+signup-stats.json
+email-failures.json
+agh-snapshot.json

@@ -26,6 +26,14 @@ app = Flask(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
+# Admin panel
+try:
+    from fax_admin import register_fax_admin
+    register_fax_admin(app, db_path="/home/ubuntu/harbor-fax.db",
+                       file_dir="/tmp/harbor-fax-uploads")
+except Exception as _e:
+    log.exception("fax_admin failed to register: %s", _e)
+
 STRIPE_SECRET           = os.environ["STRIPE_SECRET"]
 STRIPE_WEBHOOK_SECRET   = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
 TELNYX_API_KEY          = os.environ["TELNYX_API_KEY"]

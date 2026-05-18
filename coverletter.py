@@ -14,6 +14,14 @@ import secrets
 
 app = Flask(__name__)
 
+# Admin panel
+try:
+    from career_admin import register_career_admin
+    register_career_admin(app)
+except Exception as _e:
+    import logging as _logging
+    _logging.exception("career_admin failed to register: %s", _e)
+
 JOBS_FILE = '/var/log/coverletter-jobs.json'
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 RESEND_API_KEY = os.getenv('RESEND_API_KEY')
@@ -803,7 +811,7 @@ def send_cover_letter_email(job, subject_override=None, note=None):
     <h2 style="font-family:sans-serif;">Your Cover Letter is Ready</h2>
     <p style="font-family:sans-serif;">Use the code below to access your cover letter online. Your session will time out after 10 minutes of viewing.</p>
     {note_html}
-    <div style="background:#111618;color:#ffffff;font-size:36px;font-weight:bold;letter-spacing:12px;text-align:center;padding:30px;margin:20px 0;font-family:monospace;">
+    <div style="background:#f4eee2;color:#ffffff;font-size:36px;font-weight:bold;letter-spacing:12px;text-align:center;padding:30px;margin:20px 0;font-family:monospace;">
         {job['access_code']}
     </div>
     <p style="font-family:sans-serif;"><strong>Enter this code at:</strong><br>
@@ -813,7 +821,7 @@ def send_cover_letter_email(job, subject_override=None, note=None):
     <p style="margin-top:30px;color:#666;font-size:12px;font-family:sans-serif;">Your viewing session expires after 10 minutes. Re-enter your code to start a new session. Your data is deleted 2 hours after payment.</p>
     <p style="margin-top:20px;padding-top:20px;border-top:1px solid #eee;color:#999;font-size:11px;font-family:sans-serif;">
     This is a transactional email for your Harbor Privacy purchase. You will not receive marketing emails.<br>
-    Harbor Privacy | <a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a> | <a href="https://career.harborprivacy.com/privacy" style="color:#666;">Privacy Policy</a>
+    Harbor Privacy | <a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a> | <a href="https://career.harborprivacy.com/privacy" style="color:#666;">Privacy Policy</a>
     </p>
     """
     
@@ -1038,4 +1046,4 @@ def health():
     return {'status': 'ok'}
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=7100, debug=False)
+    app.run(host='127.0.0.1', port=7100, debug=False)

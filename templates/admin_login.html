@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin login — Harbor {{ app_name|capitalize }}</title>
+<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+{% if turnstile_site_key %}
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+{% endif %}
+<style>
+body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;background:#fbf7f0;color:#f5fbfa;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;}
+.box{background:#fbf7f0;border:1px solid #fbf7f0;border-radius:12px;padding:2rem;max-width:380px;width:90%;}
+h1{font-family:Georgia,serif;font-weight:400;margin:0 0 .4rem;font-size:1.4rem;}
+.sub{color:#8aa8a4;font-size:.85rem;margin-bottom:1.2rem;}
+label{display:block;font-size:.78rem;color:#8aa8a4;letter-spacing:.05em;text-transform:uppercase;margin-bottom:.3rem;}
+input[type=password]{width:100%;background:#fbf7f0;border:1px solid #fbf7f0;color:#f5fbfa;padding:.7rem .9rem;border-radius:8px;font-family:monospace;font-size:.95rem;box-sizing:border-box;}
+button{margin-top:1rem;width:100%;background:#00e5c0;color:#fbf7f0;border:none;padding:.85rem;border-radius:8px;font-family:monospace;font-weight:600;letter-spacing:.06em;cursor:pointer;}
+.err{background:#3a0a1a;color:#e57676;padding:.6rem .8rem;border-radius:6px;margin-bottom:1rem;font-size:.85rem;font-family:monospace;}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>Admin · {{ app_name }}</h1>
+  <div class="sub">Restricted area</div>
+  {% if err %}<div class="err">{{ err }}</div>{% endif %}
+  <form method="POST" action="/admin/login">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Password</label>
+    <input type="password" name="password" autocomplete="current-password" autofocus required>
+    {% if turnstile_site_key %}
+      <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" style="margin-top:1rem;"></div>
+    {% endif %}
+    <button type="submit">Sign in</button>
+  </form>
+</div>
+</body>
+</html>

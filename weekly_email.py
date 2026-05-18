@@ -49,31 +49,31 @@ def load_users():
         return {}
 
 def send_weekly_email(email, name, client_id, total, blocked, pct):
-    html = f'''<div style="font-family:sans-serif;max-width:600px;background:#0a0e0f;color:#e8f0ef;padding:32px;">
+    html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
 <h1 style="font-family:Georgia,serif;font-weight:400;">Your Weekly Harbor Privacy Report</h1>
 <p>Hi {name},</p>
 <p>Here's what Harbor Privacy blocked for you this week.</p>
 <div style="display:flex;gap:16px;margin:24px 0;flex-wrap:wrap;">
-  <div style="background:#111618;border-left:3px solid #00e5c0;padding:16px 24px;flex:1;min-width:120px;">
-    <div style="font-family:monospace;font-size:10px;color:#00e5c0;letter-spacing:0.2em;margin-bottom:8px;">TOTAL QUERIES</div>
-    <div style="font-size:32px;font-weight:700;color:#e8f0ef;">{total:,}</div>
+  <div style="background:#f4eee2;border-left:3px solid #1f5d6b;padding:16px 24px;flex:1;min-width:120px;">
+    <div style="font-family:monospace;font-size:10px;color:#1f5d6b;letter-spacing:0.2em;margin-bottom:8px;">TOTAL QUERIES</div>
+    <div style="font-size:32px;font-weight:700;color:#1a2420;">{total:,}</div>
   </div>
-  <div style="background:#111618;border-left:3px solid #00e5c0;padding:16px 24px;flex:1;min-width:120px;">
-    <div style="font-family:monospace;font-size:10px;color:#00e5c0;letter-spacing:0.2em;margin-bottom:8px;">BLOCKED</div>
-    <div style="font-size:32px;font-weight:700;color:#e8f0ef;">{blocked:,}</div>
+  <div style="background:#f4eee2;border-left:3px solid #1f5d6b;padding:16px 24px;flex:1;min-width:120px;">
+    <div style="font-family:monospace;font-size:10px;color:#1f5d6b;letter-spacing:0.2em;margin-bottom:8px;">BLOCKED</div>
+    <div style="font-size:32px;font-weight:700;color:#1a2420;">{blocked:,}</div>
   </div>
-  <div style="background:#111618;border-left:3px solid #00e5c0;padding:16px 24px;flex:1;min-width:120px;">
-    <div style="font-family:monospace;font-size:10px;color:#00e5c0;letter-spacing:0.2em;margin-bottom:8px;">BLOCK RATE</div>
-    <div style="font-size:32px;font-weight:700;color:#00e5c0;">{pct}%</div>
+  <div style="background:#f4eee2;border-left:3px solid #1f5d6b;padding:16px 24px;flex:1;min-width:120px;">
+    <div style="font-family:monospace;font-size:10px;color:#1f5d6b;letter-spacing:0.2em;margin-bottom:8px;">BLOCK RATE</div>
+    <div style="font-size:32px;font-weight:700;color:#1f5d6b;">{pct}%</div>
   </div>
 </div>
-<p style="color:#6b8a87;font-size:13px;">These are aggregate statistics only. Harbor Privacy does not log your browsing history.</p>
-<div style="border-top:1px solid #1e2a2d;padding-top:20px;margin-top:20px;">
-  <a href="https://dashboard.harborprivacy.com" style="display:inline-block;background:#00e5c0;color:#0a0e0f;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">View Dashboard →</a>
+<p style="color:#6b7a72;font-size:13px;">These are aggregate statistics only. Harbor Privacy does not log your browsing history.</p>
+<div style="border-top:1px solid #e6dfd2;padding-top:20px;margin-top:20px;">
+  <a href="https://dashboard.harborprivacy.com" style="display:inline-block;background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">View Dashboard →</a>
 </div>
-<p style="padding-top:24px;color:#6b8a87;font-size:12px;">
+<p style="padding-top:24px;color:#6b7a72;font-size:12px;">
   To unsubscribe from weekly emails, go to Dashboard → Settings → Weekly Stats Email → Off<br>
-  - Tim | <a href="https://harborprivacy.com" style="color:#00e5c0;">harborprivacy.com</a>
+  - Tim | <a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a>
 </p>
 </div>'''
 

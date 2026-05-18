@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fax admin</title>
+<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+<style>
+body{font-family:-apple-system,Segoe UI,sans-serif;background:#fbf7f0;color:#f5fbfa;margin:0;}
+.wrap{max-width:1200px;margin:0 auto;padding:1.5rem;}
+.top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #fbf7f0;padding-bottom:.8rem;margin-bottom:1rem;}
+.top h1{font-family:Georgia,serif;font-weight:400;margin:0;font-size:1.4rem;}
+form.logout{display:inline;}
+.btn{padding:.35rem .7rem;border:1px solid #fbf7f0;background:#fbf7f0;color:#b8d0cc;border-radius:6px;font-family:monospace;font-size:.78rem;cursor:pointer;text-decoration:none;display:inline-block;}
+.btn:hover{border-color:#00e5c0;color:#00e5c0;}
+.btn.danger:hover{border-color:#e57676;color:#e57676;}
+.btn.primary{background:#00e5c0;color:#fbf7f0;border-color:#00e5c0;font-weight:600;}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem;margin-bottom:1rem;}
+.stat{background:#fbf7f0;border:1px solid #fbf7f0;border-radius:8px;padding:.7rem;}
+.stat .num{font-family:monospace;font-size:1.4rem;color:#00e5c0;}
+.stat .lbl{font-size:.7rem;color:#8aa8a4;text-transform:uppercase;letter-spacing:.05em;}
+.tbl{width:100%;border-collapse:collapse;font-size:.85rem;}
+.tbl th,.tbl td{padding:.5rem .55rem;border-bottom:1px solid #fbf7f0;text-align:left;vertical-align:top;}
+.tbl th{font-family:monospace;font-size:.74rem;text-transform:uppercase;letter-spacing:.05em;color:#8aa8a4;font-weight:500;}
+.badge{font-family:monospace;font-size:.72rem;padding:.15rem .55rem;border-radius:10px;background:#fbf7f0;color:#b8d0cc;}
+.badge.ok{background:#fbf7f0;color:#5fe5a6;}
+.badge.warn{background:#3a2a0a;color:#e5c25f;}
+.badge.err{background:#3a0a1a;color:#e57676;}
+.toolbar{display:flex;gap:.5rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap;}
+.input{background:#fbf7f0;border:1px solid #fbf7f0;color:#f5fbfa;padding:.45rem .7rem;border-radius:6px;font-family:monospace;font-size:.82rem;}
+.card{background:#fbf7f0;border:1px solid #fbf7f0;border-radius:8px;padding:.9rem;margin-bottom:.9rem;}
+.card h3{margin:0 0 .6rem;font-size:.95rem;}
+.kv{display:grid;grid-template-columns:160px 1fr;gap:.3rem .8rem;font-size:.85rem;}
+.kv > div:nth-child(odd){color:#8aa8a4;font-family:monospace;font-size:.78rem;}
+code{font-family:monospace;color:#b8d0cc;}
+.status-pill{font-family:monospace;font-size:.72rem;padding:.18rem .55rem;border-radius:10px;background:#fbf7f0;color:#b8d0cc;text-decoration:none;}
+.status-pill.active{background:#00e5c0;color:#fbf7f0;}
+pre{background:#fbf7f0;border:1px solid #fbf7f0;padding:.7rem;border-radius:6px;font-size:.78rem;overflow:auto;max-height:300px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Fax admin</h1>
+    <form class="logout" method="POST" action="/admin/logout">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn">Sign out</button>
+    </form>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat"><div class="num">{{ stats.total_orders }}</div><div class="lbl">Orders</div></div>
+    <div class="stat"><div class="num">{{ stats.total_files }}</div><div class="lbl">Stored files</div></div>
+    <div class="stat"><div class="num">${{ '%.2f'|format((stats.sum_amount_cents or 0)/100) }}</div><div class="lbl">Lifetime gross</div></div>
+    <div class="stat"><div class="num">{{ '%.1f'|format(stats.disk_bytes/1048576) }} MB</div><div class="lbl">Disk used</div></div>
+    {% for s, n in stats.counts.items() %}
+      <div class="stat"><div class="num">{{ n }}</div><div class="lbl">{{ s }}</div></div>
+    {% endfor %}
+  </div>
+
+  <form method="POST" action="/admin/flags" class="card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h3>Controls</h3>
+    <label style="display:block;margin:.3rem 0;"><input type="checkbox" name="orders_paused" {% if flags.orders_paused %}checked{% endif %}> Pause new orders</label>
+    <label style="display:block;margin:.4rem 0 .2rem;font-size:.8rem;color:#8aa8a4;">Banner text (shown on fax.harborprivacy.com)</label>
+    <input class="input" name="banner" value="{{ flags.banner }}" style="width:100%;max-width:540px;">
+    <div style="margin-top:.7rem;"><button class="btn primary">Save</button></div>
+  </form>
+
+  <form method="POST" action="/admin/sweep" onsubmit="return confirm('Run sweep? This deletes completed/failed orders and their files.');" class="card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h3>Sweep old orders</h3>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <span style="color:#8aa8a4;font-size:.85rem;">Delete sent/failed/cancelled orders older than</span>
+      <input class="input" type="number" name="days" value="30" style="width:80px;">
+      <span style="color:#8aa8a4;font-size:.85rem;">days (plus orphan files &gt;7 days).</span>
+      <button class="btn danger">Run sweep</button>
+    </div>
+  </form>
+
+  {% if tab == 'orders' %}
+    <form method="GET" class="toolbar">
+      <input class="input" name="q" value="{{ q }}" placeholder="search fax number, email, name, token">
+      <button class="btn" type="submit">Search</button>
+      {% for s in ['', 'pending','paid','sending','sent','failed','cancelled'] %}
+        <a class="status-pill {% if status==s %}active{% endif %}"
+           href="/admin{% if s %}?status={{ s }}{% endif %}">{{ s or 'all' }}</a>
+      {% endfor %}
+    </form>
+    <table class="tbl">
+      <thead><tr>
+        <th>Token</th><th>Status</th><th>To</th><th>Number</th><th>Pages</th><th>Amount</th><th>Email</th><th>Created</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for o in orders %}
+        <tr>
+          <td><code>{{ o.token[:8] }}…</code></td>
+          <td><span class="badge {% if o.status=='sent' %}ok{% elif o.status in ('failed','cancelled') %}err{% elif o.status in ('pending','paid','sending') %}warn{% endif %}">{{ o.status }}</span></td>
+          <td>{{ o.to_name or '' }}</td>
+          <td><code>{{ o.fax_number or '' }}</code></td>
+          <td>{{ (o.extra_pages or 0) + 1 }}</td>
+          <td>${{ '%.2f'|format((o.amount or 0)/100) }}</td>
+          <td>{{ o.email or '' }}</td>
+          <td>{{ (o.created_at or '')[:16] }}</td>
+          <td><a class="btn" href="/admin/order/{{ o.token }}">View</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="9" style="color:#8aa8a4;">No orders match.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+  {% elif tab == 'order_view' %}
+    <a class="btn" href="/admin">&larr; Back</a>
+    <div class="card" style="margin-top:1rem;">
+      <h3>Order {{ order.token }}</h3>
+      <div class="kv">
+        <div>status</div><div><span class="badge {% if order.status=='sent' %}ok{% elif order.status in ('failed','cancelled') %}err{% else %}warn{% endif %}">{{ order.status }}</span></div>
+        <div>fax_number</div><div><code>{{ order.fax_number }}</code></div>
+        <div>to_name</div><div>{{ order.to_name }}</div>
+        <div>from_name</div><div>{{ order.from_name }}</div>
+        <div>subject</div><div>{{ order.subject }}</div>
+        <div>email</div><div>{{ order.email }}</div>
+        <div>amount</div><div>${{ '%.2f'|format((order.amount or 0)/100) }}</div>
+        <div>extra_pages</div><div>{{ order.extra_pages }}</div>
+        <div>remove_branding</div><div>{{ order.remove_branding }}</div>
+        <div>payment_intent</div><div><code>{{ order.payment_intent or '' }}</code></div>
+        <div>telnyx_fax_id</div><div><code>{{ order.telnyx_fax_id or '' }}</code></div>
+        <div>created_at</div><div>{{ order.created_at }}</div>
+        <div>updated_at</div><div>{{ order.updated_at }}</div>
+      </div>
+      {% if order.message %}<h4 style="margin-top:1rem;">Message</h4><pre>{{ order.message }}</pre>{% endif %}
+    </div>
+    <div class="card">
+      <h3>Files</h3>
+      <table class="tbl">
+        <thead><tr><th>Token</th><th>Name</th><th>Pages</th><th>Size</th><th>Exists</th><th>Created</th></tr></thead>
+        <tbody>
+        {% for f in file_rows %}
+          <tr>
+            <td><code>{{ f.token[:8] }}…</code></td>
+            <td>{{ f.orig_name }}</td>
+            <td>{{ f.page_count }}</td>
+            <td>{{ '%.1f'|format((f.size or 0)/1024) }} KB</td>
+            <td>{% if f.exists %}<span class="badge ok">yes</span>{% else %}<span class="badge err">no</span>{% endif %}</td>
+            <td>{{ (f.created_at or '')[:16] }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="6" style="color:#8aa8a4;">No files referenced.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <form method="POST" action="/admin/order/{{ order.token }}/delete" onsubmit="return confirm('Delete this order and all its files?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn danger">Delete order + files</button>
+    </form>
+  {% endif %}
+
+  <div class="card">
+    <h3>Recent admin actions</h3>
+    <table class="tbl">
+      <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Target</th><th>IP</th><th>Payload</th></tr></thead>
+      <tbody>
+      {% for a in audit %}
+        <tr>
+          <td>{{ a.ts }}</td><td>{{ a.actor }}</td>
+          <td><code>{{ a.action }}</code></td>
+          <td>{{ a.target_type or '' }}{% if a.target_id %} #{{ a.target_id }}{% endif %}</td>
+          <td><code style="font-size:.72rem;color:#8aa8a4;">{{ a.ip or '' }}</code></td>
+          <td><code style="font-size:.72rem;">{{ (a.payload | tojson)[:80] if a.payload else '' }}</code></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" style="color:#8aa8a4;">No actions yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+</body>
+</html>

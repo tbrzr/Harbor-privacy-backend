@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Career admin</title>
+<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+<style>
+body{font-family:-apple-system,Segoe UI,sans-serif;background:#fbf7f0;color:#f5fbfa;margin:0;}
+.wrap{max-width:1200px;margin:0 auto;padding:1.5rem;}
+.top{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #fbf7f0;padding-bottom:.8rem;margin-bottom:1rem;}
+.top h1{font-family:Georgia,serif;font-weight:400;margin:0;font-size:1.4rem;}
+.btn{padding:.35rem .7rem;border:1px solid #fbf7f0;background:#fbf7f0;color:#b8d0cc;border-radius:6px;font-family:monospace;font-size:.78rem;cursor:pointer;text-decoration:none;display:inline-block;}
+.btn:hover{border-color:#00e5c0;color:#00e5c0;}
+.btn.danger:hover{border-color:#e57676;color:#e57676;}
+.btn.primary{background:#00e5c0;color:#fbf7f0;border-color:#00e5c0;font-weight:600;}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem;margin-bottom:1rem;}
+.stat{background:#fbf7f0;border:1px solid #fbf7f0;border-radius:8px;padding:.7rem;}
+.stat .num{font-family:monospace;font-size:1.4rem;color:#00e5c0;}
+.stat .lbl{font-size:.7rem;color:#8aa8a4;text-transform:uppercase;letter-spacing:.05em;}
+.tbl{width:100%;border-collapse:collapse;font-size:.85rem;}
+.tbl th,.tbl td{padding:.5rem .55rem;border-bottom:1px solid #fbf7f0;text-align:left;vertical-align:top;}
+.tbl th{font-family:monospace;font-size:.74rem;text-transform:uppercase;letter-spacing:.05em;color:#8aa8a4;font-weight:500;}
+.badge{font-family:monospace;font-size:.72rem;padding:.15rem .55rem;border-radius:10px;background:#fbf7f0;color:#b8d0cc;}
+.badge.ok{background:#fbf7f0;color:#5fe5a6;}
+.badge.warn{background:#3a2a0a;color:#e5c25f;}
+.badge.err{background:#3a0a1a;color:#e57676;}
+.toolbar{display:flex;gap:.5rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap;}
+.input{background:#fbf7f0;border:1px solid #fbf7f0;color:#f5fbfa;padding:.45rem .7rem;border-radius:6px;font-family:monospace;font-size:.82rem;}
+.card{background:#fbf7f0;border:1px solid #fbf7f0;border-radius:8px;padding:.9rem;margin-bottom:.9rem;}
+.card h3{margin:0 0 .6rem;font-size:.95rem;}
+.kv{display:grid;grid-template-columns:160px 1fr;gap:.3rem .8rem;font-size:.85rem;}
+.kv > div:nth-child(odd){color:#8aa8a4;font-family:monospace;font-size:.78rem;}
+code{font-family:monospace;color:#b8d0cc;}
+.status-pill{font-family:monospace;font-size:.72rem;padding:.18rem .55rem;border-radius:10px;background:#fbf7f0;color:#b8d0cc;text-decoration:none;}
+.status-pill.active{background:#00e5c0;color:#fbf7f0;}
+pre{background:#fbf7f0;border:1px solid #fbf7f0;padding:.7rem;border-radius:6px;font-size:.78rem;overflow:auto;max-height:400px;white-space:pre-wrap;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Career admin</h1>
+    <form method="POST" action="/admin/logout" style="display:inline;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn">Sign out</button>
+    </form>
+  </div>
+
+  <div class="stat-grid">
+    <div class="stat"><div class="num">{{ stats.total }}</div><div class="lbl">Jobs total</div></div>
+    <div class="stat"><div class="num">{{ stats.paid }}</div><div class="lbl">Paid</div></div>
+    {% for k, n in stats.by_type.items() %}
+      <div class="stat"><div class="num">{{ n }}</div><div class="lbl">{{ k }}</div></div>
+    {% endfor %}
+    {% for s, n in stats.counts.items() %}
+      <div class="stat"><div class="num">{{ n }}</div><div class="lbl">{{ s }}</div></div>
+    {% endfor %}
+  </div>
+
+  <form method="POST" action="/admin/flags" class="card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h3>Controls</h3>
+    <label style="display:block;margin:.3rem 0;"><input type="checkbox" name="orders_paused" {% if flags.orders_paused %}checked{% endif %}> Pause new orders</label>
+    <label style="display:block;margin:.4rem 0 .2rem;font-size:.8rem;color:#8aa8a4;">Banner text</label>
+    <input class="input" name="banner" value="{{ flags.banner or '' }}" style="width:100%;max-width:540px;">
+    <div style="margin-top:.7rem;"><button class="btn primary">Save</button></div>
+  </form>
+
+  <form method="POST" action="/admin/sweep" class="card" onsubmit="return confirm('Delete jobs older than this many days?');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <h3>Sweep old jobs</h3>
+    <div style="display:flex;gap:.5rem;align-items:center;">
+      <span style="color:#8aa8a4;font-size:.85rem;">Delete jobs older than</span>
+      <input class="input" type="number" name="days" value="30" style="width:80px;">
+      <span style="color:#8aa8a4;font-size:.85rem;">days (plus their PDFs).</span>
+      <button class="btn danger">Run sweep</button>
+    </div>
+  </form>
+
+  {% if tab == 'jobs' %}
+    <form method="GET" class="toolbar">
+      <input class="input" name="q" value="{{ q }}" placeholder="search email / name / code / id">
+      <select class="input" name="kind">
+        <option value="">all types</option>
+        {% for k in ['coverletter','resume_review','adjust'] %}
+          <option value="{{ k }}" {% if kind==k %}selected{% endif %}>{{ k }}</option>
+        {% endfor %}
+      </select>
+      <button class="btn" type="submit">Search</button>
+      {% for s in ['', 'pending','paid','generated','failed','sent','expired'] %}
+        <a class="status-pill {% if status==s %}active{% endif %}"
+           href="/admin{% if s %}?status={{ s }}{% endif %}">{{ s or 'all' }}</a>
+      {% endfor %}
+    </form>
+    <table class="tbl">
+      <thead><tr>
+        <th>ID</th><th>Type</th><th>Status</th><th>Name</th><th>Email</th><th>Code</th><th>Created</th><th></th>
+      </tr></thead>
+      <tbody>
+      {% for jid, j in rows %}
+        <tr>
+          <td><code>{{ jid[:8] }}…</code></td>
+          <td><span class="badge">{{ j.type or 'coverletter' }}</span></td>
+          <td><span class="badge {% if j.status=='sent' or j.status=='generated' %}ok{% elif j.status in ('failed','expired') %}err{% else %}warn{% endif %}">{{ j.status or '' }}</span></td>
+          <td>{{ j.your_name or '' }}</td>
+          <td>{{ j.email or '' }}</td>
+          <td><code>{{ j.access_code or '' }}</code></td>
+          <td>{{ (j.created_at or '')[:16] }}</td>
+          <td><a class="btn" href="/admin/job/{{ jid }}">View</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="8" style="color:#8aa8a4;">No jobs match.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+  {% elif tab == 'job_view' %}
+    <a class="btn" href="/admin">&larr; Back</a>
+    <div class="card" style="margin-top:1rem;">
+      <h3>Job {{ job_id }}</h3>
+      <div class="kv">
+        {% for k, v in job.items() %}
+          {% if k not in ['job_posting','your_background','generated_letter','revised_letter','revised_resume','original_text'] %}
+            <div>{{ k }}</div><div><code>{{ v|string|truncate(200) }}</code></div>
+          {% endif %}
+        {% endfor %}
+      </div>
+      {% if job.job_posting %}<h4 style="margin-top:1rem;">Job posting</h4><pre>{{ job.job_posting }}</pre>{% endif %}
+      {% if job.generated_letter %}<h4>Generated letter</h4><pre>{{ job.generated_letter }}</pre>{% endif %}
+      {% if job.revised_letter %}<h4>Revised letter</h4><pre>{{ job.revised_letter }}</pre>{% endif %}
+    </div>
+    {% if pdfs %}
+      <div class="card">
+        <h3>PDFs on disk</h3>
+        <ul style="margin:0;padding-left:1.2rem;font-size:.86rem;font-family:monospace;">
+        {% for p in pdfs %}
+          <li><code>{{ p.path }}</code> ({{ '%.1f'|format(p.size/1024) }} KB)</li>
+        {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+    <form method="POST" action="/admin/job/{{ job_id }}/resend_code" style="display:inline;">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn">Re-send access code</button>
+    </form>
+    <form method="POST" action="/admin/job/{{ job_id }}/delete" style="display:inline;margin-left:.4rem;" onsubmit="return confirm('Delete this job and its PDFs?');">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <button class="btn danger">Delete job + files</button>
+    </form>
+  {% endif %}
+
+  <div class="card">
+    <h3>Recent admin actions</h3>
+    <table class="tbl">
+      <thead><tr><th>When</th><th>Actor</th><th>Action</th><th>Target</th><th>IP</th><th>Payload</th></tr></thead>
+      <tbody>
+      {% for a in audit %}
+        <tr>
+          <td>{{ a.ts }}</td><td>{{ a.actor }}</td>
+          <td><code>{{ a.action }}</code></td>
+          <td>{{ a.target_type or '' }}{% if a.target_id %} #{{ a.target_id }}{% endif %}</td>
+          <td><code style="font-size:.72rem;color:#8aa8a4;">{{ a.ip or '' }}</code></td>
+          <td><code style="font-size:.72rem;">{{ (a.payload | tojson)[:80] if a.payload else '' }}</code></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" style="color:#8aa8a4;">No actions yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+</body>
+</html>
