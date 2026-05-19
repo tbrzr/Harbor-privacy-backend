@@ -111,7 +111,7 @@ def _csrf_guard():
         except Exception:
             sent = ""
     if not sent or not secrets.compare_digest(str(sent), str(expected)):
-        log.warning(f"CSRF rejected path={p} ua={request.headers.get('User-Agent','')[:80]}")
+        log.warning(f"CSRF rejected path={p} ua={request.headers.get('User-Agent','')[:80]} sent_len={len(sent)} exp_len={len(expected)} xcsrf={request.headers.get('X-CSRF','<none>')[:12]!r} sess_csrf={(expected or '')[:12]!r}")
         return jsonify({"error": "csrf"}), 403
 
 @app.context_processor
@@ -314,10 +314,20 @@ def _verify_setup_token(token, email):
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.cookies.get("hp_token")
-        if not token:
+        raw = request.headers.get("Cookie", "")
+        tokens = []
+        for part in raw.split(";"):
+            part = part.strip()
+            if part.startswith("hp_token="):
+                tokens.append(part[len("hp_token="):])
+        if not tokens:
             return redirect("/login")
-        payload = verify_token(token)
+        payload = None
+        for t in tokens:
+            p = verify_token(t)
+            if p:
+                payload = p
+                break
         if not payload:
             return redirect("/login")
         request.user_email = payload["email"]
@@ -328,11 +338,23 @@ def login_required(f):
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.cookies.get("hp_token")
-        if not token:
+        # Browser may have multiple hp_token cookies (host-only + domain-wide).
+        # Try each one until we find a valid admin token.
+        raw = request.headers.get("Cookie", "")
+        tokens = []
+        for part in raw.split(";"):
+            part = part.strip()
+            if part.startswith("hp_token="):
+                tokens.append(part[len("hp_token="):])
+        if not tokens:
             return redirect("/login")
-        payload = verify_token(token)
-        if not payload or not payload.get("admin"):
+        payload = None
+        for t in tokens:
+            p = verify_token(t)
+            if p and p.get("admin"):
+                payload = p
+                break
+        if not payload:
             return redirect("/dashboard")
         request.user_email = payload["email"]
         request.is_admin = True
@@ -357,15 +379,24 @@ from harbor_lib.config import EMAIL_FAILURES_FILE
 STYLE = """<!DOCTYPE html>
 <html lang="en">
 <head>
-<link rel="icon" type="image/svg+xml" href="https://harborprivacy.com/favicon.svg">
-<link rel="icon" type="image/png" sizes="32x32" href="https://harborprivacy.com/favicon-32.png">
-<link rel="apple-touch-icon" sizes="180x180" href="https://harborprivacy.com/favicon-180.png">
-<link rel="manifest" href="https://harborprivacy.com/manifest.json">
+<link rel="icon" type="image/svg+xml" href="/dashboard-icon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="/dashboard-icon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/dashboard-icon-180.png">
+<link rel="manifest" href="/dashboard-app.webmanifest">
+<link rel="stylesheet" href="https://harborprivacy.com/css/harbor-system.css">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Harbor Privacy">
+<meta name="apple-mobile-web-app-title" content="HP Dashboard">
 <meta name="theme-color" content="#00e5c0">
+<script defer src="/install-banner.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function() {
+      navigator.serviceWorker.register('/dashboard-sw.js').catch(function(){});
+    });
+  }
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
@@ -652,7 +683,9 @@ def login():
                                 open(CUSTOMERS_LOG,"w").write("\n".join(new_lines) + "\n")
                             except: pass
                             resp = make_response(redirect("/admin" if is_admin else "/dashboard"))
-                            resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=86400)
+                            resp.set_cookie("hp_token", "", expires=0, path="/")
+                            resp.set_cookie("hp_token", "", expires=0, path="/", domain=".harborprivacy.com")
+                            resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=86400, domain=".harborprivacy.com")
                             return resp
                     else:
                         is_admin = email == ADMIN_EMAIL
@@ -672,7 +705,9 @@ def login():
                             open(CUSTOMERS_LOG,"w").write("\n".join(new_lines) + "\n")
                         except: pass
                         resp = make_response(redirect("/admin" if is_admin else "/dashboard"))
-                        resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=86400)
+                        resp.set_cookie("hp_token", "", expires=0, path="/")
+                        resp.set_cookie("hp_token", "", expires=0, path="/", domain=".harborprivacy.com")
+                        resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=86400, domain=".harborprivacy.com")
                         return resp
 
     html = STYLE + """
@@ -816,7 +851,9 @@ def setup():
             save_users(users)
             token = make_token(email.lower(), is_admin=is_admin)
             resp = make_response(redirect("/admin" if is_admin else "/setup/2fa-prompt"))
-            resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=86400)
+            resp.set_cookie("hp_token", "", expires=0, path="/")
+            resp.set_cookie("hp_token", "", expires=0, path="/", domain=".harborprivacy.com")
+            resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=86400, domain=".harborprivacy.com")
             return resp
 
     html = STYLE + """
@@ -861,7 +898,8 @@ def setup_2fa_prompt():
 @app.route("/logout")
 def logout():
     resp = make_response(redirect("/login"))
-    resp.delete_cookie("hp_token")
+    resp.set_cookie("hp_token", "", expires=0, path="/")
+    resp.set_cookie("hp_token", "", expires=0, path="/", domain=".harborprivacy.com")
     return resp
 
 # ════════════════════════════════════════════════════════════
@@ -3053,7 +3091,19 @@ def admin_logs_stream():
 @app.route("/social")
 @admin_required
 def social():
-    return render_template_string(SOCIAL_HTML, active="social")
+    resp = make_response(render_template_string(SOCIAL_HTML, active="social"))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
+
+
+@app.route("/api/csrf")
+def api_csrf():
+    tok = session.get("csrf")
+    if not tok:
+        tok = secrets.token_urlsafe(32)
+        session["csrf"] = tok
+    return jsonify({"csrf": tok})
 
 def _build_post_prompt(brand, topic, platforms):
     import json as _json
@@ -3116,6 +3166,20 @@ Both tools delete your data within 2 hours. No account needed."""
         cta_fb = "booking.harborprivacy.com -- free to set up"
         cta_ig = "Link in bio -- free online booking"
         cta_li = "booking.harborprivacy.com"
+    elif brand == "money":
+        context = """Harbor Money is personal budgeting without handing over your bank login, at money.harborprivacy.com. Forward your transaction emails (receipts, bank alerts, card notifications) -- Harbor Money parses them, categorizes spending, and tracks savings goals automatically. No bank credentials, no Plaid, no tracking. Privacy-first alternative to YNAB and Mint."""
+        problem_angles = [
+            "YNAB and Mint want your bank login. That single password is the keys to your kingdom -- and it lives on their servers.",
+            "Plaid had a 70 million user data breach. That's the same Plaid every budgeting app uses to read your bank account.",
+            "You already get transaction emails from your bank and every card. Why hand over a password when forwarding is enough?",
+            "Budgeting apps die or get acquired and your bank credentials go with them. Forwarding emails leaves no credential to lose.",
+            "Most personal finance apps make money by selling anonymized spending data. Yours.",
+        ]
+        import random
+        problem = random.choice(problem_angles)
+        cta_fb = "money.harborprivacy.com -- no bank login required"
+        cta_ig = "Link in bio -- budgeting without bank logins"
+        cta_li = "money.harborprivacy.com"
     else:
         context = """Harbor Privacy is a managed home network privacy service. Harbor Light $1.99/mo (ad and tracker blocking). Harbor Remote $5.99/mo with 30-day free trial (full privacy on any network). Blocks ads before they load, stops trackers, blocks malware. Works on every device automatically. No tech knowledge needed."""
         problem_angles = [
@@ -3161,39 +3225,58 @@ Rules:
 Return JSON only with keys: {", ".join(platform_keys)}"""
     return prompt, platform_keys
 
-def _generate_image_claude(brand, topic):
-    import requests as _req
-    import base64, json as _json
-    if brand == "career":
-        img_prompt = f"""Create a dark-themed social media image for Harbor Privacy Fax -- anonymous fax service, dark background, teal accent, minimal and professional, about: {topic}.""" if brand == "fax" else f"""Create a dark-themed social media image for Harbor Privacy Fax -- anonymous fax service, dark background, teal accent, minimal and professional, about: {topic}.""" if brand == "fax" else f"""Create a clean, light-themed social media image for a career tool about: {topic}.
-Style: white or very light gray background, soft teal (#34d399) accents, minimal geometric shapes, professional and optimistic mood, no text, no people, abstract but purposeful."""
-    else:
-        img_prompt = f"""Create a dark-themed social media image for a home network privacy service about: {topic}.
-Style: very dark background (#0a0e0f), teal accent color (#00e5c0), clean geometric grid lines, tech and privacy theme, no text, no people, abstract and minimal."""
+SOCIAL_IMAGES_ENABLED = False  # Gemini free-tier image quota is 0/day; text-only for now
 
+def _generate_image_claude(brand, topic):
+    if not SOCIAL_IMAGES_ENABLED:
+        return None
+    # Renamed in spirit -- now uses Gemini 2.5 Flash Image (Nano Banana).
+    # Kept name for back-compat with autopost callers.
+    import requests as _req
+    import base64 as _b64, json as _json, time as _t, pathlib
     try:
-        r = _req.post("https://api.anthropic.com/v1/messages",
-            headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY",""), "anthropic-version": "2023-06-01", "content-type": "application/json"},
-            json={
-                "model": "claude-opus-4-7",
-                "max_tokens": 1024,
-                "messages": [{"role": "user", "content": [
-                    {"type": "text", "text": img_prompt},
-                    {"type": "text", "text": "Generate this as a 1:1 square image suitable for Instagram. Return only the image, no explanation."}
-                ]}]
-            },
+        with open("/var/www/brazer/config.json") as _cf:
+            gemini_key = _json.load(_cf).get("benny_api_key", "")
+    except Exception as e:
+        print(f"_generate_image: config read failed: {e!r}", flush=True)
+        return None
+    if not gemini_key:
+        return None
+    scene_map = {
+        "career": f"Clean light-themed social tile for a privacy-first AI career tool. Soft teal (#34d399) accents, minimal geometric shapes, professional optimistic mood, no text, no people. Topic: {topic}",
+        "fax":    f"Dark-themed social tile for an anonymous fax service. Very dark background (#0a0e0f), teal accent (#00e5c0), minimal medical-document iconography, no text, no people. Topic: {topic}",
+        "booking":f"Warm amber-themed social tile for a free scheduling app. Dark warm background, amber (#f59e0b) accents, calendar/clock motifs, no text, no people. Topic: {topic}",
+        "money":  f"Calm green-themed social tile for a privacy-first personal budgeting app. Dark green background, sage accents (#7faa86), minimal envelope/coin/chart motifs, no text, no people. Topic: {topic}",
+        "tim":    f"Professional blue-themed LinkedIn tile for a healthcare operations leader. Dark navy background, soft blue (#4a9edd) accents, minimal abstract shapes, no text, no people. Topic: {topic}",
+        "harbor": f"Dark-themed social tile for a home network privacy service. Very dark background (#0a0e0f), teal accent (#00e5c0), clean geometric grid lines, tech and privacy theme, no text, no people. Topic: {topic}",
+    }
+    img_prompt = scene_map.get(brand, scene_map["harbor"])
+    try:
+        r = _req.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key={gemini_key}",
+            headers={"Content-Type": "application/json"},
+            json={"contents": [{"parts": [{"text": img_prompt + "\n\nGenerate a 1:1 square image suitable for Instagram. Return only the image."}]}]},
             timeout=60)
-        data = r.json()
-        for block in data.get("content", []):
-            if block.get("type") == "image":
-                b64 = block["source"]["data"]
-                mt = block["source"]["media_type"]
-                return f"data:{mt};base64,{b64}"
-    except Exception:
-        pass
+        print(f"_generate_image: gemini_status={r.status_code} body_preview={r.text[:200]!r}", flush=True)
+        rj = r.json()
+        parts = (rj.get("candidates") or [{}])[0].get("content", {}).get("parts", [])
+        for p in parts:
+            inline = p.get("inlineData") or p.get("inline_data")
+            if inline and inline.get("data"):
+                raw = _b64.b64decode(inline["data"])
+                img_dir = pathlib.Path("/var/www/network/social-images")
+                img_dir.mkdir(exist_ok=True)
+                fname = f"social-{brand}-{int(_t.time())}.png"
+                (img_dir / fname).write_bytes(raw)
+                return f"https://dashboard.harborprivacy.com/social-images/{fname}"
+        print(f"_generate_image: no inline image in response: {rj}", flush=True)
+    except Exception as e:
+        print(f"_generate_image: EXC {e!r}", flush=True)
     return None
 
 def _generate_image_openai(brand, topic):
+    if not SOCIAL_IMAGES_ENABLED:
+        return None
     import requests as _req
     openai_key = os.environ.get("OPENAI_API_KEY", "")
     if not openai_key:
@@ -3275,16 +3358,27 @@ def social_generate():
 
     prompt, platform_keys = _build_post_prompt(brand, topic, platforms)
 
+    gen_error = None
     try:
         r = _req.post("https://api.anthropic.com/v1/messages",
             headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY",""), "anthropic-version": "2023-06-01", "content-type": "application/json"},
             json={"model": "claude-haiku-4-5-20251001", "max_tokens": 600, "messages": [{"role": "user", "content": prompt}]},
             timeout=30)
-        content = r.json()["content"][0]["text"]
+        print(f"social_generate: anthropic_status={r.status_code} body_preview={r.text[:300]!r}", flush=True)
+        rj = r.json()
+        if "content" not in rj:
+            api_msg = (rj.get("error") or {}).get("message") or rj.get("message") or str(rj)
+            raise RuntimeError(api_msg)
+        content = rj["content"][0]["text"]
         content = content.strip().lstrip("```json").rstrip("```").strip()
         posts = _json.loads(content)
     except Exception as e:
-        posts = {k: "Could not generate post." for k in platform_keys}
+        print(f"social_generate: EXC brand={brand} topic={topic!r} err={e!r}", flush=True)
+        gen_error = str(e) or "Generation failed."
+        posts = {k: "" for k in platform_keys}
+
+    if gen_error:
+        return jsonify({"error": gen_error}), 502
 
     image_url = _generate_image_claude(brand, topic)
     if not image_url:
@@ -3685,6 +3779,27 @@ def api_system_info():
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp
 
+_INTEG_CACHE = {"ts": 0, "data": None}
+
+@app.route("/api/integrity")
+def api_integrity():
+    import time as _t, os as _os, json as _j
+    now = _t.time()
+    if _INTEG_CACHE["data"] and (now - _INTEG_CACHE["ts"]) < 60:
+        d = _INTEG_CACHE["data"]
+    else:
+        path = "/var/log/harbor-integrity.json"
+        d = {"aide": None, "rkhunter": None, "chkrootkit": None, "updated": int(now)}
+        try:
+            if _os.path.exists(path):
+                with open(path) as f: d.update(_j.load(f))
+        except Exception as e:
+            d["error"] = str(e)
+        _INTEG_CACHE.update({"ts": now, "data": d})
+    resp = jsonify(d)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
 
 @app.route("/api/social/post-to-make", methods=["POST"])
 @admin_required
@@ -3724,7 +3839,7 @@ def social_autopost():
     if not secrets.compare_digest(secret, expected):
         return jsonify({"error": "unauthorized"}), 401
     import random as _random
-    _brand_cycle = ["harbor", "career", "fax", "booking"]
+    _brand_cycle = ["harbor", "career", "fax", "booking", "money"]
     brand = request.json.get("brand") if request.json and request.json.get("brand") else _random.choice(_brand_cycle)
     topics_harbor = [
         "ISP tracking your browsing history",
@@ -3794,6 +3909,20 @@ def social_autopost():
         "how to send medical records securely",
         "HIPAA-friendly fax service with no stored documents",
     ]
+    topics_money = [
+        "budgeting without giving up your bank login",
+        "why Plaid is a privacy risk",
+        "track spending by forwarding receipts and bank alerts",
+        "the YNAB and Mint problem -- they need your bank password",
+        "savings goals without a bank connection",
+        "privacy-first personal finance",
+        "what happens to your bank login when a budgeting app dies",
+        "categorize spending automatically from email",
+        "private alternative to Mint and YNAB",
+        "why most budgeting apps sell your spending data",
+        "set up budgeting in 5 minutes with no bank credentials",
+        "track multiple credit cards from one inbox",
+    ]
     import random
     if brand == "career":
         topic = random.choice(topics_career)
@@ -3801,6 +3930,8 @@ def social_autopost():
         topic = random.choice(topics_fax)
     elif brand == "booking":
         topic = random.choice(topics_booking)
+    elif brand == "money":
+        topic = random.choice(topics_money)
     else:
         topic = random.choice(topics_harbor)
     platforms = {"facebook": True, "instagram": True, "linkedin": True}
@@ -3880,6 +4011,45 @@ SOCIAL_HTML = """<!DOCTYPE html>
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("/social-sw.js").catch(function(){});
 }
+(function(){
+  var TOKEN = "{{ csrf_token }}";
+  window.__CSRF = TOKEN;
+  var _f = window.fetch;
+  window.__originalFetch = _f;
+  window.__refreshCSRF = async function(){
+    try {
+      var r = await _f("/api/csrf", {credentials:"same-origin"});
+      var j = await r.json();
+      if (j && j.csrf) { window.__CSRF = j.csrf; return j.csrf; }
+    } catch(e){}
+    return "";
+  };
+  window.fetch = async function(url, opts){
+    opts = opts || {};
+    var m = (opts.method || 'GET').toUpperCase();
+    if (m === 'POST' || m === 'PUT' || m === 'DELETE' || m === 'PATCH') {
+      var u = String(url || '');
+      if (u.charAt(0) === '/' || u.indexOf(location.origin) === 0) {
+        opts.headers = opts.headers || {};
+        var cur = window.__CSRF || "";
+        if (!cur) cur = await window.__refreshCSRF();
+        if (!opts.headers['X-CSRF'] && !opts.headers['x-csrf']) opts.headers['X-CSRF'] = cur;
+        if (!opts.headers['X-CSRF']) opts.headers['X-CSRF'] = cur;
+        if (opts.credentials === undefined) opts.credentials = 'same-origin';
+        var resp = await _f(url, opts);
+        if (resp.status === 403) {
+          var fresh = await window.__refreshCSRF();
+          if (fresh) {
+            opts.headers['X-CSRF'] = fresh;
+            return _f(url, opts);
+          }
+        }
+        return resp;
+      }
+    }
+    return _f(url, opts);
+  };
+})();
 </script>
 <style>
 :root{--bg:#0a0e0f;--surface:#111618;--border:#1e2a2d;--accent:#00e5c0;--text:#e8f0ef;--muted:#6b8a87;--accent-hover:#00ffda;}
@@ -3968,6 +4138,7 @@ input:focus,textarea:focus{border-color:var(--accent);}
     <button class="brand-btn" id="btnCareer" onclick="setBrand('career')">CAREER</button>
     <button class="brand-btn" id="btnFax" onclick="setBrand('fax')">FAX</button>
     <button class="brand-btn" id="btnBooking" onclick="setBrand('booking')">BOOKING</button>
+    <button class="brand-btn" id="btnMoney" onclick="setBrand('money')">MONEY</button>
     <button class="brand-btn" id="btnTim" onclick="setBrand('tim')">TIM BRAZER</button>
     <button class="brand-btn" id="btnAuto" onclick="setBrand('auto')">AUTO</button>
   </div>
@@ -4006,15 +4177,15 @@ input:focus,textarea:focus{border-color:var(--accent);}
     </div>
 
     <div style="margin-top:20px;">
-      <button class="btn" id="generateBtn" onclick="generate()" style="width:100%;padding:16px;">&#9889; Generate Post + Image</button>
+      <button class="btn" id="generateBtn" onclick="generate()" style="width:100%;padding:16px;">&#9889; Generate Post</button>
     </div>
   </div>
 
   <!-- Results -->
   <div id="resultsCard" style="display:none;">
 
-    <!-- Image first on mobile -->
-    <div class="card" id="imgCard">
+    <!-- Image first on mobile (hidden: image generation disabled) -->
+    <div class="card" id="imgCard" style="display:none;">
       <div class="platform-label" style="margin-bottom:12px;">GENERATED IMAGE</div>
       <div id="imgLoading" style="font-family:monospace;font-size:12px;color:var(--muted);display:none;padding:20px 0;"><span class="spinner"></span>Generating image...</div>
       <div id="imgOverlayWrap" style="display:none;position:relative;width:100%;border-radius:10px;overflow:hidden;aspect-ratio:1/1;">
@@ -4128,6 +4299,16 @@ var timTopics = [
   "Why I founded Harbor Privacy",
   "Practice administrator skills that matter most"
 ];
+var moneyTopics = [
+  "Budgeting without your bank login",
+  "Why Plaid is a privacy risk",
+  "Forward receipts -- we do the rest",
+  "Private alternative to Mint and YNAB",
+  "Track spending from email alerts",
+  "Savings goals without a bank connection",
+  "Categorize spending automatically",
+  "What happens when a budgeting app dies"
+];
 
 function setBrand(brand) {
   currentBrand = brand;
@@ -4136,7 +4317,7 @@ function setBrand(brand) {
   var isAuto = brand === "auto";
   var isBooking = brand === "booking";
   document.body.className = isCareer ? "career-mode" : isTim ? "tim-mode" : isBooking ? "booking-mode" : "";
-  ["harbor","booking","career","fax","tim","auto"].forEach(function(b) {
+  ["harbor","booking","career","fax","money","tim","auto"].forEach(function(b) {
     document.getElementById("btn" + b.charAt(0).toUpperCase() + b.slice(1)).className =
       "brand-btn" + (brand === b ? " active" : "");
   });
@@ -4145,6 +4326,7 @@ function setBrand(brand) {
     booking: ["Harbor Booking", "Scheduling app posts -- small business, appointments, workforce."],
     career: ["Career by Harbor", "Career tool posts -- light theme, problem-first."],
     fax: ["Harbor Fax", "Fax service posts -- anonymous, HIPAA, privacy angle."],
+    money: ["Harbor Money", "Budgeting without bank logins -- privacy-first personal finance."],
     tim: ["Tim Brazer", "Personal LinkedIn content -- healthcare ops & leadership."],
     booking: ["Harbor Booking", "Free scheduling platform -- salons, clinics, small business."],
     auto: ["Auto-Post", "Daily automated posting settings."]
@@ -4152,7 +4334,7 @@ function setBrand(brand) {
   document.getElementById("pageTitle").textContent = titles[brand][0];
   document.getElementById("pageSub").textContent = titles[brand][1];
   // Topic chips
-  var topicMap = {harbor: harborTopics, career: careerTopics, fax: faxTopics, booking: bookingTopics, tim: timTopics, auto: []};
+  var topicMap = {harbor: harborTopics, career: careerTopics, fax: faxTopics, booking: bookingTopics, money: moneyTopics, tim: timTopics, auto: []};
   renderChips(topicMap[brand] || []);
   if ((topicMap[brand] || []).length) document.getElementById("topicInput").value = topicMap[brand][0];
   // Platform toggles for tim -- LinkedIn only on by default
@@ -4235,7 +4417,7 @@ async function generate() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>Generating...';
   document.getElementById("resultsCard").style.display = "none";
-  document.getElementById("imgLoading").style.display = "block";
+  document.getElementById("imgLoading").style.display = "none";
   document.getElementById("imgPreview").style.display = "none";
   document.getElementById("imgDownload").style.display = "none";
   document.getElementById("makeStatus").textContent = "";
@@ -4244,9 +4426,19 @@ async function generate() {
   try {
     var r = await fetch("/api/social/generate", {
       method: "POST",
-      headers: {"Content-Type":"application/json"},
-      body: JSON.stringify({topic: topic, brand: currentBrand, platforms: platforms})
+      headers: {"Content-Type":"application/json","X-CSRF":window.__CSRF||""},
+      credentials: "same-origin",
+      body: JSON.stringify({topic: topic, brand: currentBrand, platforms: platforms, csrf: window.__CSRF||""})
     });
+    if (!r.ok) {
+      var errText = "";
+      try { var err = await r.json(); errText = err.error || ("HTTP " + r.status); } catch(e) { errText = "HTTP " + r.status; }
+      document.getElementById("makeStatus").className = "status-msg error";
+      document.getElementById("makeStatus").textContent = "Generate failed: " + errText;
+      document.getElementById("generateBtn").disabled = false;
+      document.getElementById("generateBtn").innerHTML = "Generate Posts";
+      return;
+    }
     var data = await r.json();
     var showFb = platforms.facebook !== false;
     var showIg = platforms.instagram !== false;
@@ -4259,8 +4451,8 @@ async function generate() {
     if (showLi) { document.getElementById("liPost").textContent = data.linkedin || ""; updateCharCount("liPost","liCount",3000); }
     document.getElementById("resultsCard").style.display = "block";
     document.getElementById("imgLoading").style.display = "none";
-    // Tim brand -- hide image section
-    document.getElementById("imgCard").style.display = currentBrand === "tim" ? "none" : "block";
+    // Image generation disabled (Gemini free-tier quota exhausted) -- always hide
+    document.getElementById("imgCard").style.display = "none";
     if (data.image_url && currentBrand !== "tim") {
       var img = document.getElementById("imgPreview");
       // Pull text before setting src so it's ready when image loads

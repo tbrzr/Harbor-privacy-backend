@@ -121,8 +121,19 @@ def init_db():
                 updated_at      TEXT
             );
         """)
+        for col, ddl in (
+            ("retry_count",   "ALTER TABLE fax_orders ADD COLUMN retry_count INTEGER DEFAULT 0"),
+            ("refunded",      "ALTER TABLE fax_orders ADD COLUMN refunded INTEGER DEFAULT 0"),
+            ("refund_id",     "ALTER TABLE fax_orders ADD COLUMN refund_id TEXT"),
+            ("last_failure",  "ALTER TABLE fax_orders ADD COLUMN last_failure TEXT"),
+        ):
+            try: db.execute(ddl)
+            except sqlite3.OperationalError: pass
 
 init_db()
+
+MAX_RETRIES   = 2     # total attempts = 1 initial + MAX_RETRIES
+RETRY_DELAY_S = 60
 
 
 # ---------------------------------------------------------------------------
@@ -151,9 +162,32 @@ def count_pdf_pages(path):
 
 
 def image_to_pdf_bytes(img_path):
-    img = Image.open(img_path).convert("RGB")
+    from reportlab.lib.utils import ImageReader
+    img = Image.open(img_path)
+    try:
+        from PIL import ImageOps
+        img = ImageOps.exif_transpose(img)
+    except Exception:
+        pass
+    img = img.convert("RGB")
+
+    page_w, page_h = letter  # always portrait letter
+    margin = 0.25 * inch
+    max_w = page_w - 2 * margin
+    max_h = page_h - 2 * margin
+
+    iw, ih = img.size
+    scale = min(max_w / iw, max_h / ih)
+    draw_w, draw_h = iw * scale, ih * scale
+    x = (page_w - draw_w) / 2
+    y = (page_h - draw_h) / 2
+
     buf = BytesIO()
-    img.save(buf, format="PDF")
+    c = rl_canvas.Canvas(buf, pagesize=letter)
+    c.drawImage(ImageReader(img), x, y, width=draw_w, height=draw_h,
+                preserveAspectRatio=True, mask='auto')
+    c.showPage()
+    c.save()
     return buf.getvalue()
 
 
@@ -197,27 +231,33 @@ def make_cover_page_bytes(to_name="", fax_number="", from_name="", subject="", m
     c = rl_canvas.Canvas(buf, pagesize=letter)
     w, h = letter
 
-    c.setFillColorRGB(0.039, 0.059, 0.118)
+    # White background
+    c.setFillColorRGB(1, 1, 1)
     c.rect(0, 0, w, h, fill=1, stroke=0)
 
+    INK         = (0.10, 0.14, 0.18)   # near-black for headings/body
+    MUTED       = (0.35, 0.40, 0.45)   # mid grey for labels
+    DIVIDER     = (0.78, 0.80, 0.82)   # light grey divider
+    ACCENT      = (0.12, 0.36, 0.42)   # harbor teal for brand title
+
     if branded:
-        c.setFillColorRGB(0, 0.831, 1)
+        c.setFillColorRGB(*ACCENT)
         c.setFont("Helvetica-Bold", 22)
         c.drawCentredString(w / 2, h - 1.2 * inch, "Harbor Privacy Fax")
-        c.setFillColorRGB(0.58, 0.635, 0.722)
+        c.setFillColorRGB(*MUTED)
         c.setFont("Helvetica", 10)
         c.drawCentredString(w / 2, h - 1.6 * inch, "fax.harborprivacy.com")
         divider_y = h - 1.9 * inch
         fields_y = h - 2.4 * inch
     else:
-        c.setFillColorRGB(0.85, 0.88, 0.92)
+        c.setFillColorRGB(*INK)
         c.setFont("Helvetica-Bold", 18)
         c.drawCentredString(w / 2, h - 1.2 * inch, "FAX COVER SHEET")
         divider_y = h - 1.5 * inch
         fields_y = h - 2.0 * inch
 
     # Divider
-    c.setFillColorRGB(0.117, 0.165, 0.271)
+    c.setFillColorRGB(*DIVIDER)
     c.rect(inch, divider_y, w - 2 * inch, 0.015 * inch, fill=1, stroke=0)
 
     # Cover fields
@@ -236,10 +276,10 @@ def make_cover_page_bytes(to_name="", fax_number="", from_name="", subject="", m
     ]
 
     for label, value in fields:
-        c.setFillColorRGB(0.58, 0.635, 0.722)
+        c.setFillColorRGB(*MUTED)
         c.setFont("Helvetica-Bold", 11)
         c.drawString(label_x, y, label)
-        c.setFillColorRGB(0.85, 0.88, 0.92)
+        c.setFillColorRGB(*INK)
         c.setFont("Helvetica", 11)
         c.drawString(value_x, y, value[:70])
         y -= line_h
@@ -247,14 +287,14 @@ def make_cover_page_bytes(to_name="", fax_number="", from_name="", subject="", m
     # Message box
     if message:
         y -= 0.1 * inch
-        c.setFillColorRGB(0.117, 0.165, 0.271)
+        c.setFillColorRGB(*DIVIDER)
         c.rect(inch, y - 0.015 * inch, w - 2 * inch, 0.015 * inch, fill=1, stroke=0)
         y -= 0.35 * inch
-        c.setFillColorRGB(0.58, 0.635, 0.722)
+        c.setFillColorRGB(*MUTED)
         c.setFont("Helvetica-Bold", 11)
         c.drawString(label_x, y, "Message:")
         y -= 0.3 * inch
-        c.setFillColorRGB(0.85, 0.88, 0.92)
+        c.setFillColorRGB(*INK)
         c.setFont("Helvetica", 10)
         for line in message.splitlines():
             for chunk in [line[i:i+90] for i in range(0, max(len(line), 1), 90)]:
@@ -264,12 +304,12 @@ def make_cover_page_bytes(to_name="", fax_number="", from_name="", subject="", m
                     break
 
     if branded:
-        c.setFillColorRGB(0.117, 0.165, 0.271)
+        c.setFillColorRGB(*DIVIDER)
         c.rect(inch, 0.9 * inch, w - 2 * inch, 0.015 * inch, fill=1, stroke=0)
-        c.setFillColorRGB(0.58, 0.635, 0.722)
+        c.setFillColorRGB(*MUTED)
         c.setFont("Helvetica", 9)
         c.drawCentredString(w / 2, 0.65 * inch,
-                            "Harbor Privacy LLC | HIPAA Conduit Exception | Operated under U.S. law")
+                            "Harbor Privacy | HIPAA Conduit Exception | Operated under U.S. law")
         c.drawCentredString(w / 2, 0.45 * inch,
                             "No sender identity is stored. Document deleted on delivery.")
 
@@ -404,16 +444,123 @@ def delete_fax_files(order_token):
         db.close()
 
 
-def send_delivery_email(email, order_token, fax_number, status):
+def _resend_fax(order_token):
+    """Re-send an existing order to Telnyx using the already-merged PDF."""
+    db = get_db()
+    try:
+        order = db.execute("SELECT * FROM fax_orders WHERE token=?", (order_token,)).fetchone()
+        if not order:
+            return
+        merged_path = order["merged_pdf"]
+        if not merged_path or not Path(merged_path).exists():
+            file_tokens = json.loads(order["file_tokens"] or "[]")
+            merged_path = build_fax_pdf(order_token, file_tokens, bool(order["remove_branding"]), order=order)
+        media_url = f"{BASE_URL}/fax-media/{order_token}.pdf"
+        fax_number = order["fax_number"]
+        if not fax_number.startswith("+"):
+            fax_number = "+1" + "".join(c for c in fax_number if c.isdigit())[-10:]
+        resp = telnyx_client.faxes.create(
+            connection_id=TELNYX_CONNECTION_ID,
+            from_=TELNYX_FROM_NUMBER,
+            to=fax_number,
+            media_url=media_url,
+            store_media=False,
+        )
+        new_id = resp.data.id
+        db.execute(
+            "UPDATE fax_orders SET status='sending', telnyx_fax_id=?, merged_pdf=?, updated_at=? WHERE token=?",
+            (new_id, merged_path, datetime.utcnow().isoformat(), order_token),
+        )
+        db.commit()
+        log.info("Fax %s retry queued as %s (attempt %s)", order_token, new_id, (order["retry_count"] or 0) + 1)
+    except Exception:
+        log.exception("Retry send failed for %s", order_token)
+        db.execute(
+            "UPDATE fax_orders SET status='failed', updated_at=? WHERE token=?",
+            (datetime.utcnow().isoformat(), order_token),
+        )
+        db.commit()
+    finally:
+        db.close()
+
+
+def schedule_retry(order_token, delay_s=RETRY_DELAY_S):
+    """Bump retry_count and schedule a re-send after delay_s seconds."""
+    db = get_db()
+    try:
+        db.execute(
+            "UPDATE fax_orders SET retry_count = COALESCE(retry_count,0) + 1, status='retrying', updated_at=? WHERE token=?",
+            (datetime.utcnow().isoformat(), order_token),
+        )
+        db.commit()
+    finally:
+        db.close()
+    t = threading.Timer(delay_s, _resend_fax, args=(order_token,))
+    t.daemon = True
+    t.start()
+
+
+def refund_order(order_token, reason="fax delivery failed"):
+    """Refund the Stripe PaymentIntent (idempotent) and mark order refunded."""
+    db = get_db()
+    try:
+        order = db.execute(
+            "SELECT token, payment_intent, refunded, amount, email, fax_number FROM fax_orders WHERE token=?",
+            (order_token,),
+        ).fetchone()
+        if not order:
+            return False
+        if order["refunded"]:
+            return True
+        pi = order["payment_intent"]
+        if not pi:
+            log.warning("Cannot refund %s: no payment_intent on order", order_token)
+            return False
+        try:
+            refund = stripe.Refund.create(
+                payment_intent=pi,
+                reason="requested_by_customer",
+                metadata={"order_token": order_token, "reason": reason},
+            )
+            db.execute(
+                "UPDATE fax_orders SET refunded=1, refund_id=?, updated_at=? WHERE token=?",
+                (refund.id, datetime.utcnow().isoformat(), order_token),
+            )
+            db.commit()
+            log.info("Refunded %s for order %s (refund %s)", order["amount"], order_token, refund.id)
+            return True
+        except stripe.error.StripeError:
+            log.exception("Stripe refund failed for %s", order_token)
+            return False
+    finally:
+        db.close()
+
+
+def send_delivery_email(email, order_token, fax_number, status, refunded=False):
     if not email or not RESEND_API_KEY:
         return
-    subject = "Your fax was delivered" if status == "delivered" else "Your fax could not be delivered"
-    body = (
-        f"Your fax to {fax_number} has been {'delivered successfully' if status == 'delivered' else 'failed to deliver'}.\n\n"
-        f"Order reference: {order_token[:8].upper()}\n\n"
-        "As promised, your document has been permanently deleted.\n\n"
-        "Harbor Privacy Fax | fax.harborprivacy.com"
-    )
+    if status == "delivered":
+        subject = "Your fax was delivered"
+        body = (
+            f"Your fax to {fax_number} has been delivered successfully.\n\n"
+            f"Order reference: {order_token[:8].upper()}\n\n"
+            "As promised, your document has been permanently deleted.\n\n"
+            "Harbor Privacy Fax | fax.harborprivacy.com"
+        )
+    else:
+        subject = "Your fax could not be delivered"
+        refund_line = (
+            "Your payment has been refunded in full and should appear on your card within 5-10 business days.\n\n"
+            if refunded else
+            "If your card was charged, your payment will be refunded automatically.\n\n"
+        )
+        body = (
+            f"Your fax to {fax_number} could not be delivered after multiple attempts.\n\n"
+            f"{refund_line}"
+            f"Order reference: {order_token[:8].upper()}\n\n"
+            "As promised, your document has been permanently deleted.\n\n"
+            "Harbor Privacy Fax | fax.harborprivacy.com"
+        )
     try:
         requests.post(
             "https://api.resend.com/emails",
@@ -521,6 +668,12 @@ def _validate_order_payload(body):
     fax_number = (body.get("fax_number") or "").strip()
     if not fax_number:
         return None, "Fax number is required"
+    digits = "".join(c for c in fax_number if c.isdigit())
+    if len(digits) == 11 and digits.startswith("1"):
+        digits = digits[1:]
+    if len(digits) != 10:
+        return None, "Fax number must be a 10-digit US number"
+    body["fax_number"] = "+1" + digits
     file_tokens = body.get("file_tokens") or []
     if not file_tokens:
         return None, "No files attached"
@@ -724,20 +877,40 @@ def telnyx_webhook():
         db.close()
         return "ok", 200
 
-    if status in ("delivered", "failed"):
-        new_status = status
+    if status == "delivered":
         db.execute(
-            "UPDATE fax_orders SET status=?, updated_at=? WHERE telnyx_fax_id=?",
-            (new_status, datetime.utcnow().isoformat(), fax_id),
+            "UPDATE fax_orders SET status='delivered', updated_at=? WHERE telnyx_fax_id=?",
+            (datetime.utcnow().isoformat(), fax_id),
         )
         db.commit()
+        db.close()
+        delete_fax_files(order["token"])
+        send_delivery_email(order["email"], order["token"], order["fax_number"], "delivered")
+        return "ok", 200
 
-        if status == "delivered":
-            delete_fax_files(order["token"])
-            send_delivery_email(order["email"], order["token"], order["fax_number"], "delivered")
-        else:
-            delete_fax_files(order["token"])
-            send_delivery_email(order["email"], order["token"], order["fax_number"], "failed")
+    if status == "failed":
+        failure_reason = payload.get("failure_reason") or payload.get("failure_details") or ""
+        retries = order["retry_count"] or 0
+        db.execute(
+            "UPDATE fax_orders SET last_failure=?, updated_at=? WHERE telnyx_fax_id=?",
+            (str(failure_reason)[:500], datetime.utcnow().isoformat(), fax_id),
+        )
+        db.commit()
+        order_token = order["token"]
+        db.close()
+
+        if retries < MAX_RETRIES:
+            log.info("Fax %s failed (attempt %s/%s), scheduling retry in %ss. Reason: %s",
+                     order_token, retries + 1, MAX_RETRIES + 1, RETRY_DELAY_S, failure_reason)
+            schedule_retry(order_token, RETRY_DELAY_S)
+            return "ok", 200
+
+        log.warning("Fax %s permanently failed after %s attempts. Reason: %s",
+                    order_token, retries + 1, failure_reason)
+        refunded = refund_order(order_token, reason=str(failure_reason)[:200])
+        delete_fax_files(order_token)
+        send_delivery_email(order["email"], order_token, order["fax_number"], "failed", refunded=refunded)
+        return "ok", 200
 
     db.close()
     return "ok", 200
