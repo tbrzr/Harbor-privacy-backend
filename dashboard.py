@@ -558,6 +558,7 @@ NAV_ADMIN = """
     <a href="/admin" class="{{ 'active' if active == 'admin' else '' }}">Customers</a>
     <a href="/social" class="{{ 'active' if active == 'social' else '' }}">Social</a>
     <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">Settings</a>
+    <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets ↗</a>
     <a href="/logout" style="margin-left:auto;">Sign Out</a>
   </div>
 </nav>"""
@@ -1468,6 +1469,7 @@ def admin():
     <a href="/admin/links" style="display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; Link Manager</a>
     <a href="/admin/analytics" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; DNS Analytics</a>
     <a href="/admin/logs" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; Live Logs</a>
+    <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; Assets ↗</a>
   </div>
 
   <div class="card">
