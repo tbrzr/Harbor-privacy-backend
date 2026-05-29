@@ -115,6 +115,14 @@ def _csrf_guard():
         return jsonify({"error": "csrf"}), 403
 
 @app.context_processor
+def _inject_is_admin():
+    try:
+        from flask import request as _r
+        return {"is_admin": bool(getattr(_r, "is_admin", False))}
+    except Exception:
+        return {"is_admin": False}
+
+@app.context_processor
 def _inject_csrf():
     tok = session.get("csrf")
     if not tok:
@@ -390,6 +398,7 @@ STYLE = """<!DOCTYPE html>
 <meta name="apple-mobile-web-app-title" content="HP Dashboard">
 <meta name="theme-color" content="#00e5c0">
 <script defer src="/install-banner.js"></script>
+<script defer src="https://stats.harborprivacy.com/script.js" data-website-id="51ad61cf-3e3b-4d74-818b-98df4af99183"></script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
@@ -398,7 +407,8 @@ STYLE = """<!DOCTYPE html>
   }
 </script>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="hp-is-admin" content="{{ 'yes' if is_admin else 'no' }}">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -522,6 +532,64 @@ document.addEventListener("keypress",resetTimer);
 document.addEventListener("click",resetTimer);
 document.addEventListener("touchstart",resetTimer);
 window.addEventListener("load",resetTimer);
+</script>
+
+<style id="hp-injected-styles">
+
+@supports(padding:env(safe-area-inset-bottom)){}
+
+
+
+@media print{}
+
+/* Dashboard bottom tab bar (fix: override element selector nav{position:sticky;top:0}) */
+:root{--hp-bnav-h:0px;}
+@media all and (display-mode:standalone) and (max-width:768px){:root{--hp-bnav-h:108px;}}
+nav.hp-bottom-tabs{display:none;position:fixed !important;top:auto !important;left:0 !important;right:0 !important;bottom:0 !important;border-bottom:0 !important;background:rgba(17,22,24,0.96) !important;border-top:1px solid #1e2a2d !important;padding:6px 4px calc(6px + env(safe-area-inset-bottom)) 4px !important;justify-content:space-around !important;align-items:stretch !important;z-index:60 !important;backdrop-filter:saturate(160%) blur(14px);-webkit-backdrop-filter:saturate(160%) blur(14px);}
+@media all and (display-mode:standalone) and (max-width:768px){nav.hp-bottom-tabs{display:flex !important;}}
+nav.hp-bottom-tabs .hp-bottom-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 4px;color:#6b8a87;text-decoration:none;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.08em;font-weight:600;background:transparent;border:0;cursor:pointer;min-height:44px;-webkit-tap-highlight-color:transparent;transition:color .12s;}
+nav.hp-bottom-tabs .hp-bottom-tab svg{stroke:currentColor;}
+nav.hp-bottom-tabs .hp-bottom-tab.active{color:#00e5c0;}
+nav.hp-bottom-tabs .hp-bottom-tab:active{transform:scale(.94);}
+
+/* hp-hm-zoom-lift: lift native .hm-zoom above .hp-bottom-tabs in PWA standalone on phones */
+@media all and (display-mode:standalone) and (max-width:768px){
+  .hm-zoom{bottom:calc(108px + env(safe-area-inset-bottom)) !important;}
+}
+</style>
+<script id="hp-injected-scripts">
+(function(){
+// Bottom tab bar (admin-gated via meta tag)
+function bnav(){
+  if(document.getElementById('hp-bottom-tabs'))return;
+  var meta=document.querySelector('meta[name="hp-is-admin"]');
+  var isAdmin=meta && meta.getAttribute('content')==='yes';
+  var p=location.pathname;
+  function tab(label,href,active,icon,external){
+    var a=document.createElement('a');a.className='hp-bottom-tab'+(active?' active':'');a.href=href;
+    if(external){a.target='_blank';a.rel='noopener';}
+    a.innerHTML=icon+'<span>'+label+'</span>';return a;
+  }
+  var I={
+    dash:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>',
+    help:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    settings:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+    signout:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+    customers:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    assets:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>'
+  };
+  var ts=[];
+  ts.push(tab('Dashboard','/dashboard',p==='/dashboard'||p==='/',I.dash));
+  if(isAdmin){ts.push(tab('Customers','/admin',p.indexOf('/admin')===0,I.customers));ts.push(tab('Assets','https://assets.harborprivacy.com/',false,I.assets,true));}
+  ts.push(tab('Help','https://harborprivacy.com/docs.html',false,I.help,true));
+  ts.push(tab('Settings','/settings',p.indexOf('/settings')===0,I.settings));
+  ts.push(tab('Sign Out','/logout',false,I.signout));
+  var n=document.createElement('nav');n.id='hp-bottom-tabs';n.className='hp-bottom-tabs';n.setAttribute('aria-label','Primary');
+  ts.forEach(function(t){n.appendChild(t);});
+  document.body.appendChild(n);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bnav);else bnav();
+})();
 </script>
 """
 
@@ -3999,10 +4067,10 @@ SOCIAL_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Social Scheduler -- Harbor Privacy</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+<script defer src="https://stats.harborprivacy.com/script.js" data-website-id="51ad61cf-3e3b-4d74-818b-98df4af99183"></script>
 <link rel="manifest" href="/social-app.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -4114,6 +4182,64 @@ input:focus,textarea:focus{border-color:var(--accent);}
 .autopost-bar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
 .char-count{font-family:"DM Mono",monospace;font-size:10px;color:var(--muted);text-align:right;margin-top:4px;}
 </style>
+
+<style id="hp-injected-styles">
+
+@supports(padding:env(safe-area-inset-bottom)){}
+
+
+
+@media print{}
+
+/* Dashboard bottom tab bar (fix: override element selector nav{position:sticky;top:0}) */
+:root{--hp-bnav-h:0px;}
+@media all and (display-mode:standalone) and (max-width:768px){:root{--hp-bnav-h:108px;}}
+nav.hp-bottom-tabs{display:none;position:fixed !important;top:auto !important;left:0 !important;right:0 !important;bottom:0 !important;border-bottom:0 !important;background:rgba(17,22,24,0.96) !important;border-top:1px solid #1e2a2d !important;padding:6px 4px calc(6px + env(safe-area-inset-bottom)) 4px !important;justify-content:space-around !important;align-items:stretch !important;z-index:60 !important;backdrop-filter:saturate(160%) blur(14px);-webkit-backdrop-filter:saturate(160%) blur(14px);}
+@media all and (display-mode:standalone) and (max-width:768px){nav.hp-bottom-tabs{display:flex !important;}}
+nav.hp-bottom-tabs .hp-bottom-tab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 4px;color:#6b8a87;text-decoration:none;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.08em;font-weight:600;background:transparent;border:0;cursor:pointer;min-height:44px;-webkit-tap-highlight-color:transparent;transition:color .12s;}
+nav.hp-bottom-tabs .hp-bottom-tab svg{stroke:currentColor;}
+nav.hp-bottom-tabs .hp-bottom-tab.active{color:#00e5c0;}
+nav.hp-bottom-tabs .hp-bottom-tab:active{transform:scale(.94);}
+
+/* hp-hm-zoom-lift: lift native .hm-zoom above .hp-bottom-tabs in PWA standalone on phones */
+@media all and (display-mode:standalone) and (max-width:768px){
+  .hm-zoom{bottom:calc(108px + env(safe-area-inset-bottom)) !important;}
+}
+</style>
+<script id="hp-injected-scripts">
+(function(){
+// Bottom tab bar (admin-gated via meta tag)
+function bnav(){
+  if(document.getElementById('hp-bottom-tabs'))return;
+  var meta=document.querySelector('meta[name="hp-is-admin"]');
+  var isAdmin=meta && meta.getAttribute('content')==='yes';
+  var p=location.pathname;
+  function tab(label,href,active,icon,external){
+    var a=document.createElement('a');a.className='hp-bottom-tab'+(active?' active':'');a.href=href;
+    if(external){a.target='_blank';a.rel='noopener';}
+    a.innerHTML=icon+'<span>'+label+'</span>';return a;
+  }
+  var I={
+    dash:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>',
+    help:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+    settings:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+    signout:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>',
+    customers:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    assets:'<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>'
+  };
+  var ts=[];
+  ts.push(tab('Dashboard','/dashboard',p==='/dashboard'||p==='/',I.dash));
+  if(isAdmin){ts.push(tab('Customers','/admin',p.indexOf('/admin')===0,I.customers));ts.push(tab('Assets','https://assets.harborprivacy.com/',false,I.assets,true));}
+  ts.push(tab('Help','https://harborprivacy.com/docs.html',false,I.help,true));
+  ts.push(tab('Settings','/settings',p.indexOf('/settings')===0,I.settings));
+  ts.push(tab('Sign Out','/logout',false,I.signout));
+  var n=document.createElement('nav');n.id='hp-bottom-tabs';n.className='hp-bottom-tabs';n.setAttribute('aria-label','Primary');
+  ts.forEach(function(t){n.appendChild(t);});
+  document.body.appendChild(n);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bnav);else bnav();
+})();
+</script>
 </head>
 <body>
 <nav>
