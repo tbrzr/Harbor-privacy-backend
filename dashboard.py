@@ -1882,7 +1882,7 @@ def admin_links():
     <div class="card-label">Add New Link</div>
     <div style="display:flex;flex-direction:column;gap:12px;">
       <input type="text" id="new-label" placeholder="Label (e.g. See Plans)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px;font-family:'DM Mono',monospace;font-size:12px;">
-      <input type="text" id="new-icon" placeholder="Icon (emoji or symbol)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px;font-family:'DM Mono',monospace;font-size:12px;">
+      <input type="text" id="new-icon" placeholder="Icon slug (adblock, booking, career, dashboard, fax, help, money, neighbor, privacy, resume, scan, start)" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px;font-family:'DM Mono',monospace;font-size:12px;">
       <input type="text" id="new-url" placeholder="https://..." style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px;font-family:'DM Mono',monospace;font-size:12px;">
       <label style="display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">
         <input type="checkbox" id="new-featured" style="width:16px;height:16px;accent-color:#1f5d6b;flex-shrink:0;margin:0;"> Featured (teal highlight)
@@ -5207,7 +5207,8 @@ h1{font-size:28px;font-weight:600;color:var(--text);margin-bottom:10px;letter-sp
 .link{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;text-decoration:none;color:var(--text);transition:border-color .15s,transform .15s,box-shadow .15s}
 .link:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 6px 24px rgba(31,93,107,0.08)}
 .link.feat{border-color:var(--accent);background:var(--accent-soft)}
-.icon{font-size:22px;width:34px;text-align:center;flex-shrink:0}
+.icon{width:44px;height:44px;flex-shrink:0;border-radius:10px;overflow:hidden;background:#fbf7f1;border:1px solid var(--border)}
+.icon img{display:block;width:100%;height:100%}
 .body{flex:1;min-width:0}
 .name{font-weight:600;font-size:15px;color:var(--text);margin-bottom:2px}
 .desc{font-size:13px;color:var(--muted);line-height:1.4}
@@ -5228,7 +5229,7 @@ h1{font-size:28px;font-weight:600;color:var(--text);margin-bottom:10px;letter-sp
   <div class="links">
     {% for l in links %}
       <a class="link {% if l.featured %}feat{% endif %}" href="{{ l.url }}" data-pill="{{ l.label }}">
-        <span class="icon">{{ l.icon or "→" }}</span>
+        <span class="icon">{% if l.icon %}<img src="/icons/{{ l.icon }}.svg" alt="" loading="lazy">{% endif %}</span>
         <span class="body"><span class="name">{{ l.label }}</span>{% if l.desc %}<span class="desc">{{ l.desc }}</span>{% endif %}</span>
         <span class="arrow">→</span>
       </a>
