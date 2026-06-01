@@ -647,6 +647,35 @@ def index():
             return redirect("/admin" if payload.get("admin") else "/dashboard")
     return redirect("/login")
 
+@app.route("/reset")
+def browser_reset():
+    """One-shot URL that emits Clear-Site-Data so iOS Safari / Chrome /
+    Firefox nuke ALL storage for this origin (cookies, caches, localStorage,
+    IndexedDB, registered service workers). Safe to hit anytime; if you
+    weren't stuck, you just get logged out.
+
+    Renders a tiny page that auto-redirects to /login after 1.5s so the
+    user lands on a fresh, working dashboard."""
+    html = (
+        "<!doctype html><meta charset=utf-8>"
+        "<title>Resetting...</title>"
+        "<meta http-equiv=refresh content='1.5;url=/login'>"
+        "<style>body{font-family:-apple-system,sans-serif;text-align:center;"
+        "padding:80px 24px;color:#1a2420;background:#fbf7f0}"
+        ".s{font-family:'DM Mono',ui-monospace,Menlo,monospace;font-size:12px;"
+        "color:#1f5d6b;letter-spacing:.18em;margin-bottom:18px}"
+        "h1{font-family:'DM Serif Display',Georgia,serif;font-weight:400;"
+        "font-size:32px;margin:0 0 12px}"
+        "p{color:#6b7a72;font-size:14px;margin:0}</style>"
+        "<div class=s>HARBOR / DASHBOARD</div>"
+        "<h1>Browser storage cleared.</h1>"
+        "<p>Reloading the login page...</p>"
+    )
+    resp = make_response(html)
+    resp.headers["Clear-Site-Data"] = '"cache", "cookies", "storage", "executionContexts"'
+    resp.headers["Cache-Control"]   = "no-store"
+    return resp
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     # Step 1: email only
