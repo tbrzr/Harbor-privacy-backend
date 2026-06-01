@@ -287,7 +287,7 @@ h1{{font-size:28px;font-weight:700;margin-bottom:8px;}}
 </html>"""
         open(f"{ANDROID_DIR}/{client_id}.html", 'w').write(html)
         log.info(f"Android setup page saved: {ANDROID_DIR}/{client_id}.html")
-        return f"https://harborprivacy.com/setup/android/{client_id}.html"
+        return f"https://adblock.harborprivacy.com/setup/android/{client_id}.html"
     except Exception as e:
         log.error(f"Android page error: {e}")
         return ""
@@ -766,7 +766,7 @@ def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url
 <h3 style="color:#1f5d6b;font-family:monospace;font-size:13px;">Android / Pixel</h3>
 <p style="color:#6b7a72;font-size:13px;margin-bottom:12px;">Android has built-in Private DNS — no app needed. Takes 30 seconds.</p>
 <ol style="color:#6b7a72;font-size:13px;margin-bottom:16px;"><li>Go to <strong style="color:#1a2420;">Settings → Network &amp; Internet → Private DNS</strong></li><li>Select <strong style="color:#1a2420;">Private DNS provider hostname</strong></li><li>Enter: <strong style="color:#1a2420;">{dot_host}</strong></li><li>Tap Save</li></ol>
-<p><a href="https://harborprivacy.com/setup/android/{client_id}.html" style="display:inline-block;background:transparent;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Android Setup Guide + QR Code &#8594;</a></p>
+<p><a href="https://adblock.harborprivacy.com/setup/android/{client_id}.html" style="display:inline-block;background:transparent;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Android Setup Guide + QR Code &#8594;</a></p>
 <div style="border-top:1px solid #e6dfd2;margin-top:32px;padding-top:24px;">
 <h3 style="color:#6b7a72;font-family:monospace;font-size:11px;letter-spacing:0.1em;">IF YOU EVER CANCEL - HOW TO REMOVE HARBOR PRIVACY</h3>
 <p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">iPhone/iPad:</strong> Settings > General > VPN and Device Management > Harbor Privacy DNS > Remove Profile</p>
@@ -798,7 +798,7 @@ def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url
 <li>Enter: <strong style="color:#1a2420;">{dot_host}</strong></li>
 <li>Tap Save</li>
 </ol>
-<p><a href="https://harborprivacy.com/setup/android/{client_id}.html" style="display:inline-block;background:transparent;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Android Setup Guide + QR Code &rarr;</a></p>
+<p><a href="https://adblock.harborprivacy.com/setup/android/{client_id}.html" style="display:inline-block;background:transparent;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Android Setup Guide + QR Code &rarr;</a></p>
 <div style="background:#f4eee2;border:1px solid #1f5d6b;padding:20px;margin:28px 0;">
 <p style="font-family:monospace;font-size:11px;color:#1f5d6b;letter-spacing:0.1em;margin-bottom:8px;">YOUR DASHBOARD</p>
 <p style="color:#1a2420;margin-bottom:16px;">View your DNS stats, manage settings, and upgrade when you're ready.</p>
