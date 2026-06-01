@@ -115,11 +115,34 @@ def generate_ios_kids_profile(client_id):
 <key>PayloadVersion</key><integer>1</integer>
 </dict></plist>"""
 
+SIGN_HELPER = "/usr/local/bin/sign-mobileconfig.sh"
+
+def _sign_profile_in_place(path):
+    """Wrap a .mobileconfig with the LE-cert CMS signature so iOS shows
+    "Verified - harborprivacy.com" instead of "Unsigned". Falls through
+    silently if the signer is missing so an unsigned profile still ships."""
+    if not os.path.exists(SIGN_HELPER):
+        return
+    import subprocess
+    tmp_unsigned = path + ".unsigned"
+    try:
+        os.rename(path, tmp_unsigned)
+        subprocess.run(["sudo", "-n", SIGN_HELPER, tmp_unsigned, path],
+                       check=True, capture_output=True, timeout=15)
+        os.unlink(tmp_unsigned)
+        log.info("profile signed: " + path)
+    except Exception as e:
+        # signer failed -> restore the plain-XML so user still gets something
+        if os.path.exists(tmp_unsigned) and not os.path.exists(path):
+            os.rename(tmp_unsigned, path)
+        log.error("profile sign failed for " + path + ": " + str(e))
+
 def save_ios_kids_profile(client_id, name="Harbor Kids"):
     try:
         os.makedirs(PROFILES_DIR, exist_ok=True)
         fpath = os.path.join(PROFILES_DIR, client_id + ".mobileconfig")
         open(fpath, 'w').write(generate_ios_kids_profile(client_id))
+        _sign_profile_in_place(fpath)
         log.info("Harbor Kids iOS profile saved: " + fpath)
         return PROFILES_URL + "/" + client_id + ".mobileconfig"
     except Exception as e:
@@ -131,6 +154,7 @@ def save_ios_profile(client_id, name):
         os.makedirs(PROFILES_DIR, exist_ok=True)
         path = os.path.join(PROFILES_DIR, f"{client_id}.mobileconfig")
         open(path, 'w').write(generate_ios_profile(client_id, name))
+        _sign_profile_in_place(path)
         log.info(f"iOS profile saved: {path}")
         return f"{PROFILES_URL}/{client_id}.mobileconfig"
     except Exception as e:
