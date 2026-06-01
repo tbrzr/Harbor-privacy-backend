@@ -400,10 +400,11 @@ STYLE = """<!DOCTYPE html>
 <script defer src="/install-banner.js"></script>
 <script defer src="https://stats.harborprivacy.com/script.js" data-website-id="51ad61cf-3e3b-4d74-818b-98df4af99183"></script>
 <script>
+  // SW disabled 2026-06-01 - earlier version caused a refresh loop. The
+  // killswitch SW at /dashboard-sw.js will uninstall any leftover SW on
+  // first visit. Re-register here only after we re-introduce a working SW.
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', function() {
-      navigator.serviceWorker.register('/dashboard-sw.js').catch(function(){});
-    });
+    navigator.serviceWorker.getRegistrations().then(rs => rs.forEach(r => r.unregister())).catch(()=>{});
   }
 </script>
 <meta charset="UTF-8">
