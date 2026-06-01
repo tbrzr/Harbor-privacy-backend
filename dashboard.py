@@ -5210,8 +5210,8 @@ h1{font-size:28px;font-weight:600;color:var(--text);margin-bottom:10px;letter-sp
 .icon{width:44px;height:44px;flex-shrink:0;border-radius:10px;overflow:hidden;background:#fbf7f1;border:1px solid var(--border)}
 .icon img{display:block;width:100%;height:100%}
 .body{flex:1;min-width:0}
-.name{font-weight:600;font-size:15px;color:var(--text);margin-bottom:2px}
-.desc{font-size:13px;color:var(--muted);line-height:1.4}
+.name{display:block;font-weight:600;font-size:15px;color:var(--text);margin-bottom:3px}
+.desc{display:block;font-size:13px;color:var(--muted);line-height:1.4}
 .arrow{color:var(--soft);font-size:18px;flex-shrink:0}
 .foot{text-align:center;margin-top:36px;font-family:"DM Mono",monospace;font-size:11px;color:var(--soft);letter-spacing:0.18em;text-transform:uppercase}
 .foot a{color:var(--muted);text-decoration:none}
