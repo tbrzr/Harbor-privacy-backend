@@ -5182,5 +5182,76 @@ __HARBOR_HELP_SNIPPET = "/home/ubuntu/harbor-backend/snippets/account_emails_rou
 with open(__HARBOR_HELP_SNIPPET) as __f:
     exec(compile(__f.read(), __HARBOR_HELP_SNIPPET, "exec"))
 
+# Public linktree page for link.harborprivacy.com (nginx proxies to /__link)
+_LINK_PAGE_TMPL = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harbor Privacy — All Links</title>
+<meta name="description" content="All Harbor Privacy products and tools in one place.">
+<meta name="theme-color" content="#1f5d6b">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+<style>
+:root{--bg:#fbf7f0;--surface:#ffffff;--border:#e6dfd2;--text:#1a2420;--muted:#6b7a72;--soft:#a6b1a8;--accent:#1f5d6b;--accent-soft:rgba(31,93,107,0.10);}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:"DM Sans",sans-serif;min-height:100vh;line-height:1.5;-webkit-font-smoothing:antialiased;padding:48px 20px}
+body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:0.18;pointer-events:none;z-index:0}
+.wrap{position:relative;z-index:1;max-width:520px;margin:0 auto}
+.head{text-align:center;margin-bottom:36px}
+.brand{font-family:"DM Mono",monospace;font-size:13px;color:var(--accent);letter-spacing:0.18em;text-transform:uppercase;margin-bottom:14px}
+h1{font-size:28px;font-weight:600;color:var(--text);margin-bottom:10px;letter-spacing:-0.01em}
+.sub{font-size:15px;color:var(--muted)}
+.links{display:flex;flex-direction:column;gap:10px}
+.link{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 18px;text-decoration:none;color:var(--text);transition:border-color .15s,transform .15s,box-shadow .15s}
+.link:hover{border-color:var(--accent);transform:translateY(-1px);box-shadow:0 6px 24px rgba(31,93,107,0.08)}
+.link.feat{border-color:var(--accent);background:var(--accent-soft)}
+.icon{font-size:22px;width:34px;text-align:center;flex-shrink:0}
+.body{flex:1;min-width:0}
+.name{font-weight:600;font-size:15px;color:var(--text);margin-bottom:2px}
+.desc{font-size:13px;color:var(--muted);line-height:1.4}
+.arrow{color:var(--soft);font-size:18px;flex-shrink:0}
+.foot{text-align:center;margin-top:36px;font-family:"DM Mono",monospace;font-size:11px;color:var(--soft);letter-spacing:0.18em;text-transform:uppercase}
+.foot a{color:var(--muted);text-decoration:none}
+.foot a:hover{color:var(--accent)}
+.empty{text-align:center;padding:40px;color:var(--muted);font-family:"DM Mono",monospace;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="brand">Harbor Privacy</div>
+    <h1>All Links</h1>
+    <div class="sub">Privacy-first tools for home, business, and career.</div>
+  </div>
+  <div class="links">
+    {% for l in links %}
+      <a class="link {% if l.featured %}feat{% endif %}" href="{{ l.url }}" data-pill="{{ l.label }}">
+        <span class="icon">{{ l.icon or "→" }}</span>
+        <span class="body"><span class="name">{{ l.label }}</span>{% if l.desc %}<span class="desc">{{ l.desc }}</span>{% endif %}</span>
+        <span class="arrow">→</span>
+      </a>
+    {% else %}
+      <div class="empty">No links configured yet.</div>
+    {% endfor %}
+  </div>
+  <div class="foot"><a href="https://harborprivacy.com">harborprivacy.com</a></div>
+</div>
+</body>
+</html>"""
+
+@app.route("/__link", strict_slashes=False)
+@app.route("/__link/")
+def public_link_page():
+    import json as _json
+    try:
+        links = _json.loads(open("/var/www/link/links.json").read())
+    except Exception:
+        links = []
+    resp = make_response(render_template_string(_LINK_PAGE_TMPL, links=links))
+    resp.headers["Cache-Control"] = "public, max-age=60"
+    return resp
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=int(os.environ.get("DASHBOARD_PORT", 7000)), debug=False)
