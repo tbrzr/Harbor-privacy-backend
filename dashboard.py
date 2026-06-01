@@ -5200,6 +5200,7 @@ body{background:var(--bg);color:var(--text);font-family:"DM Sans",sans-serif;min
 body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:0.18;pointer-events:none;z-index:0}
 .wrap{position:relative;z-index:1;max-width:520px;margin:0 auto}
 .head{text-align:center;margin-bottom:36px}
+.logo{display:block;width:112px;height:112px;margin:0 auto 18px;border-radius:24px;box-shadow:0 8px 32px rgba(31,93,107,0.12)}
 .brand{font-family:"DM Mono",monospace;font-size:13px;color:var(--accent);letter-spacing:0.18em;text-transform:uppercase;margin-bottom:14px}
 h1{font-size:28px;font-weight:600;color:var(--text);margin-bottom:10px;letter-spacing:-0.01em}
 .sub{font-size:15px;color:var(--muted)}
@@ -5222,6 +5223,7 @@ h1{font-size:28px;font-weight:600;color:var(--text);margin-bottom:10px;letter-sp
 <body>
 <div class="wrap">
   <div class="head">
+    <img class="logo" src="/icons/logo.svg" alt="Harbor Privacy">
     <div class="brand">Harbor Privacy</div>
     <h1>All Links</h1>
     <div class="sub">Privacy-first tools for home, business, and career.</div>
