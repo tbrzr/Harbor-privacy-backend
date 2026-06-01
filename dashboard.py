@@ -1035,7 +1035,7 @@ def dashboard():
     }
     </script>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
-      <a href="https://harborprivacy.com/profiles/{{ client_id }}.mobileconfig" style="display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Download iOS Profile</a>
+      <a href="https://adblock.harborprivacy.com/profiles/{{ client_id }}.mobileconfig" style="display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Download iOS Profile</a>
       <a href="https://harborprivacy.com/setup/android/{{ client_id }}" target="_blank" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Android Setup + QR</a>
     </div>
     <p class="note" style="margin-top:12px;">Add this to your iPhone under Settings → General → VPN & Device Management, or Android under Settings → Private DNS.</p>
@@ -1225,7 +1225,7 @@ def dashboard():
     }
     </script>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
-      <a href="https://harborprivacy.com/profiles/{{ client_id }}.mobileconfig" style="display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Download iOS Profile</a>
+      <a href="https://adblock.harborprivacy.com/profiles/{{ client_id }}.mobileconfig" style="display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Download iOS Profile</a>
       <a href="https://harborprivacy.com/setup/android/{{ client_id }}" target="_blank" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Android Setup + QR</a>
     </div>
     <p class="note" style="margin-top:12px;">Use this address in your DNS over HTTPS settings. <a href="https://harborprivacy.com/docs" style="color:var(--accent);">Setup guide →</a></p>
@@ -1315,7 +1315,7 @@ def dashboard():
       <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);margin-bottom:10px;">{{ kp.name }}</div>
       <div style="background:var(--surface);border-left:3px solid var(--accent);padding:10px 14px;font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);word-break:break-all;margin-bottom:10px;">https://doh.harborprivacy.com/dns-query/{{ kp.name }}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <a href="https://harborprivacy.com/profiles/{{ kp.name }}.mobileconfig" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#8659; iOS/Mac Profile</a>
+        <a href="https://adblock.harborprivacy.com/profiles/{{ kp.name }}.mobileconfig" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#8659; iOS/Mac Profile</a>
         <a href="https://harborprivacy.com/setup/android/{{ kp.name }}" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#9632; Android QR</a>
         <a href="https://harborprivacy.com/docs/harbor-kids#kids-setup" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">Windows Setup</a>
       </div>
@@ -1428,6 +1428,19 @@ def dashboard():
   </div>
   {% endif %}
 
+  <div class="card" style="margin-top:20px;border:1px solid var(--accent);background:linear-gradient(180deg,var(--surface) 0%,var(--bg) 100%);">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+      <div style="flex-shrink:0;width:48px;height:48px;background:rgba(31,93,107,0.08);display:flex;align-items:center;justify-content:center;border-radius:8px;">
+        <img src="https://scan.harborprivacy.com/scan-favicon.svg" alt="Harbor Scan" style="width:32px;height:32px;">
+      </div>
+      <div style="flex:1;min-width:200px;">
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:6px;">New from Harbor</div>
+        <div style="font-size:16px;color:var(--text);font-weight:500;margin-bottom:4px;">Harbor Scan &mdash; remove your name from data brokers</div>
+        <div style="font-size:13px;color:var(--muted);line-height:1.5;">Spokeo, Whitepages, BeenVerified, and 13 more. Automated CCPA opt-outs. Verified removal.</div>
+      </div>
+      <a href="https://scan.harborprivacy.com" target="_blank" rel="noopener" style="display:inline-block;background:var(--accent);color:var(--bg);padding:10px 18px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;flex-shrink:0;">Join Waitlist &rarr;</a>
+    </div>
+  </div>
 
 
 </div>
@@ -1537,6 +1550,7 @@ def admin():
     <a href="/admin/links" style="display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; Link Manager</a>
     <a href="/admin/analytics" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; DNS Analytics</a>
     <a href="/admin/logs" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; Live Logs</a>
+    <a href="/admin/scan" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; Harbor Scan</a>
     <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; Assets ↗</a>
   </div>
 
@@ -2102,7 +2116,7 @@ def admin_customer(client_id):
       </div>
       <div style="background:var(--surface);border-left:3px solid var(--accent);padding:10px 14px;font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);word-break:break-all;margin-bottom:10px;">https://doh.harborprivacy.com/dns-query/{{ kp.name }}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <a href="https://harborprivacy.com/profiles/{{ kp.name }}.mobileconfig" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#8659; iOS/Mac Profile</a>
+        <a href="https://adblock.harborprivacy.com/profiles/{{ kp.name }}.mobileconfig" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#8659; iOS/Mac Profile</a>
         <a href="https://harborprivacy.com/setup/android/{{ kp.name }}" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#9632; Android QR</a>
         <a href="https://harborprivacy.com/docs/harbor-kids#kids-setup" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">Windows Setup</a>
       </div>
@@ -2878,7 +2892,7 @@ def admin_resend_welcome():
         email = customer.get("email", "")
         name = customer.get("name", "Customer")
         plan = customer.get("plan", "remote")
-        profile_url = f"https://harborprivacy.com/profiles/{client_id}.mobileconfig"
+        profile_url = f"https://adblock.harborprivacy.com/profiles/{client_id}.mobileconfig"
         send_welcome_email(email, name, client_id, plan, profile_url)
         log.info(f"Admin resent welcome to {email} for {client_id}")
         return jsonify({"ok": True})
@@ -3659,7 +3673,7 @@ def confirm_trial(token):
     generate_android_page(client_id)
     generate_qr_code(client_id)
 
-    profile_url = f"https://harborprivacy.com/profiles/{client_id}.mobileconfig"
+    profile_url = f"https://adblock.harborprivacy.com/profiles/{client_id}.mobileconfig"
     log_customer(client_id, name, email, plan, stripe_customer_id="",
                  plan_type=plan_type, is_trial=True, status="active")
     schedule_wipe(client_id, delay=30 * 24 * 3600)
@@ -4848,6 +4862,295 @@ def api_start_verify():
 @app.route("/health")
 def health():
     return {"status": "ok"}
+
+# ════════════════════════════════════════════════════════════
+# SECTION 23 — HARBOR SCAN
+# /admin/scan                       — overview (findings, opt-outs, brokers)
+# /admin/scan/profile/<id>          — per-profile detail (timeline)
+# ════════════════════════════════════════════════════════════
+# Decoupled from harbor-scan's DB via subprocess so harbor-scan can move to
+# vm4 later by swapping the subprocess call for an ssh exec. Adds no new
+# dependencies to harbor-backend's venv.
+
+import subprocess as _hs_subprocess
+
+_HS_DIR = "/home/ubuntu/harbor-scan"
+_HS_PY = f"{_HS_DIR}/.venv/bin/python"
+
+def _hs_env():
+    if hasattr(_hs_env, "_cache"):
+        return _hs_env._cache
+    env = dict(os.environ)
+    try:
+        with open(f"{_HS_DIR}/.env") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                env[k] = v
+    except Exception:
+        pass
+    _hs_env._cache = env
+    return env
+
+def _hs_summary(profile_id=None):
+    cmd = [_HS_PY, "worker.py", "scan-summary"]
+    if profile_id is not None:
+        cmd += ["--profile-id", str(profile_id)]
+    try:
+        out = _hs_subprocess.run(
+            cmd, cwd=_HS_DIR, capture_output=True, text=True,
+            timeout=20, env=_hs_env(),
+        )
+    except Exception as e:
+        return {"error": f"subprocess: {e}"}
+    if out.returncode != 0:
+        return {"error": (out.stderr or "non-zero exit").strip()[:400]}
+    try:
+        return json.loads(out.stdout)
+    except Exception as e:
+        return {"error": f"json: {e}", "raw": out.stdout[:400]}
+
+_HS_OVERVIEW_TMPL = """<div class="wrap">
+  <div style="margin-bottom:32px;">
+    <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">Admin</p>
+    <h1>Harbor Scan</h1>
+  </div>
+  {% if data.error %}
+    <div class="card" style="border-color:#ff4e4e;color:#ff4e4e;"><strong>error:</strong> {{ data.error }}</div>
+  {% else %}
+  <div class="stat-grid" style="margin-bottom:20px;">
+    <div class="stat"><div class="stat-num">{{ data.totals.profiles_total }}</div><div class="stat-label">Profiles</div></div>
+    <div class="stat"><div class="stat-num" style="color:var(--accent);">{{ data.totals.profiles_authorized }}</div><div class="stat-label">Authorized</div></div>
+    <div class="stat"><div class="stat-num" style="color:#ff4e4e;">{{ data.totals.findings_found }}</div><div class="stat-label">Open Findings</div></div>
+    <div class="stat"><div class="stat-num" style="color:#22c55e;">{{ data.totals.findings_removed }}</div><div class="stat-label">Removed</div></div>
+    <div class="stat"><div class="stat-num">{{ data.totals.brokers_enabled }}</div><div class="stat-label">Brokers Enabled</div></div>
+    <div class="stat"><div class="stat-num">{{ data.totals.clicks_queued }}</div><div class="stat-label">Clicks Queued</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Worker Status</div>
+    {% set ws = data.worker_status %}
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;">
+      <span><span style="font-family:DM Mono,monospace;color:var(--muted);">Pi SOCKS tunnel</span></span>
+      <span>{% if ws.socks.ok %}<span class="badge badge-on">up</span>{% elif ws.socks.proxy %}<span class="badge badge-off">down</span> <span style="font-family:DM Mono,monospace;font-size:11px;color:#ff4e4e;">{{ ws.socks.error or 'no SOCKS5 reply' }}</span>{% else %}<span class="badge">no proxy</span>{% endif %}</span>
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:6px;">
+      <tr style="text-align:left;color:var(--muted);font-family:DM Mono,monospace;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;">
+        <th style="padding:8px 0;">worker</th><th>state</th><th>last run</th><th>next run</th><th>last invocation</th><th style="text-align:right;">errors</th>
+      </tr>
+      {% for w in ws.workers %}
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:10px 0;font-family:DM Mono,monospace;">{{ w.name }}</td>
+        <td>{% if w.active == 'active' %}<span class="badge badge-on">{{ w.active }}</span>{% else %}<span class="badge badge-off">{{ w.active }}</span>{% endif %}</td>
+        <td style="font-family:DM Mono,monospace;font-size:11px;color:var(--muted);">{{ w.last_run or '-' }}</td>
+        <td style="font-family:DM Mono,monospace;font-size:11px;color:var(--muted);">{{ w.next_run or '-' }}</td>
+        <td style="font-family:DM Mono,monospace;font-size:11px;color:var(--muted);">{% if w.last_invocation_at %}{% if w.last_succeeded %}<span style="color:#22c55e;">●</span>{% else %}<span style="color:#ff4e4e;">●</span>{% endif %} {{ w.last_invocation_at }}{% else %}never{% endif %}</td>
+        <td style="text-align:right;font-family:DM Mono,monospace;{% if w.recent_errors %}color:#ff4e4e;{% else %}color:#22c55e;{% endif %}">{{ w.recent_errors|length }}</td>
+      </tr>
+      {% if w.recent_errors %}
+        {% for e in w.recent_errors %}
+        <tr><td colspan="6" style="padding:6px 0 6px 18px;font-family:DM Mono,monospace;font-size:11px;color:#ff4e4e;border-top:none;word-break:break-word;">
+          <span style="color:var(--muted);">{{ e.broker_id or e.url or '' }}</span> {{ (e.error or '')[:200] }}
+        </td></tr>
+        {% endfor %}
+      {% endif %}
+      {% endfor %}
+    </table>
+    <p style="font-size:11px;color:var(--muted);margin-top:8px;font-family:DM Mono,monospace;">● green = last invocation succeeded · ● red = last invocation had errors · errors clear when next run is clean</p>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Opt-Out Pipeline</div>
+    {% if data.optouts_by_status %}
+      {% for r in data.optouts_by_status %}
+        <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">
+          <span>{{ r.status }}</span>
+          <span style="font-family:DM Mono,monospace;font-size:12px;color:var(--muted);">{{ r.n }}</span>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div style="color:var(--muted);padding:10px 0;">No opt-out requests yet.</div>
+    {% endif %}
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Brokers</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <tr style="text-align:left;color:var(--muted);font-family:DM Mono,monospace;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;">
+        <th style="padding:8px 0;">id</th><th>name</th><th>tier</th><th>enabled</th>
+        <th style="text-align:right;padding-right:20px;">open</th><th style="text-align:right;padding-right:20px;">removed</th><th style="padding-left:24px;">last verified</th>
+      </tr>
+      {% for b in data.brokers %}
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:10px 0;font-family:DM Mono,monospace;">{{ b.id }}</td>
+        <td>{{ b.name }}</td>
+        <td><span class="badge">{{ b.optout_tier }}</span></td>
+        <td>{% if b.enabled %}<span class="badge badge-on">on</span>{% else %}<span class="badge badge-off">off</span>{% endif %}</td>
+        <td style="text-align:right;padding-right:20px;font-family:DM Mono,monospace;">{{ b.findings_open }}</td>
+        <td style="text-align:right;padding-right:20px;font-family:DM Mono,monospace;color:#22c55e;">{{ b.findings_removed }}</td>
+        <td style="padding-left:24px;font-family:DM Mono,monospace;font-size:11px;color:var(--muted);">{{ b.last_verified or '-' }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Profiles</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <tr style="text-align:left;color:var(--muted);font-family:DM Mono,monospace;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;">
+        <th style="padding:8px 0;">id</th><th>name</th><th>customer</th><th>auth</th>
+        <th style="text-align:right;">emails</th><th style="text-align:right;">phones</th>
+        <th style="text-align:right;">addrs</th><th style="text-align:right;">aliases</th>
+        <th style="text-align:right;">open</th><th style="text-align:right;">removed</th>
+      </tr>
+      {% for p in data.profiles %}
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:10px 0;font-family:DM Mono,monospace;"><a href="/admin/scan/profile/{{ p.id }}" style="color:var(--accent);text-decoration:none;">#{{ p.id }}</a></td>
+        <td>{{ p.full_name }}</td>
+        <td style="font-family:DM Mono,monospace;font-size:11px;color:var(--muted);">{{ p.customer_id }}</td>
+        <td>{% if p.authorization_signed_at %}<span class="badge badge-on">signed</span>{% else %}<span class="badge badge-off">unsigned</span>{% endif %}</td>
+        <td style="text-align:right;font-family:DM Mono,monospace;">{{ p.emails_count }}</td>
+        <td style="text-align:right;font-family:DM Mono,monospace;">{{ p.phones_count }}</td>
+        <td style="text-align:right;font-family:DM Mono,monospace;">{{ p.addresses_count }}</td>
+        <td style="text-align:right;font-family:DM Mono,monospace;">{{ p.aliases_count }}</td>
+        <td style="text-align:right;font-family:DM Mono,monospace;color:#ff4e4e;">{{ p.findings_open }}</td>
+        <td style="text-align:right;font-family:DM Mono,monospace;color:#22c55e;">{{ p.findings_removed }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Recent Opt-Out Activity</div>
+    {% if data.recent_optouts %}
+      {% for r in data.recent_optouts %}
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;">
+          <span><span style="color:var(--muted);font-family:DM Mono,monospace;">#{{ r.request_id }}</span> <a href="/admin/scan/profile/{{ r.profile_id }}" style="color:var(--text);text-decoration:none;">profile {{ r.profile_id }}</a> via <span style="color:var(--accent);">{{ r.broker_id }}</span></span>
+          <span style="font-family:DM Mono,monospace;color:var(--muted);">{{ r.status }} ({{ r.attempts }})</span>
+        </div>
+      {% endfor %}
+    {% else %}
+      <div style="color:var(--muted);padding:10px 0;">No opt-out activity yet.</div>
+    {% endif %}
+  </div>
+  {% endif %}
+  <a href="/admin" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;">← Back to Admin</a>
+</div>
+"""
+
+_HS_PROFILE_TMPL = """<div class="wrap">
+  <div style="margin-bottom:32px;">
+    <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">Admin / Harbor Scan</p>
+    <h1>Profile #{{ pid }}</h1>
+  </div>
+  {% if data.error %}
+    <div class="card" style="border-color:#ff4e4e;color:#ff4e4e;"><strong>error:</strong> {{ data.error }}</div>
+  {% elif not data.profile %}
+    <div class="card">Profile not found.</div>
+  {% else %}
+  {% set p = data.profile %}
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Identity</div>
+    <div style="display:grid;grid-template-columns:140px 1fr;gap:8px 16px;font-size:13px;">
+      <div style="color:var(--muted);">Full name</div><div>{{ p.full_name }}</div>
+      <div style="color:var(--muted);">Customer ID</div><div style="font-family:DM Mono,monospace;">{{ p.customer_id }}</div>
+      <div style="color:var(--muted);">DOB</div><div>{{ p.dob or '-' }}</div>
+      <div style="color:var(--muted);">Authorization</div>
+      <div>{% if p.authorization_signed_at %}<span class="badge badge-on">signed</span> <span style="color:var(--muted);font-family:DM Mono,monospace;font-size:11px;">{{ p.authorization_signed_at }}</span>{% else %}<span class="badge badge-off">unsigned</span> <span style="color:var(--muted);font-size:11px;">(opt-out engine will skip this profile)</span>{% endif %}</div>
+      <div style="color:var(--muted);">Aliases</div><div>{% for a in p.aliases or [] %}<span class="badge">{{ a }}</span> {% else %}<span style="color:var(--muted);">none</span>{% endfor %}</div>
+      <div style="color:var(--muted);">Emails</div><div>{% for e in p.emails or [] %}<div style="font-family:DM Mono,monospace;font-size:12px;">{{ e }}</div>{% else %}<span style="color:var(--muted);">none</span>{% endfor %}</div>
+      <div style="color:var(--muted);">Phones</div><div>{% for ph in p.phones or [] %}<div style="font-family:DM Mono,monospace;font-size:12px;">{{ ph }}</div>{% else %}<span style="color:var(--muted);">none</span>{% endfor %}</div>
+      <div style="color:var(--muted);">Addresses</div><div>{% for a in p.addresses or [] %}<div style="font-size:12px;">{{ a.street1 }}{% if a.street2 %}, {{ a.street2 }}{% endif %}, {{ a.city }}, {{ a.state }} {{ a.zip }}</div>{% else %}<span style="color:var(--muted);">none</span>{% endfor %}</div>
+      <div style="color:var(--muted);">Relatives</div><div>{% for r in p.relatives or [] %}<span class="badge">{{ r }}</span> {% else %}<span style="color:var(--muted);">none</span>{% endfor %}</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Findings ({{ data.findings|length }})</div>
+    {% if data.findings %}
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <tr style="text-align:left;color:var(--muted);font-family:DM Mono,monospace;font-size:10px;letter-spacing:0.15em;text-transform:uppercase;">
+        <th style="padding:8px 0;">broker</th><th>listing</th><th style="text-align:right;">confidence</th>
+        <th>status</th><th style="text-align:right;">opt-outs</th><th>last seen</th>
+      </tr>
+      {% for f in data.findings %}
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:10px 0;font-family:DM Mono,monospace;color:var(--accent);">{{ f.broker_id }}</td>
+        <td style="font-size:11px;font-family:DM Mono,monospace;word-break:break-all;"><a href="{{ f.listing_url }}" target="_blank" rel="noopener" style="color:var(--text);">{{ f.listing_url[:80] }}{% if f.listing_url|length > 80 %}…{% endif %}</a></td>
+        <td style="text-align:right;font-family:DM Mono,monospace;">{{ '%.2f'|format(f.confidence|float) }}</td>
+        <td>{% if f.status == 'removed' %}<span class="badge badge-on">removed</span>{% else %}<span class="badge badge-off">{{ f.status }}</span>{% endif %}</td>
+        <td style="text-align:right;font-family:DM Mono,monospace;">{{ f.optout_attempts }}</td>
+        <td style="font-family:DM Mono,monospace;font-size:11px;color:var(--muted);">{{ f.last_seen_at }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}<div style="color:var(--muted);padding:10px 0;">No findings yet.</div>{% endif %}
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Opt-Out Requests ({{ data.optouts|length }})</div>
+    {% if data.optouts %}
+      {% for r in data.optouts %}
+        <div style="border-top:1px solid var(--border);padding:12px 0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <span><span style="color:var(--muted);font-family:DM Mono,monospace;">#{{ r.request_id }}</span> <span style="color:var(--accent);">{{ r.broker_id }}</span> <span class="badge">{{ r.method }}</span></span>
+            <span>{% if r.status == 'verified_removed' %}<span class="badge badge-on">{{ r.status }}</span>{% elif r.status in ['failed','blocked_unauthorized','relisted'] %}<span class="badge badge-off">{{ r.status }}</span>{% else %}<span class="badge">{{ r.status }}</span>{% endif %} <span style="color:var(--muted);font-family:DM Mono,monospace;font-size:11px;">attempt {{ r.attempts }}</span></span>
+          </div>
+          <div style="font-family:DM Mono,monospace;font-size:11px;color:var(--muted);word-break:break-all;">{{ r.listing_url }}</div>
+          <div style="display:grid;grid-template-columns:140px 1fr;gap:2px 16px;margin-top:6px;font-size:11px;font-family:DM Mono,monospace;color:var(--muted);">
+            {% if r.submitted_at %}<div>submitted</div><div>{{ r.submitted_at }}</div>{% endif %}
+            {% if r.confirmation_at %}<div>confirmed</div><div>{{ r.confirmation_at }}</div>{% endif %}
+            {% if r.verified_removed_at %}<div>verified removed</div><div>{{ r.verified_removed_at }}</div>{% endif %}
+            {% if r.last_error %}<div style="color:#ff4e4e;">last error</div><div style="color:#ff4e4e;">{{ r.last_error }}</div>{% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    {% else %}<div style="color:var(--muted);padding:10px 0;">No opt-out requests yet.</div>{% endif %}
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Scan Schedule</div>
+    {% if data.schedule %}
+    <table style="width:100%;border-collapse:collapse;font-size:12px;font-family:DM Mono,monospace;">
+      <tr style="text-align:left;color:var(--muted);font-size:10px;letter-spacing:0.15em;text-transform:uppercase;">
+        <th style="padding:6px 0;">broker</th><th>next search</th><th>next verify</th><th>next relist check</th>
+      </tr>
+      {% for s in data.schedule %}
+      <tr style="border-top:1px solid var(--border);">
+        <td style="padding:8px 0;color:var(--accent);">{{ s.broker_id }}</td>
+        <td>{{ s.next_search_at }}</td>
+        <td>{{ s.next_verify_at or '-' }}</td>
+        <td>{{ s.next_relist_check_at or '-' }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}<div style="color:var(--muted);padding:10px 0;">No schedule rows.</div>{% endif %}
+  </div>
+  {% endif %}
+  <a href="/admin/scan" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;">← Back to Harbor Scan</a>
+</div>
+"""
+
+@app.route("/admin/scan")
+@admin_required
+def admin_scan_overview():
+    data = _hs_summary()
+    return render_template_string(STYLE + NAV_ADMIN + _HS_OVERVIEW_TMPL, data=data)
+
+@app.route("/admin/scan/profile/<int:profile_id>")
+@admin_required
+def admin_scan_profile(profile_id):
+    data = _hs_summary(profile_id=profile_id)
+    return render_template_string(STYLE + NAV_ADMIN + _HS_PROFILE_TMPL,
+                                  data=data, pid=profile_id)
+
+# harbor-help SSO + alias routes (loaded from snippet file so dashboard.py
+# stays slim; routes register at import time via decorators inside the snippet).
+__HARBOR_HELP_SNIPPET = "/home/ubuntu/harbor-backend/snippets/account_emails_routes.py"
+with open(__HARBOR_HELP_SNIPPET) as __f:
+    exec(compile(__f.read(), __HARBOR_HELP_SNIPPET, "exec"))
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=int(os.environ.get("DASHBOARD_PORT", 7000)), debug=False)

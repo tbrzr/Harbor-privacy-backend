@@ -15,7 +15,7 @@ ADGUARD_PASS = os.environ.get("ADGUARD_PASS", "")
 DOH_BASE = os.environ.get("DOH_BASE", "doh.harborprivacy.com/dns-query")
 FROM_EMAIL = os.environ.get("FROM_EMAIL", "info@mail.harborprivacy.com")
 PROFILES_DIR = os.environ.get("PROFILES_DIR", "/var/www/network/profiles")
-PROFILES_URL = os.environ.get("PROFILES_URL", "https://harborprivacy.com/profiles")
+PROFILES_URL = os.environ.get("PROFILES_URL", "https://adblock.harborprivacy.com/profiles")
 CUSTOMERS_LOG = "/var/log/harbor-customers.json"
 
 def load_customers():
