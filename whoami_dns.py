@@ -11,7 +11,7 @@ from dnslib.server import DNSServer, BaseResolver
 WHOAMI_ZONE = "whoami.harborprivacy.com"
 RESULTS_FILE = "/tmp/harbor-whoami-results.json"
 RESULTS_LOCK = threading.Lock()
-SERVER_IP = "152.70.197.252"
+SERVER_IP = "129.80.154.105"
 
 def load_results():
     try:
@@ -32,7 +32,7 @@ def save_result(token, resolver_ip):
 
 class WhoamiResolver(BaseResolver):
     def resolve(self, request, handler):
-        qname = str(request.q.qname).rstrip(".")
+        qname = str(request.q.qname).rstrip(".").lower()
         resolver_ip = handler.client_address[0]
         
         # Extract token from subdomain e.g. abc123.whoami.harborprivacy.com

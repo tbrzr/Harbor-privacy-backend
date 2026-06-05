@@ -729,7 +729,7 @@ def send_harbor_kids_email(email, name, client_id):
 <div style="border-top:1px solid #e6dfd2;padding-top:20px;margin-top:20px;">
 <a href="https://dashboard.harborprivacy.com" style="display:inline-block;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Your Dashboard &#8594;</a>
 </div>
-<p style="padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
+<p style="padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-452-3452</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
 </div>'''
     send_email(email, "Your Harbor Kids Setup is Ready", html)
 
@@ -769,7 +769,7 @@ def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url
 <div style="border-top:1px solid #e6dfd2;padding-top:20px;margin-top:20px;">
 <a href="https://dashboard.harborprivacy.com" style="display:inline-block;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Your Dashboard</a>
 </div>
-<p style="padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
+<p style="padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-452-3452</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
 </div>'''
         send_email(email, "Welcome to Harbor Light - Your DNS Privacy Address", html)
         return
@@ -797,7 +797,7 @@ def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url
 <p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">Android/Pixel:</strong> Settings > Network and Internet > Private DNS > set to Off or Automatic</p>
 <p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">Other Routers:</strong> Router admin panel > DNS settings > set to Automatic > save and reboot</p>
 </div>
-</p><div style="border-top:1px solid #e6dfd2;padding-top:20px;margin-top:20px;">{('<a href="' + invoice_url + '" style="display:inline-block;background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;margin-right:8px;">View Invoice &#8594;</a>') if invoice_url else ''}<a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" style="display:inline-block;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Manage Subscription &#8594;</a></div><p style="padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
+</p><div style="border-top:1px solid #e6dfd2;padding-top:20px;margin-top:20px;">{('<a href="' + invoice_url + '" style="display:inline-block;background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;margin-right:8px;">View Invoice &#8594;</a>') if invoice_url else ''}<a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" style="display:inline-block;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Manage Subscription &#8594;</a></div><p style="padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-452-3452</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
 </div>'''
     elif plan == "trial":
         dot_host = f"{client_id}.doh.harborprivacy.com"
@@ -832,7 +832,7 @@ def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url
 <p style="font-family:monospace;font-size:11px;color:#6b7a72;letter-spacing:0.1em;margin-bottom:8px;">AFTER YOUR TRIAL</p>
 <p style="color:#6b7a72;font-size:13px;">Harbor Light is $3.99/mo after your 30-day trial. No credit card needed today -- you'll get a reminder before it ends.</p>
 </div>
-<p style="border-top:1px solid #e6dfd2;padding-top:24px;color:#6b7a72;">Questions? Reply to this email or text <strong style="color:#1a2420;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
+<p style="border-top:1px solid #e6dfd2;padding-top:24px;color:#6b7a72;">Questions? Reply to this email or text <strong style="color:#1a2420;">781-452-3452</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
 </div>'''
         send_email(email, "Your Harbor Privacy free trial is ready", html)
         return
@@ -840,7 +840,7 @@ def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url
         html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
 <h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Installation Confirmed</h1>
 <p>Hi {name},</p><p>Thanks for booking. I will be in touch within 24 hours to schedule your visit.</p>
-<p style="border-top:1px solid #e6dfd2;padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-974-6196</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
+<p style="border-top:1px solid #e6dfd2;padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-452-3452</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
 </div>'''
     send_email(email, "Welcome to Harbor Privacy - Your Setup Instructions", html)
 

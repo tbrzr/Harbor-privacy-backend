@@ -910,6 +910,29 @@ def telnyx_webhook():
         refunded = refund_order(order_token, reason=str(failure_reason)[:200])
         delete_fax_files(order_token)
         send_delivery_email(order["email"], order_token, order["fax_number"], "failed", refunded=refunded)
+        try:
+            import sys
+            sys.path.insert(0, "/home/ubuntu/harbor-shared")
+            from help_client import create_ticket
+            create_ticket(
+                brand="fax",
+                email=order["email"],
+                subject=f"Your fax to {order['fax_number']} didn't go through",
+                body=(f"We tried {retries + 1} times and the fax to "
+                      f"{order['fax_number']} couldn't be delivered.\n\n"
+                      f"Carrier reason: {failure_reason or '(none provided)'}\n\n"
+                      + ("Your payment has been refunded.\n\n" if refunded else "")
+                      + "Reply to this email if you'd like us to investigate or retry."),
+                category="bug",
+                internal_ref={"kind": "fax_fail",
+                              "order_token": order_token,
+                              "fax_number": order["fax_number"],
+                              "telnyx_fax_id": fax_id,
+                              "retries": retries + 1,
+                              "refunded": bool(refunded)},
+            )
+        except Exception:
+            log.exception("auto-ticket creation failed (non-fatal)")
         return "ok", 200
 
     db.close()
