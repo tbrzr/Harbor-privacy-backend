@@ -3233,6 +3233,24 @@ def admin_logs_stream():
 
 SOCIAL_MANIFEST = "/home/ubuntu/harbor-design-system/assets/social/manifest.json"
 SOCIAL_HISTORY  = "/home/ubuntu/.social-post-history.jsonl"
+SOCIAL_POSTED   = "/home/ubuntu/.social-posted.json"
+
+def _load_posted():
+    import json as _json
+    try:
+        with open(SOCIAL_POSTED) as _f:
+            return _json.load(_f)
+    except Exception:
+        return {}
+
+def _save_posted(d):
+    import json as _json
+    with open(SOCIAL_POSTED, "w") as _f:
+        _json.dump(d, _f, indent=2)
+
+# brand -> filter category for generated sets
+SOCIAL_BRAND_CAT = {"harbor":"Harbor","career":"Career","fax":"Fax",
+                    "booking":"Booking","money":"Money","scan":"Scan"}
 
 SOCIAL_HISTORY_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
@@ -3287,9 +3305,9 @@ a.row.dead{opacity:.55;pointer-events:none;}
 </body></html>"""
 
 
-@app.route("/social")
+@app.route("/social/sent")
 @admin_required
-def social():
+def social_sent():
     import json as _json, time as _time
     try:
         with open(SOCIAL_MANIFEST) as _f:
@@ -3317,6 +3335,280 @@ def social():
     resp = make_response(render_template_string(SOCIAL_HISTORY_HTML, hist=hist))
     resp.headers["Cache-Control"] = "no-store"
     return resp
+
+SOCIAL_LIBRARY_HTML = """<!doctype html><html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Social library</title>
+<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+<style>
+:root{--bg:#fbf7f1;--ink:#1a2420;--mute:#6b7a72;--teal:#1f5d6b;--line:#e5dfd3;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,system-ui,"DM Sans",sans-serif;padding:20px;max-width:880px;margin:0 auto;}
+.eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:3px;color:var(--teal);text-transform:uppercase;}
+h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;margin:6px 0 4px;}
+.sub{color:var(--mute);font-size:14px;margin:0 0 16px;}
+.topnav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-4px 0 18px;padding-bottom:14px;border-bottom:1px solid var(--line);}
+.topnav .brand{font-family:ui-monospace,Menlo,monospace;font-weight:600;font-size:14px;color:var(--ink);text-decoration:none;letter-spacing:1px;}
+.topnav .brand span{color:var(--teal);margin:0 2px;}
+.topnav .links{display:flex;gap:16px;flex-wrap:wrap;}
+.topnav .links a{font-size:13px;color:var(--mute);text-decoration:none;}
+.topnav .links a.active{color:var(--teal);font-weight:600;}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:12px;padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer;background:var(--teal);color:#fff;text-decoration:none;}
+.btn.alt{background:#fff;color:var(--teal);border:1.5px solid var(--teal);}
+.btn:active{opacity:.85;}.btn[disabled]{opacity:.6;cursor:default;}
+.btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
+.chip{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--mute);background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;}
+.chip.active{color:#fff;background:var(--teal);border-color:var(--teal);}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;}
+.card{display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;}
+.card.posted{opacity:.62;}
+.card .thumb{display:block;aspect-ratio:1/1;width:100%;object-fit:cover;background:#f3eee6;border-bottom:1px solid var(--line);}
+.card .body{padding:12px;display:flex;flex-direction:column;gap:8px;flex:1;}
+.card .title{font-size:15px;font-weight:600;line-height:1.3;color:inherit;text-decoration:none;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.card .badges{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+.badge{display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--teal);border:1px solid var(--teal);border-radius:999px;padding:2px 8px;}
+.badge.done{color:#2e7d32;border-color:#2e7d32;}
+.card .acts{display:flex;gap:8px;margin-top:auto;}
+.card .acts a,.card .acts button{flex:1;font-size:13px;padding:9px;border-radius:10px;}
+.mark{background:#fff;color:var(--teal);border:1.5px solid var(--teal);font-weight:600;cursor:pointer;}
+.mark.on{background:#eef5ee;color:#2e7d32;border-color:#2e7d32;}
+.count{color:var(--mute);font-size:13px;margin-left:auto;}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#2d2d2d;color:#fff;padding:12px 20px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:9;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style></head><body>
+<div class="topnav">
+  <a href="/admin" class="brand">harbor<span>/</span>privacy</a>
+  <div class="links">
+    <a href="/admin">Customers</a>
+    <a href="/social" class="active">Social</a>
+    <a href="/settings">Settings</a>
+    <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets</a>
+    <a href="/logout">Sign out</a>
+  </div>
+</div>
+<div class="eyebrow">Harbor social</div>
+<h1>Post library</h1>
+<p class="sub">Pick a post, copy the caption and image, and schedule it. Mark posts as used so you do not repeat.</p>
+<div class="bar">
+  <button class="btn" id="genBtn" onclick="genSet()">
+    <svg viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+    Generate a new set
+  </button>
+  <a class="btn alt" href="/social/sent">Sent log</a>
+  <span class="count"><b id="visCount">0</b> posts</span>
+</div>
+<div class="chips" id="chips">
+  <span class="chip active" data-cat="__all" onclick="filt(this)">All</span>
+  {% for c in cats %}<span class="chip" data-cat="{{ c }}" onclick="filt(this)">{{ c }}</span>{% endfor %}
+  <span class="chip" data-cat="__unposted" onclick="filt(this)">Unposted</span>
+</div>
+<div class="grid" id="grid">
+{% for e in entries %}
+  <div class="card{% if e.posted %} posted{% endif %}" data-cat="{{ e.category }}" data-posted="{{ '1' if e.posted else '0' }}">
+    <a href="/social/post/{{ e.id }}"><img class="thumb" src="/social/img/{{ e.id }}" alt="" loading="lazy"></a>
+    <div class="body">
+      <a class="title" href="/social/post/{{ e.id }}">{{ e.title }}</a>
+      <div class="badges"><span class="badge">{{ e.category }}</span><span class="badge done" style="{{ '' if e.posted else 'display:none' }}">Posted</span></div>
+      <div class="acts">
+        <a class="btn alt" href="/social/post/{{ e.id }}">Open</a>
+        <button class="mark{% if e.posted %} on{% endif %}" data-id="{{ e.id }}" onclick="mark(this)">{{ 'Posted' if e.posted else 'Mark posted' }}</button>
+      </div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+<div class="toast" id="toast"></div>
+<script>
+var CSRF="{{ csrf_token }}";
+function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},1800);}
+function recount(){document.getElementById('visCount').textContent=document.querySelectorAll('.card:not([style*="display: none"])').length;}
+function filt(el){
+  document.querySelectorAll('.chip').forEach(function(c){c.classList.remove('active');});
+  el.classList.add('active');
+  var cat=el.dataset.cat;
+  document.querySelectorAll('.card').forEach(function(c){
+    var show=true;
+    if(cat==='__unposted') show=c.dataset.posted==='0';
+    else if(cat!=='__all') show=c.dataset.cat===cat;
+    c.style.display=show?'':'none';
+  });
+  recount();
+}
+async function mark(btn){
+  var id=btn.dataset.id; var on=btn.classList.contains('on'); var want=!on;
+  try{
+    var r=await fetch('/api/social/posted',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:id,posted:want})});
+    var j=await r.json(); if(!j.ok) throw 0;
+    var card=btn.closest('.card');
+    btn.classList.toggle('on',j.posted); btn.textContent=j.posted?'Posted':'Mark posted';
+    card.dataset.posted=j.posted?'1':'0'; card.classList.toggle('posted',j.posted);
+    card.querySelector('.badge.done').style.display=j.posted?'':'none';
+    toast(j.posted?'Marked as posted':'Marked unposted');
+  }catch(e){toast('Could not update');}
+}
+async function genSet(){
+  var b=document.getElementById('genBtn'); b.disabled=true; b.textContent='Generating...';
+  try{
+    var r=await fetch('/api/social/generate-set',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({count:5})});
+    var j=await r.json();
+    if(j.ok){toast('Added '+j.added+' new posts'); setTimeout(function(){location.reload();},900);}
+    else{toast(j.error||'Generation failed'); b.disabled=false; b.textContent='Generate a new set';}
+  }catch(e){toast('Generation failed'); b.disabled=false; b.textContent='Generate a new set';}
+}
+recount();
+</script></body></html>"""
+
+
+@app.route("/social")
+@admin_required
+def social():
+    import json as _json
+    try:
+        with open(SOCIAL_MANIFEST) as _f:
+            entries = _json.load(_f).get("entries", [])
+    except Exception:
+        entries = []
+    posted = _load_posted()
+    out = []
+    for e in entries:
+        hdr = e.get("hdr", "")
+        title = hdr.split(" -> ")[0].split(" / ", 1)[-1] if hdr else e.get("id", "")
+        out.append({"id": e.get("id"), "title": title,
+                    "category": e.get("category", "Other"),
+                    "posted": bool(posted.get(e.get("id")))})
+    # newest entries first so freshly generated sets show on top
+    out.reverse()
+    cats = sorted({o["category"] for o in out})
+    resp = make_response(render_template_string(SOCIAL_LIBRARY_HTML, entries=out, cats=cats))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.route("/api/social/posted", methods=["POST"])
+@admin_required
+def social_mark_posted():
+    import time as _time
+    data = request.json or {}
+    pid = data.get("id", "")
+    want = bool(data.get("posted", True))
+    if not pid:
+        return jsonify({"ok": False, "error": "missing id"}), 400
+    posted = _load_posted()
+    if want:
+        posted[pid] = int(_time.time())
+    else:
+        posted.pop(pid, None)
+    _save_posted(posted)
+    return jsonify({"ok": True, "posted": want})
+
+
+@app.route("/api/social/generate-set", methods=["POST"])
+@admin_required
+def social_generate_set():
+    import json as _json, time as _time, random as _random, requests as _req
+    try:
+        count = int((request.json or {}).get("count", 5))
+    except Exception:
+        count = 5
+    count = max(1, min(count, 8))
+
+    pools = {
+        "harbor": ["why incognito mode is not actually private",
+                   "smart TVs spying on your viewing habits",
+                   "what your ISP knows about your family",
+                   "blocking ads before they load on every device",
+                   "why public WiFi is dangerous and how to stay safe",
+                   "trackers following you across every device"],
+        "career": ["ATS resume filtering",
+                   "cover letter that actually matches the job posting",
+                   "why generic cover letters get ignored",
+                   "the 6-second resume rule and how to beat it"],
+        "fax":    ["send a fax anonymously without an account",
+                   "why doctors and lawyers still require fax",
+                   "send a fax from your phone in two minutes"],
+        "booking":["let clients book appointments online 24/7",
+                   "reduce no-shows with automatic reminders",
+                   "free booking software for small businesses"],
+        "money":  ["budgeting without your bank login",
+                   "private budgeting that does not sell your spending",
+                   "forward receipts and alerts to track spending privately"],
+    }
+    brands = list(pools.keys())
+    _random.shuffle(brands)
+    picks = []
+    i = 0
+    while len(picks) < count:
+        b = brands[i % len(brands)]
+        picks.append((b, _random.choice(pools[b])))
+        i += 1
+
+    added, ids = 0, []
+    try:
+        with open(SOCIAL_MANIFEST) as _f:
+            man = _json.load(_f)
+    except Exception:
+        man = {"version": 1, "entries": []}
+    man.setdefault("entries", [])
+
+    ts = int(_time.time())
+    for idx, (brand, topic) in enumerate(picks):
+        prompt, platform_keys = _build_post_prompt(brand, topic, {"facebook": True, "instagram": True, "linkedin": True})
+        body = ""
+        try:
+            r = _req.post("https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY", ""),
+                         "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                json={"model": "claude-haiku-4-5-20251001", "max_tokens": 600,
+                      "messages": [{"role": "user", "content": prompt}]},
+                timeout=30)
+            rj = r.json()
+            content = rj["content"][0]["text"].strip().lstrip("```json").rstrip("```").strip()
+            posts = _json.loads(content)
+            body = posts.get("facebook") or posts.get("linkedin") or posts.get("instagram") or ""
+        except Exception as e:
+            print(f"generate-set: copy gen failed brand={brand} err={e!r}", flush=True)
+            body = ""
+        if not body:
+            body = f"{topic[0].upper()+topic[1:]}.\n\nHarbor Privacy can help.\n\nhttps://harborprivacy.com"
+
+        pid = f"gen-{brand}-{ts}-{idx}"
+        cat = SOCIAL_BRAND_CAT.get(brand, "Harbor")
+        head = topic[0].upper() + topic[1:]
+        # Render the card and copy it into the asset library so /social/img
+        # serves it locally (the dashboard social-images URL is not public).
+        import shutil as _sh, pathlib as _pl
+        gen_url = _generate_image_claude(brand, topic)
+        img = ""
+        if gen_url:
+            stem = gen_url.rsplit("/", 1)[-1]
+            src = _pl.Path("/var/www/network/social-images") / stem
+            dst = _pl.Path("/home/ubuntu/harbor-design-system/assets/social") / (pid + ".png")
+            try:
+                if src.exists():
+                    _sh.copyfile(src, dst)
+                    img = f"https://assets.harborprivacy.com/raw/social/{pid}.png"
+            except Exception as e:
+                print(f"generate-set: image copy failed {pid}: {e!r}", flush=True)
+        man["entries"].append({
+            "id": pid, "category": cat,
+            "hdr": f"{cat} / {head} -> https://harborprivacy.com",
+            "img": img or "",
+            "link": "https://harborprivacy.com",
+            "tags": "lightbulb,shield",
+            "body": body,
+        })
+        ids.append(pid); added += 1
+
+    try:
+        with open(SOCIAL_MANIFEST, "w") as _f:
+            _json.dump(man, _f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"save failed: {e}"}), 500
+    return jsonify({"ok": True, "added": added, "ids": ids})
+
 
 SOCIAL_POST_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
@@ -3375,8 +3667,24 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
   Open {{ e.link.split('//')[-1] }}
 </a>
 
+<button class="btn{{ '' if posted else ' alt' }}" id="markBtn" onclick="markPosted()" style="margin-top:10px;">
+  <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+  <span id="markTxt">{{ 'Posted' if posted else 'Mark as posted' }}</span>
+</button>
+
 <div class="toast" id="toast"></div>
 <script>
+var CSRF="{{ csrf_token }}", PID="{{ e.id }}", POSTED={{ 'true' if posted else 'false' }};
+async function markPosted(){
+  try{
+    var r=await fetch('/api/social/posted',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:PID,posted:!POSTED})});
+    var j=await r.json(); if(!j.ok) throw 0;
+    POSTED=j.posted; var b=document.getElementById('markBtn');
+    document.getElementById('markTxt').textContent=POSTED?'Posted':'Mark as posted';
+    b.classList.toggle('alt',!POSTED);
+    toast(POSTED?'Marked as posted':'Marked unposted');
+  }catch(e){toast('Could not update');}
+}
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},1600);}
 function copyText(){var b=document.getElementById('body');b.select();navigator.clipboard.writeText(b.value).then(function(){toast('Caption copied');},function(){document.execCommand('copy');toast('Caption copied');});}
 async function copyImg(){try{var r=await fetch(document.getElementById('img').src,{mode:'cors'});var bl=await r.blob();await navigator.clipboard.write([new ClipboardItem({[bl.type]:bl})]);toast('Image copied');}catch(e){toast('Long-press the image to copy');}}
@@ -3400,7 +3708,8 @@ def social_post_page(post_id):
     entry = _social_entry(post_id)
     if not entry:
         return "Post not found", 404
-    resp = make_response(render_template_string(SOCIAL_POST_HTML, e=entry))
+    posted = bool(_load_posted().get(post_id))
+    resp = make_response(render_template_string(SOCIAL_POST_HTML, e=entry, posted=posted))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
