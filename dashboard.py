@@ -88,6 +88,7 @@ CSRF_EXEMPT_PREFIXES = (
     "/api/dns-analytics",    # public ingest, rate-limited
     "/api/social/autopost",  # X-Autopost-Secret
     "/api/agh-status",       # GET
+    "/api/adblock-checkout", # public Stripe embedded-checkout, CORS-scoped
 )
 
 @app.before_request
@@ -1271,31 +1272,13 @@ def dashboard():
   <!-- UPGRADE CARD — monthly only -->
   {% if plan_badge == "MONTHLY" and is_active %}
   <div class="card" style="border-color:#1e3a35;background:rgba(0,229,192,0.03);margin-bottom:20px;">
-    <div class="card-label" style="color:var(--accent);">Save More — Upgrade Your Plan</div>
-    <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <div>
-          <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">3 Months — Save 17%</div>
-          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">$4.99/mo billed quarterly</div>
-        </div>
-        <a href="https://buy.stripe.com/7sYcN47or2HdbPLeph6kg0a?prefilled_email={{ user_email }}" target="_blank" style="background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;padding:6px 14px;text-decoration:none;white-space:nowrap;">Switch →</a>
+    <div class="card-label" style="color:var(--accent);">Save with Annual</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-top:8px;">
+      <div>
+        <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">Annual — $26.99/yr</div>
+        <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">Just $2.25/mo, billed once a year</div>
       </div>
-      <div style="border-top:1px solid var(--border);"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <div>
-          <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">6 Months — Save 30%</div>
-          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">$4.16/mo billed every 6 months</div>
-        </div>
-        <a href="https://buy.stripe.com/00w9AS38b6XtdXTch96kg0b?prefilled_email={{ user_email }}" target="_blank" style="background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;padding:6px 14px;text-decoration:none;white-space:nowrap;">Switch →</a>
-      </div>
-      <div style="border-top:1px solid var(--border);"></div>
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <div>
-          <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">Annual — Save 44%</div>
-          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">$3.33/mo billed yearly</div>
-        </div>
-        <a href="https://buy.stripe.com/9B69AS6knepVbPL2Gz6kg09?prefilled_email={{ user_email }}" target="_blank" style="background:var(--accent);color:var(--bg);font-family:'DM Mono',monospace;font-size:11px;padding:6px 14px;text-decoration:none;white-space:nowrap;">Switch →</a>
-      </div>
+      <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank" style="background:var(--accent);color:var(--bg);font-family:'DM Mono',monospace;font-size:11px;padding:6px 14px;text-decoration:none;white-space:nowrap;">Switch →</a>
     </div>
   </div>
   {% endif %}
@@ -1669,6 +1652,61 @@ async function deleteCustomer(cid, name, btn){
         total_queries=total_queries, total_queries_display=f"{total_queries:,}",
         block_pct=block_pct,
         clients_map=clients_map, get_client=get_client, active="admin")
+
+
+# ── Adblock embedded Stripe Checkout (no payment links) ──────
+# Mints an embedded Checkout Session from a price id so pricing.html /
+# adblock.html can show an in-page modal. mode=subscription means the existing
+# webhook checkout.session.completed provisioning runs unchanged; metadata
+# carries plan_type so the right badge/feature gating applies.
+ADBLOCK_PLANS = {
+    "light":  ("price_1TE36NCOrGNrBgIf2T8ApaAG", "harbor-remote-light"),
+    "remote": ("price_1TCTlYCOrGNrBgIf4euUONmf", "remote"),
+    "annual": ("price_1TenLxCOrGNrBgIfCi4l3lU3", "annual"),
+}
+_ADBLOCK_ORIGINS = ("https://harborprivacy.com", "https://www.harborprivacy.com",
+                    "https://adblock.harborprivacy.com")
+
+def _adblock_cors(resp):
+    origin = request.headers.get("Origin", "")
+    resp.headers["Access-Control-Allow-Origin"] = origin if origin in _ADBLOCK_ORIGINS else "https://harborprivacy.com"
+    resp.headers["Vary"] = "Origin"
+    resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    return resp
+
+@app.route("/api/adblock-checkout", methods=["POST", "OPTIONS"])
+def adblock_checkout():
+    if request.method == "OPTIONS":
+        return _adblock_cors(make_response("", 204))
+    import requests as _req
+    secret = os.environ.get("STRIPE_SECRET", "")
+    if not secret:
+        return _adblock_cors(make_response(jsonify({"error": "billing unavailable"}), 503))
+    plan = ((request.get_json(silent=True) or {}).get("plan") or "").strip().lower()
+    if plan not in ADBLOCK_PLANS:
+        return _adblock_cors(make_response(jsonify({"error": "invalid plan"}), 400))
+    price_id, plan_type = ADBLOCK_PLANS[plan]
+    form = {
+        "mode": "subscription",
+        "ui_mode": "embedded",
+        "line_items[0][price]": price_id,
+        "line_items[0][quantity]": "1",
+        "return_url": "https://harborprivacy.com/welcome-paid?session_id={CHECKOUT_SESSION_ID}",
+        "metadata[plan_type]": plan_type,
+        "metadata[harbor_product]": "adblock",
+        "subscription_data[metadata][plan_type]": plan_type,
+    }
+    try:
+        r = _req.post("https://api.stripe.com/v1/checkout/sessions",
+                      data=form, auth=(secret, ""), timeout=20)
+        j = r.json()
+    except Exception as e:
+        return _adblock_cors(make_response(jsonify({"error": str(e)}), 502))
+    if r.status_code >= 400 or "client_secret" not in j:
+        msg = (j.get("error") or {}).get("message", "stripe error")
+        return _adblock_cors(make_response(jsonify({"error": msg}), 400))
+    return _adblock_cors(make_response(jsonify({"client_secret": j["client_secret"]})))
 
 
 @app.route("/api/signup-stats")
