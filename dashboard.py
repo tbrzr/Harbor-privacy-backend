@@ -416,7 +416,7 @@ STYLE = """<!DOCTYPE html>
 <title>{% block title %}Harbor Privacy Dashboard{% endblock %}</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
 <style>
-  :root{--bg:#0a0e0f;--surface:#111618;--border:#1e2a2d;--accent:#00e5c0;--text:#e8f0ef;--muted:#6b8a87;--danger:#ff4e4e;}
+  :root{--bg:#0a0e0f;--surface:#111618;--surface-2:#151c1e;--border:#1e2a2d;--border-soft:#192325;--accent:#00e5c0;--accent-dim:rgba(0,229,192,0.10);--text:#e8f0ef;--muted:#6b8a87;--danger:#ff4e4e;--radius:14px;--radius-sm:10px;--shadow:0 1px 2px rgba(0,0,0,0.3),0 10px 28px -14px rgba(0,0,0,0.55);}
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.7;min-height:100vh;}
   body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:0.3;pointer-events:none;z-index:0;}
@@ -428,23 +428,30 @@ STYLE = """<!DOCTYPE html>
   .nav-links a:hover,.nav-links a.active{color:var(--accent);background:rgba(0,229,192,0.06);}
   .wrap{max-width:960px;margin:0 auto;padding:48px 32px 80px;position:relative;z-index:1;}
   .wrap-sm{max-width:500px;margin:0 auto;padding:60px 32px;position:relative;z-index:1;}
-  .card{background:var(--surface);border:1px solid var(--border);padding:32px;margin-bottom:20px;}
+  .card{background:linear-gradient(180deg,var(--surface),#0f1517);border:1px solid var(--border);border-radius:var(--radius);padding:32px;margin-bottom:20px;box-shadow:var(--shadow);}
   .card-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;}
   h1{font-family:'DM Serif Display',serif;font-size:40px;font-weight:400;line-height:1.1;}
   h2{font-family:'DM Serif Display',serif;font-size:26px;font-weight:400;margin-bottom:12px;}
-  input,select{background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:12px 16px;outline:none;width:100%;margin-bottom:12px;transition:border 0.2s;}
-  input:focus,select:focus{border-color:var(--accent);}
+  input,select{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:12px 16px;outline:none;width:100%;margin-bottom:12px;transition:border 0.2s,box-shadow 0.2s;}
+  input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim);}
   input::placeholder{color:var(--muted);}
   input:disabled{opacity:0.4;cursor:not-allowed;}
-  .btn{background:var(--accent);color:var(--bg);padding:12px 24px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.08em;border:none;cursor:pointer;font-weight:500;text-decoration:none;display:inline-block;transition:background 0.2s;}
-  .btn:hover{background:#00ffda;}
+  .btn{background:var(--accent);color:var(--bg);padding:12px 24px;border-radius:var(--radius-sm);font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.08em;border:none;cursor:pointer;font-weight:500;text-decoration:none;display:inline-block;transition:background 0.2s,transform 0.1s,box-shadow 0.2s;}
+  .btn:hover{background:#00ffda;box-shadow:0 6px 18px -8px rgba(0,229,192,0.6);}
+  .btn:active{transform:translateY(1px);}
+  .ghost{display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;border-radius:var(--radius-sm);text-decoration:none;cursor:pointer;transition:background 0.2s;}
+  .ghost:hover{background:var(--accent-dim);}
+  .ghost.dim{border-color:var(--border);color:var(--muted);}
+  .ghost.dim:hover{border-color:var(--accent);color:var(--accent);background:transparent;}
+  .sec-head{display:flex;align-items:center;gap:9px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;}
+  .sec-head svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
   .btn-sm{padding:6px 14px;font-size:10px;}
   .btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted);}
   .btn-outline:hover{border-color:var(--accent);color:var(--accent);background:transparent;}
   .btn-danger{background:var(--danger);}
   .btn-danger:hover{background:#ff6b6b;}
   .btn-disabled{background:var(--border);color:var(--muted);cursor:not-allowed;pointer-events:none;}
-  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:20px;}
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px;box-shadow:var(--shadow);}
   .stat{background:var(--surface);padding:24px;}
   .stat-num{font-family:'DM Serif Display',serif;font-size:40px;color:var(--accent);line-height:1;margin-bottom:6px;}
   .stat-num.muted{color:var(--border);}
@@ -465,7 +472,7 @@ STYLE = """<!DOCTYPE html>
   .row:last-child{border-bottom:none;}
   .rule-block{color:var(--danger);font-family:'DM Mono',monospace;font-size:12px;}
   .rule-allow{color:var(--accent);font-family:'DM Mono',monospace;font-size:12px;}
-  .badge{font-family:'DM Mono',monospace;font-size:9px;padding:3px 8px;letter-spacing:0.1em;font-weight:500;vertical-align:middle;}
+  .badge{font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:999px;letter-spacing:0.1em;font-weight:500;vertical-align:middle;}
   .badge-on{background:var(--accent);color:var(--bg);}
   .badge-off{background:var(--border);color:var(--muted);}
   .badge-admin{background:#7c3aed;color:#fff;}
@@ -477,21 +484,21 @@ STYLE = """<!DOCTYPE html>
   .badge-annual{background:#047857;color:#fff;}
   .badge-family{background:#7c3aed;color:#fff;}
   .badge-locked{background:var(--border);color:var(--muted);}
-  .profile-btn{background:var(--surface);border:1px solid var(--border);color:var(--text);padding:16px;cursor:pointer;text-align:center;font-family:'DM Mono',monospace;font-size:12px;transition:border-color 0.2s;}
+  .profile-btn{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);padding:16px;cursor:pointer;text-align:center;font-family:'DM Mono',monospace;font-size:12px;transition:border-color 0.2s,background 0.2s;}
   .profile-btn:hover{border-color:var(--accent);}
   .profile-active{border-color:var(--accent) !important;background:rgba(0,229,192,0.08) !important;}
-  .doh-box{background:var(--bg);border-left:3px solid var(--accent);padding:16px;font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);word-break:break-all;margin:12px 0;}
+  .doh-box{background:var(--bg);border-left:3px solid var(--accent);border-radius:var(--radius-sm);padding:16px;font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);word-break:break-all;margin:12px 0;}
   .doh-box.locked{border-left-color:var(--border);color:var(--muted);filter:blur(4px);user-select:none;}
-  .error{color:var(--danger);font-family:'DM Mono',monospace;font-size:12px;margin-bottom:16px;padding:12px 16px;border:1px solid var(--danger);}
-  .success{color:var(--accent);font-family:'DM Mono',monospace;font-size:12px;margin-bottom:16px;padding:12px 16px;border:1px solid var(--accent);}
+  .error{color:var(--danger);font-family:'DM Mono',monospace;font-size:12px;margin-bottom:16px;padding:12px 16px;border:1px solid var(--danger);border-radius:var(--radius-sm);background:rgba(255,78,78,0.06);}
+  .success{color:var(--accent);font-family:'DM Mono',monospace;font-size:12px;margin-bottom:16px;padding:12px 16px;border:1px solid var(--accent);border-radius:var(--radius-sm);background:var(--accent-dim);}
   .note{font-size:14px;color:var(--muted);line-height:1.6;}
-  .locked-overlay{background:var(--surface);border:1px solid var(--border);padding:20px 24px;display:flex;align-items:center;gap:16px;margin-bottom:20px;}
+  .locked-overlay{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px 24px;display:flex;align-items:center;gap:16px;margin-bottom:20px;box-shadow:var(--shadow);}
   .locked-icon{font-size:24px;flex-shrink:0;}
   .locked-text{font-size:14px;color:var(--muted);}
   .locked-text strong{color:var(--text);display:block;margin-bottom:4px;}
-  .customer-grid{display:grid;gap:1px;background:var(--border);border:1px solid var(--border);}
+  .customer-grid{display:grid;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
   .customer-row{background:var(--surface);padding:18px 24px;display:grid;grid-template-columns:1fr 140px 110px 80px 100px;gap:16px;align-items:center;transition:background 0.15s;}
-  .customer-row:hover{background:#151c1e;}
+  .customer-row:hover{background:var(--surface-2);}
   .customer-header{background:var(--bg) !important;border-bottom:1px solid var(--border);}
   @media(max-width:768px){
     nav{flex-wrap:wrap;gap:8px;padding:12px 16px;}
@@ -1047,9 +1054,9 @@ def dashboard():
   </div>
 
   <div class="card">
-    <div class="card-label">Your DoH Address</div>
+    <div class="sec-head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Your DoH Address</div>
     <div class="doh-box" id="doh-address">https://doh.harborprivacy.com/dns-query/{{ client_id }}</div>
-    <button onclick="copyDoH()" style="margin-top:8px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;cursor:pointer;" id="copy-btn">Copy Address</button>
+    <button onclick="copyDoH()" class="ghost" style="margin-top:8px;" id="copy-btn">Copy Address</button>
     <script>
     function copyDoH(){
       var text = document.getElementById('doh-address').innerText;
@@ -1061,8 +1068,8 @@ def dashboard():
     }
     </script>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
-      <a href="https://adblock.harborprivacy.com/profiles/{{ client_id }}.mobileconfig" style="display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Download iOS Profile</a>
-      <a href="https://adblock.harborprivacy.com/setup/android/{{ client_id }}" target="_blank" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Android Setup + QR</a>
+      <a href="https://adblock.harborprivacy.com/profiles/{{ client_id }}.mobileconfig" class="ghost">Download iOS Profile</a>
+      <a href="https://adblock.harborprivacy.com/setup/android/{{ client_id }}" target="_blank" class="ghost dim">Android Setup + QR</a>
     </div>
     <p class="note" style="margin-top:12px;">Add this to your iPhone under Settings → General → VPN & Device Management, or Android under Settings → Private DNS.</p>
   </div>
@@ -1164,7 +1171,7 @@ def dashboard():
 
   {% if not is_active %}
   <div class="locked-overlay" style="border-color:var(--accent);background:#1f5d6b08;margin-bottom:32px;">
-    <div class="locked-icon">⚠</div>
+    <div class="locked-icon"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
     <div class="locked-text">
       <strong>No active Harbor Remote subscription found</strong>
       Your dashboard is ready — features will unlock once your subscription is active. If you just subscribed, try refreshing in a few minutes.
@@ -1192,7 +1199,7 @@ def dashboard():
   <!-- CUSTOMER INFO CARD -->
   {% if is_active %}
   <div class="card" style="margin-bottom:20px;">
-    <div class="card-label">Account Info</div>
+    <div class="sec-head"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Account Info</div>
     <div style="display:flex;flex-direction:column;gap:12px;">
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">EMAIL</span>
@@ -1236,10 +1243,10 @@ def dashboard():
 
   <!-- DOH ADDRESS -->
   <div class="card">
-    <div class="card-label">Your Private DNS Address</div>
+    <div class="sec-head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Your Private DNS Address</div>
     {% if is_active %}
     <div class="doh-box" id="doh-address">https://doh.harborprivacy.com/dns-query/{{ client_id }}</div>
-    <button onclick="copyDoH()" style="margin-top:8px;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;cursor:pointer;" id="copy-btn">Copy Address</button>
+    <button onclick="copyDoH()" class="ghost" style="margin-top:8px;" id="copy-btn">Copy Address</button>
     <script>
     function copyDoH(){
       var text = document.getElementById('doh-address').innerText;
@@ -1251,8 +1258,8 @@ def dashboard():
     }
     </script>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
-      <a href="https://adblock.harborprivacy.com/profiles/{{ client_id }}.mobileconfig" style="display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Download iOS Profile</a>
-      <a href="https://adblock.harborprivacy.com/setup/android/{{ client_id }}" target="_blank" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;padding:8px 16px;text-decoration:none;">Android Setup + QR</a>
+      <a href="https://adblock.harborprivacy.com/profiles/{{ client_id }}.mobileconfig" class="ghost">Download iOS Profile</a>
+      <a href="https://adblock.harborprivacy.com/setup/android/{{ client_id }}" target="_blank" class="ghost dim">Android Setup + QR</a>
     </div>
     <p class="note" style="margin-top:12px;">Use this address in your DNS over HTTPS settings. <a href="https://harborprivacy.com/docs/getting-started" style="color:var(--accent);">Setup guide →</a></p>
     {% else %}
@@ -1560,6 +1567,22 @@ def admin():
             clients_map[_cid] = _cl
 
     html = STYLE + NAV_ADMIN + """
+<style>
+.qa-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px;}
+.qa{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:999px;color:var(--muted);padding:9px 16px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.06em;text-decoration:none;transition:border-color .2s,color .2s,background .2s,transform .1s;}
+.qa:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
+.qa:active{transform:translateY(1px);}
+.qa.primary{border-color:var(--accent);color:var(--accent);}
+.qa svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.cust-name{font-size:14px;color:var(--text);}
+.cust-sub{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:2px;}
+.cust-seen{font-family:'DM Mono',monospace;font-size:10px;color:#4a6a67;margin-top:2px;}
+.cust-cid{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);}
+.cust-plan{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-transform:capitalize;}
+.cust-del{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:rgba(255,107,107,0.10);color:#ff6b6b;border:1px solid rgba(255,107,107,0.25);cursor:pointer;font-size:12px;line-height:1;transition:background .15s;}
+.cust-del:hover{background:rgba(255,107,107,0.22);}
+.view-btn{padding:5px 12px;font-size:10px;}
+</style>
 <div class="wrap">
   <div style="margin-bottom:32px;">
     <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">Admin Panel</p>
@@ -1568,16 +1591,16 @@ def admin():
 
   <div class="stat-grid" style="margin-bottom:32px;">
     <div class="stat"><div class="stat-num">{{ customers|length }}</div><div class="stat-label">Active Customers</div></div>
-    <div class="stat"><div class="stat-num">{{ total_queries }}</div><div class="stat-label">DNS Queries (7 Days)</div></div>
+    <div class="stat"><div class="stat-num">{{ total_queries_display }}</div><div class="stat-label">DNS Queries (7 Days)</div></div>
     <div class="stat"><div class="stat-num">{{ block_pct }}%</div><div class="stat-label">Network Block Rate</div></div>
   </div>
 
-  <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
-    <a href="/admin/links" style="display:inline-block;background:transparent;border:1px solid var(--accent);color:var(--accent);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; Link Manager</a>
-    <a href="/admin/analytics" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; DNS Analytics</a>
-    <a href="/admin/logs" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; Live Logs</a>
-    <a href="/admin/scan" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; Harbor Scan</a>
-    <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener" style="display:inline-block;background:transparent;border:1px solid var(--border);color:var(--muted);padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;">&#9679; Assets ↗</a>
+  <div class="qa-row">
+    <a href="/admin/links" class="qa primary"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Link Manager</a>
+    <a href="/admin/analytics" class="qa"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l3-3 4 4 5-6"/></svg>DNS Analytics</a>
+    <a href="/admin/logs" class="qa"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Live Logs</a>
+    <a href="/admin/scan" class="qa"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Harbor Scan</a>
+    <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener" class="qa"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>Assets</a>
   </div>
 
   <div class="card">
@@ -1595,17 +1618,17 @@ def admin():
       {% set cl = clients_map.get(c.client_id, {}) %}
       <div class="customer-row" {% if c.status == 'failed' %}style="border-left:3px solid #ff4e4e;background:rgba(255,78,78,0.05);"{% endif %}>
         <div>
-          <div style="font-size:14px;color:var(--text);">{{ c.name }}{% if c.status == 'failed' %} <span style="font-family:'DM Mono',monospace;font-size:10px;color:#ff4e4e;letter-spacing:0.1em;">⚠ PROVISION FAILED</span>{% endif %}</div>
-          <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">{{ c.email }}</div>
-          {% if c.last_seen %}<div style="font-family:'DM Mono',monospace;font-size:10px;color:#4a6a67;">Last seen: {{ c.last_seen[:16].replace('T',' ') }} UTC</div>{% endif %}
+          <div class="cust-name">{{ c.name }}{% if c.status == 'failed' %} <span style="font-family:'DM Mono',monospace;font-size:10px;color:#ff4e4e;letter-spacing:0.1em;">&#9888; PROVISION FAILED</span>{% endif %}</div>
+          <div class="cust-sub">{{ c.email }}</div>
+          {% if c.last_seen %}<div class="cust-seen">Last seen: {{ c.last_seen[:16].replace('T',' ') }} UTC</div>{% endif %}
         </div>
-        <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);">{{ c.client_id }}</div>
-        <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">{{ c.plan }}</div>
+        <div class="cust-cid">{{ c.client_id }}</div>
+        <div class="cust-plan">{{ c.plan }}</div>
         <div><span class="badge {% if cl and cl.parental_enabled %}badge-on{% else %}badge-off{% endif %}">{% if cl and cl.parental_enabled %}ON{% else %}OFF{% endif %}</span></div>
         <div style="display:flex;gap:6px;align-items:center;">
-          <a href="/admin/customer/{{ c.client_id }}" class="btn btn-sm" style="padding:4px 10px;font-size:10px;">View →</a>
+          <a href="/admin/customer/{{ c.client_id }}" class="btn btn-sm view-btn">View &rarr;</a>
           {% if c.client_id not in ["harbor7066", "admintim1003"] and c.email not in ["admin@harborprivacy.com", "tim@harborprivacy.com"] %}
-          <button class="btn btn-sm" style="background:rgba(255,107,107,0.12);color:#ff6b6b;border-color:rgba(255,107,107,0.3);" onclick="deleteCustomer('{{ c.client_id }}','{{ c.name }}',this)">✕</button>
+          <button class="cust-del" onclick="deleteCustomer('{{ c.client_id }}','{{ c.name }}',this)">&#10005;</button>
           {% endif %}
         </div>
       </div>
@@ -1643,7 +1666,8 @@ async function deleteCustomer(cid, name, btn){
 </script>
 </html>"""
     return render_template_string(html, customers=customers,
-        total_queries=total_queries, block_pct=block_pct,
+        total_queries=total_queries, total_queries_display=f"{total_queries:,}",
+        block_pct=block_pct,
         clients_map=clients_map, get_client=get_client, active="admin")
 
 
@@ -2344,8 +2368,17 @@ def settings():
     NAV = NAV_ADMIN if is_admin else NAV_CUSTOMER
 
     html = STYLE + NAV + """
+<style>
+.set-eyebrow{font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;}
+.set-head{display:flex;align-items:center;gap:9px;font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;}
+.set-head svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.support-box{background:var(--bg);border-left:3px solid var(--accent);border-radius:var(--radius-sm);padding:16px;font-family:'DM Mono',monospace;font-size:24px;color:var(--accent);letter-spacing:0.3em;text-align:center;margin-bottom:8px;}
+</style>
 <div class="wrap" style="max-width:580px;">
-  <h1 style="margin-bottom:32px;">Settings.</h1>
+  <div style="margin-bottom:32px;">
+    <p class="set-eyebrow">Account</p>
+    <h1>Settings.</h1>
+  </div>
 
   {% if msg %}
   <div class="{{ 'success' if msg_ok else 'error' }}">{{ msg }}</div>
@@ -2358,7 +2391,7 @@ def settings():
   {% endif %}
 
   <div class="card">
-    <div class="card-label">Change Password</div>
+    <div class="set-head"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Change Password</div>
     <form method="POST" action="/settings/password">
       <input type="hidden" name="csrf" value="{{ csrf_token }}">
       <input type="password" name="current" placeholder="Current password" required>
@@ -2369,7 +2402,7 @@ def settings():
   </div>
 
   <div class="card">
-    <div class="card-label">Two-Factor Authentication</div>
+    <div class="set-head"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Two-Factor Authentication</div>
     {% if not has_2fa %}
     <p class="note" style="margin-bottom:16px;">Add an extra layer of security. Works with Google Authenticator, Authy, or any TOTP app.</p>
     <a href="/settings/2fa/setup" class="btn">Set Up 2FA →</a>
@@ -2385,15 +2418,15 @@ def settings():
 
   {% if not is_admin %}
   <div class="card">
-    <div class="card-label">Support Access</div>
+    <div class="set-head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"/><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"/><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"/><line x1="9.17" y1="14.83" x2="4.93" y2="19.07"/></svg>Support Access</div>
     <p class="note" style="margin-bottom:16px;">If you need help, generate a temporary support code and share it with Harbor Privacy support. The code expires in 30 minutes.</p>
     <button onclick="genCode()" class="btn" style="margin-bottom:12px;">Generate Support Code</button>
-    <div id="support-code-box" style="display:none;background:var(--bg);border-left:3px solid var(--accent);padding:16px;font-family:'DM Mono',monospace;font-size:24px;color:var(--accent);letter-spacing:0.3em;text-align:center;margin-bottom:8px;"></div>
+    <div id="support-code-box" class="support-box" style="display:none;"></div>
     <p id="support-code-note" style="display:none;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">Share this code with support. Expires in 30 minutes.</p>
   </div>
 
   <div class="card">
-    <div class="card-label">Weekly Stats Email</div>
+    <div class="set-head"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg>Weekly Stats Email</div>
     <p class="note" style="margin-bottom:16px;">Get a summary of your blocking stats every Monday morning. No browsing history — just your numbers.</p>
     <div class="toggle-row">
       <div>
@@ -2408,7 +2441,7 @@ def settings():
   </div>
 
   <div class="card">
-    <div class="card-label">Your Data</div>
+    <div class="set-head"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Your Data</div>
     <p class="note" style="margin-bottom:16px;">Request a report of everything Harbor Privacy holds about you. We'll email it within 24 hours.</p>
     <div style="display:flex;gap:12px;flex-wrap:wrap;">
       <a href="/settings/data-request" class="btn btn-outline">Request My Data</a>
@@ -2417,7 +2450,7 @@ def settings():
   </div>
   {% else %}
   <div class="card">
-    <div class="card-label">Admin Account</div>
+    <div class="set-head"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Admin Account</div>
     <p class="note" style="margin-bottom:4px;">Logged in as Harbor Privacy administrator.</p>
     <p class="note" style="margin-bottom:16px;">{{ email }}</p>
     <a href="/admin" class="btn btn-outline">Back to Admin Panel</a>
@@ -3386,7 +3419,16 @@ def social_post_img(post_id):
         return send_file(str(local), mimetype="image/png")
     try:
         r = _req.get(entry["img"], timeout=20)
-        return Response(r.content, mimetype=r.headers.get("Content-Type", "image/png"))
+        ctype = r.headers.get("Content-Type", "image/png")
+        # Persist into the asset library so the image is reusable and future
+        # requests serve the local copy instead of re-proxying the remote URL.
+        if r.status_code == 200 and ctype.startswith("image/"):
+            try:
+                local.parent.mkdir(parents=True, exist_ok=True)
+                local.write_bytes(r.content)
+            except Exception as e:
+                print(f"social_post_img: cache write failed for {post_id}: {e!r}", flush=True)
+        return Response(r.content, mimetype=ctype)
     except Exception:
         return redirect(entry["img"])
 
