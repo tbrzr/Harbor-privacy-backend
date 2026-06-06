@@ -3299,7 +3299,7 @@ SOCIAL_HISTORY_HTML = """<!doctype html><html lang="en"><head>
 <style>
 :root{--bg:#fbf7f1;--ink:#1a2420;--mute:#6b7a72;--teal:#1f5d6b;--line:#e5dfd3;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,system-ui,"DM Sans",sans-serif;padding:20px;max-width:680px;margin:0 auto;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,system-ui,"DM Sans",sans-serif;padding:20px;padding-top:max(20px,calc(env(safe-area-inset-top) + 14px));max-width:680px;margin:0 auto;}
 .eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:3px;color:var(--teal);text-transform:uppercase;}
 h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;margin:6px 0 18px;}
 a.row{display:flex;gap:14px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px;text-decoration:none;color:inherit;}
@@ -3383,7 +3383,7 @@ SOCIAL_LIBRARY_HTML = """<!doctype html><html lang="en"><head>
 <style>
 :root{--bg:#fbf7f1;--ink:#1a2420;--mute:#6b7a72;--teal:#1f5d6b;--line:#e5dfd3;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,system-ui,"DM Sans",sans-serif;padding:20px;max-width:880px;margin:0 auto;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,system-ui,"DM Sans",sans-serif;padding:20px;padding-top:max(20px,calc(env(safe-area-inset-top) + 14px));max-width:880px;margin:0 auto;}
 .eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:3px;color:var(--teal);text-transform:uppercase;}
 h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;margin:6px 0 4px;}
 .sub{color:var(--mute);font-size:14px;margin:0 0 16px;}
@@ -3432,9 +3432,13 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
 <h1>Post library</h1>
 <p class="sub">Pick a post, copy the caption and image, and schedule it. Mark posts as used so you do not repeat.</p>
 <div class="bar">
-  <button class="btn" id="genBtn" onclick="genSet()">
+  <button class="btn" id="genBtn" onclick="genSet(this)">
     <svg viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
     Generate a new set
+  </button>
+  <button class="btn alt" id="genTipsBtn" onclick="genSet(this,'tips')">
+    <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
+    Generate tips set
   </button>
   <a class="btn alt" href="/social/sent">Sent log</a>
   <span class="count"><b id="visCount">0</b> posts</span>
@@ -3488,14 +3492,15 @@ async function mark(btn){
     toast(j.posted?'Marked as posted':'Marked unposted');
   }catch(e){toast('Could not update');}
 }
-async function genSet(){
-  var b=document.getElementById('genBtn'); b.disabled=true; b.textContent='Generating...';
+async function genSet(b,only){
+  var label=b.textContent.trim(); b.disabled=true; b.textContent='Generating...';
   try{
-    var r=await fetch('/api/social/generate-set',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({count:5})});
+    var body={count:5}; if(only){body.only=only;}
+    var r=await fetch('/api/social/generate-set',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify(body)});
     var j=await r.json();
     if(j.ok){toast('Added '+j.added+' new posts'); setTimeout(function(){location.reload();},900);}
-    else{toast(j.error||'Generation failed'); b.disabled=false; b.textContent='Generate a new set';}
-  }catch(e){toast('Generation failed'); b.disabled=false; b.textContent='Generate a new set';}
+    else{toast(j.error||'Generation failed'); b.disabled=false; b.textContent=label;}
+  }catch(e){toast('Generation failed'); b.disabled=false; b.textContent=label;}
 }
 recount();
 </script></body></html>"""
@@ -3592,14 +3597,25 @@ def social_generate_set():
                    "turn off ad tracking on a Roku or Fire TV stick",
                    "turn off location history and web activity in your Google account"],
     }
-    brands = list(pools.keys())
+    only = (request.json or {}).get("only")
+    if only in pools:
+        brands = [only]
+    else:
+        brands = list(pools.keys())
     _random.shuffle(brands)
     picks = []
-    i = 0
-    while len(picks) < count:
-        b = brands[i % len(brands)]
-        picks.append((b, _random.choice(pools[b])))
-        i += 1
+    if len(brands) == 1:
+        # single-brand set (e.g. tips): pick distinct topics, no repeats
+        b = brands[0]
+        topics = pools[b][:]
+        _random.shuffle(topics)
+        picks = [(b, t) for t in topics[:count]]
+    else:
+        i = 0
+        while len(picks) < count:
+            b = brands[i % len(brands)]
+            picks.append((b, _random.choice(pools[b])))
+            i += 1
 
     added, ids = 0, []
     try:
@@ -3629,6 +3645,18 @@ def social_generate_set():
             body = ""
         if not body:
             body = f"{topic[0].upper()+topic[1:]}.\n\nHarbor Privacy can help.\n\nhttps://harborprivacy.com"
+        # Guarantee a hashtag line on tips even when the model omits it.
+        if brand == "tips" and "#" not in body:
+            tl = topic.lower()
+            dev = next((tag for needles, tag in [
+                (("windows",), "#Windows"), (("android",), "#Android"),
+                (("iphone", "ios"), "#iPhone"),
+                (("smart tv", "content recognition"), "#SmartTV"),
+                (("echo", "alexa"), "#Alexa"),
+                (("roku", "fire tv"), "#StreamingTV"),
+                (("google",), "#Google"),
+            ] if any(n in tl for n in needles)), "#Privacy")
+            body = body.rstrip() + f"\n\n#PrivacyTips {dev} #StopTracking #DataPrivacy"
 
         pid = f"gen-{brand}-{ts}-{idx}"
         cat = SOCIAL_BRAND_CAT.get(brand, "Harbor")
@@ -3674,7 +3702,7 @@ SOCIAL_POST_HTML = """<!doctype html><html lang="en"><head>
 <style>
 :root{--bg:#fbf7f1;--ink:#1a2420;--mute:#6b7a72;--teal:#1f5d6b;--line:#e5dfd3;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,system-ui,"DM Sans",sans-serif;padding:20px;max-width:680px;margin:0 auto;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,system-ui,"DM Sans",sans-serif;padding:20px;padding-top:max(20px,calc(env(safe-area-inset-top) + 14px));max-width:680px;margin:0 auto;}
 .eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:3px;color:var(--teal);text-transform:uppercase;}
 h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:24px;line-height:1.2;margin:6px 0 18px;}
 .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px;}
@@ -3685,6 +3713,8 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
 .btn:active{opacity:.8;}
 .btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;}
 .row{display:flex;gap:10px;}.row .btn{margin-top:10px;}
+.share{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
+.share .btn{flex:1 1 calc(50% - 5px);min-width:140px;margin-top:0;font-size:14px;padding:12px;}
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#2d2d2d;color:#fff;padding:12px 20px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:9;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .back{display:inline-flex;align-items:center;gap:6px;color:var(--teal);text-decoration:none;font-size:14px;font-weight:600;margin-bottom:16px;}
@@ -3697,10 +3727,24 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
 <div class="card">
   <div class="eyebrow" style="margin-bottom:8px;">Caption</div>
   <textarea id="body" readonly>{{ e.body }}</textarea>
-  <button class="btn" onclick="copyText()">
-    <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-    Copy caption
-  </button>
+  <div class="share">
+    <button class="btn" onclick="copyText()">
+      <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      Copy caption
+    </button>
+    <a class="btn alt" href="https://www.facebook.com/sharer/sharer.php?u={{ e.link|urlencode }}" target="_blank" rel="noopener" onclick="copyForShare()">
+      <svg viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+      Facebook
+    </a>
+    <a class="btn alt" href="https://www.instagram.com/" target="_blank" rel="noopener" onclick="copyForShare()">
+      <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+      Instagram
+    </a>
+    <a class="btn alt" href="https://www.linkedin.com/feed/?shareActive=true&text={{ e.body|urlencode }}" target="_blank" rel="noopener" onclick="copyForShare()">
+      <svg viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+      LinkedIn
+    </a>
+  </div>
 </div>
 
 <div class="card">
@@ -3713,7 +3757,7 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
     </button>
     <button class="btn" onclick="dlImg()">
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
-      Download
+      Save image
     </button>
   </div>
 </div>
@@ -3743,8 +3787,16 @@ async function markPosted(){
 }
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},1600);}
 function copyText(){var b=document.getElementById('body');b.select();navigator.clipboard.writeText(b.value).then(function(){toast('Caption copied');},function(){document.execCommand('copy');toast('Caption copied');});}
-async function copyImg(){try{var r=await fetch(document.getElementById('img').src,{mode:'cors'});var bl=await r.blob();await navigator.clipboard.write([new ClipboardItem({[bl.type]:bl})]);toast('Image copied');}catch(e){toast('Long-press the image to copy');}}
-async function dlImg(){var el=document.getElementById('img');try{var r=await fetch(el.src);var bl=await r.blob();var u=URL.createObjectURL(bl);var a=document.createElement('a');a.href=u;a.download=el.dataset.name||'harbor-post.png';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);toast('Downloaded');}catch(e){window.open(el.src,'_blank');}}
+function copyForShare(){var v=document.getElementById('body').value;try{navigator.clipboard.writeText(v);}catch(e){var b=document.getElementById('body');b.select();document.execCommand('copy');}toast('Caption copied. Paste it into the post');}
+var IMGBLOB=null, IMGFILE=null;
+(function(){var el=document.getElementById('img');if(!el)return;fetch(el.src).then(function(r){return r.blob();}).then(function(b){IMGBLOB=b;IMGFILE=new File([b],el.dataset.name||'harbor-post.png',{type:b.type||'image/png'});}).catch(function(){});})();
+async function copyImg(){try{var bl=IMGBLOB||await (await fetch(document.getElementById('img').src,{mode:'cors'})).blob();await navigator.clipboard.write([new ClipboardItem({[bl.type]:bl})]);toast('Image copied');}catch(e){toast('Long-press the image to copy');}}
+async function dlImg(){var el=document.getElementById('img');var name=el.dataset.name||'harbor-post.png';
+  try{
+    if(IMGFILE && navigator.canShare && navigator.canShare({files:[IMGFILE]})){await navigator.share({files:[IMGFILE]});return;}
+    var bl=IMGBLOB||await (await fetch(el.src)).blob();
+    var u=URL.createObjectURL(bl);var a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);toast('Saved');
+  }catch(e){if(e&&e.name==='AbortError')return;window.open(el.src,'_blank');}}
 </script></body></html>"""
 
 
@@ -3921,6 +3973,8 @@ Both tools delete your data within 2 hours. No account needed."""
     if platforms.get("linkedin", True):
         platform_rules.append(f"- LinkedIn: Problem-first, slightly more professional, 2-3 sentences, end with \"{cta_li}\".")
         platform_keys.append("linkedin")
+    if brand == "tips":
+        platform_rules.append("- Hashtags: Every caption (facebook, instagram, linkedin) must end with 3 to 5 relevant hashtags on their own new line, for example: #PrivacyTips #iPhone #StopTracking #DataPrivacy")
     platform_rules.append(f"- headline: A short punchy 4-8 word image overlay headline for this post. All caps. No punctuation. Examples: STOP LOSING CLIENTS TO VOICEMAIL / YOUR DATA STAYS YOURS / FREE SCHEDULING THAT ACTUALLY WORKS")
 
     if not platform_keys:
@@ -3998,6 +4052,16 @@ def _generate_image_claude(brand, topic):
         f'font-size="33" fill="{INK if i == 0 else MUTE}" font-weight="400">{_html.escape(s)}</text>'
         for i, s in enumerate(subs))
     ew = 22 + len(eyebrow) * 12
+    # corner glyph: lightbulb for tips, alert circle for everything else
+    if brand == "tips":
+        glyph = (f'<g transform="translate(886,106) scale(3.67)" stroke="{TERRA}" '
+                 f'stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round">'
+                 f'<path d="M9 18h6"/><path d="M10 22h4"/>'
+                 f'<path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></g>')
+    else:
+        glyph = (f'<circle cx="930" cy="150" r="44" fill="none" stroke="{TERRA}" stroke-width="6" opacity="0.9"/>'
+                 f'<line x1="930" y1="128" x2="930" y2="158" stroke="{TERRA}" stroke-width="8" stroke-linecap="round"/>'
+                 f'<circle cx="930" cy="176" r="5" fill="{TERRA}"/>')
     svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080" role="img" aria-label="{_html.escape(t)}">
   <defs>
     <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
@@ -4020,9 +4084,7 @@ def _generate_image_claude(brand, topic):
   {headsvg}
   {subsvg}
   <line x1="90" y1="900" x2="990" y2="900" stroke="{GRID}" stroke-width="1.5"/>
-  <circle cx="930" cy="150" r="44" fill="none" stroke="{TERRA}" stroke-width="6" opacity="0.9"/>
-  <line x1="930" y1="128" x2="930" y2="158" stroke="{TERRA}" stroke-width="8" stroke-linecap="round"/>
-  <circle cx="930" cy="176" r="5" fill="{TERRA}"/>
+  {glyph}
   <text x="990" y="970" text-anchor="end" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="22" fill="{TEAL}" letter-spacing="3" font-weight="500">{url}</text>
 </svg>'''
     try:
