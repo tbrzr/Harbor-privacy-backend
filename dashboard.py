@@ -3600,12 +3600,13 @@ def social_public_img(fname):
     # Restricted to png/jpg in the social asset dir; no path traversal.
     import re, pathlib
     from flask import send_file
-    if not re.fullmatch(r"[A-Za-z0-9_-]+\.(png|jpg)", fname or ""):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+\.(png|jpg|mp4)", fname or ""):
         return "not found", 404
     p = pathlib.Path("/home/ubuntu/harbor-design-system/assets/social") / fname
     if not p.exists():
         return "not found", 404
-    resp = make_response(send_file(str(p), mimetype="image/jpeg" if fname.endswith(".jpg") else "image/png"))
+    mt = "video/mp4" if fname.endswith(".mp4") else ("image/jpeg" if fname.endswith(".jpg") else "image/png")
+    resp = make_response(send_file(str(p), mimetype=mt))
     resp.headers["Cache-Control"] = "public, max-age=86400"
     return resp
 
