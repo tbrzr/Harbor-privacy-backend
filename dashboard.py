@@ -3273,6 +3273,12 @@ SOCIAL_MANIFEST = "/home/ubuntu/harbor-design-system/assets/social/manifest.json
 SOCIAL_HISTORY  = "/home/ubuntu/.social-post-history.jsonl"
 SOCIAL_POSTED   = "/home/ubuntu/.social-posted.json"
 
+# Meta Graph API: set these in the harbor-dashboard systemd override to enable
+# one-tap "Post to Page". META_PAGE_TOKEN is a long-lived Page access token with
+# pages_manage_posts; META_PAGE_ID is the Harbor Facebook Page id.
+META_PAGE_ID    = os.environ.get("META_PAGE_ID", "")
+META_PAGE_TOKEN = os.environ.get("META_PAGE_TOKEN", "")
+
 def _load_posted():
     import json as _json
     try:
@@ -3549,6 +3555,38 @@ def social_mark_posted():
     return jsonify({"ok": True, "posted": want})
 
 
+@app.route("/api/social/post-fb", methods=["POST"])
+@admin_required
+def social_post_fb():
+    # One-tap publish of an entry's image + caption to the Harbor Facebook Page
+    # via the Graph API. Requires META_PAGE_ID + META_PAGE_TOKEN in the env.
+    import time as _time, requests as _req
+    if not (META_PAGE_ID and META_PAGE_TOKEN):
+        return jsonify({"ok": False, "error": "Facebook Page not configured (set META_PAGE_ID + META_PAGE_TOKEN)"}), 400
+    pid = (request.json or {}).get("id", "")
+    entry = _social_entry(pid)
+    if not entry:
+        return jsonify({"ok": False, "error": "post not found"}), 404
+    img = (entry.get("img") or "").strip()
+    if not img.startswith("http"):
+        return jsonify({"ok": False, "error": "no public image for this post"}), 400
+    caption = entry.get("body", "")
+    try:
+        r = _req.post(f"https://graph.facebook.com/v21.0/{META_PAGE_ID}/photos",
+                      data={"url": img, "caption": caption, "access_token": META_PAGE_TOKEN},
+                      timeout=40)
+        j = r.json()
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"request failed: {e}"}), 502
+    if r.status_code != 200 or "error" in j:
+        msg = (j.get("error", {}) or {}).get("message", f"HTTP {r.status_code}")
+        return jsonify({"ok": False, "error": msg}), 502
+    posted = _load_posted()
+    posted[pid] = int(_time.time())
+    _save_posted(posted)
+    return jsonify({"ok": True, "fb_post_id": j.get("post_id") or j.get("id", "")})
+
+
 @app.route("/api/social/generate-set", methods=["POST"])
 @admin_required
 def social_generate_set():
@@ -3744,6 +3782,10 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
       <svg viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
       LinkedIn
     </a>
+    <a class="btn alt" href="https://business.facebook.com/latest/composer" target="_blank" rel="noopener" onclick="copyForShare()">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      Business Suite
+    </a>
   </div>
 </div>
 
@@ -3761,6 +3803,13 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
     </button>
   </div>
 </div>
+
+{% if fb_ready %}
+<button class="btn" id="fbPostBtn" onclick="postFB()" style="margin-top:10px;">
+  <svg viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+  <span id="fbTxt">Post to Facebook Page now</span>
+</button>
+{% endif %}
 
 <a class="btn alt" href="{{ e.link }}" target="_blank" rel="noopener">
   <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
@@ -3788,6 +3837,11 @@ async function markPosted(){
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},1600);}
 function copyText(){var b=document.getElementById('body');b.select();navigator.clipboard.writeText(b.value).then(function(){toast('Caption copied');},function(){document.execCommand('copy');toast('Caption copied');});}
 function copyForShare(){var v=document.getElementById('body').value;try{navigator.clipboard.writeText(v);}catch(e){var b=document.getElementById('body');b.select();document.execCommand('copy');}toast('Caption copied. Paste it into the post');}
+async function postFB(){var b=document.getElementById('fbPostBtn'),t=document.getElementById('fbTxt');b.disabled=true;t.textContent='Posting...';
+  try{var r=await fetch('/api/social/post-fb',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:PID})});var j=await r.json();
+    if(j.ok){t.textContent='Posted to Page';toast('Posted to Facebook Page');}
+    else{t.textContent='Post to Facebook Page now';b.disabled=false;toast(j.error||'Post failed');}
+  }catch(e){t.textContent='Post to Facebook Page now';b.disabled=false;toast('Post failed');}}
 var IMGBLOB=null, IMGFILE=null;
 (function(){var el=document.getElementById('img');if(!el)return;fetch(el.src).then(function(r){return r.blob();}).then(function(b){IMGBLOB=b;IMGFILE=new File([b],el.dataset.name||'harbor-post.png',{type:b.type||'image/png'});}).catch(function(){});})();
 async function copyImg(){try{var bl=IMGBLOB||await (await fetch(document.getElementById('img').src,{mode:'cors'})).blob();await navigator.clipboard.write([new ClipboardItem({[bl.type]:bl})]);toast('Image copied');}catch(e){toast('Long-press the image to copy');}}
@@ -3817,7 +3871,8 @@ def social_post_page(post_id):
     if not entry:
         return "Post not found", 404
     posted = bool(_load_posted().get(post_id))
-    resp = make_response(render_template_string(SOCIAL_POST_HTML, e=entry, posted=posted))
+    fb_ready = bool(META_PAGE_ID and META_PAGE_TOKEN)
+    resp = make_response(render_template_string(SOCIAL_POST_HTML, e=entry, posted=posted, fb_ready=fb_ready))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
