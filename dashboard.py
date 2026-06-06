@@ -3278,6 +3278,12 @@ SOCIAL_POSTED   = "/home/ubuntu/.social-posted.json"
 # pages_manage_posts; META_PAGE_ID is the Harbor Facebook Page id.
 META_PAGE_ID    = os.environ.get("META_PAGE_ID", "")
 META_PAGE_TOKEN = os.environ.get("META_PAGE_TOKEN", "")
+# IG Business account id linked to the Page. Uses the same META_PAGE_TOKEN, which
+# must also carry instagram_basic + instagram_content_publish.
+META_IG_ID      = os.environ.get("META_IG_ID", "")
+# Meta's servers fetch the image by URL, so it must be public (the assets host is
+# login-walled). This unauthenticated dashboard route serves the rendered card.
+SOCIAL_PUBLIC_BASE = "https://dashboard.harborprivacy.com/social/public"
 
 def _load_posted():
     import json as _json
@@ -3567,9 +3573,10 @@ def social_post_fb():
     entry = _social_entry(pid)
     if not entry:
         return jsonify({"ok": False, "error": "post not found"}), 404
-    img = (entry.get("img") or "").strip()
-    if not img.startswith("http"):
-        return jsonify({"ok": False, "error": "no public image for this post"}), 400
+    import pathlib
+    if not (pathlib.Path("/home/ubuntu/harbor-design-system/assets/social") / f"{pid}.png").exists():
+        return jsonify({"ok": False, "error": "no local image for this post"}), 400
+    img = f"{SOCIAL_PUBLIC_BASE}/{pid}.png"
     caption = entry.get("body", "")
     try:
         r = _req.post(f"https://graph.facebook.com/v21.0/{META_PAGE_ID}/photos",
@@ -3585,6 +3592,89 @@ def social_post_fb():
     posted[pid] = int(_time.time())
     _save_posted(posted)
     return jsonify({"ok": True, "fb_post_id": j.get("post_id") or j.get("id", "")})
+
+
+@app.route("/social/public/<fname>")
+def social_public_img(fname):
+    # Public, unauthenticated: Meta fetches post images by URL when publishing.
+    # Restricted to png/jpg in the social asset dir; no path traversal.
+    import re, pathlib
+    from flask import send_file
+    if not re.fullmatch(r"[A-Za-z0-9_-]+\.(png|jpg)", fname or ""):
+        return "not found", 404
+    p = pathlib.Path("/home/ubuntu/harbor-design-system/assets/social") / fname
+    if not p.exists():
+        return "not found", 404
+    resp = make_response(send_file(str(p), mimetype="image/jpeg" if fname.endswith(".jpg") else "image/png"))
+    resp.headers["Cache-Control"] = "public, max-age=86400"
+    return resp
+
+
+def _ensure_jpeg(pid, png_url=""):
+    # Instagram's Content Publishing API only accepts JPEG. Render a flattened RGB
+    # JPEG next to the PNG so it is public at assets.harborprivacy.com/raw/social.
+    import pathlib, io, requests as _req
+    from PIL import Image
+    base = pathlib.Path("/home/ubuntu/harbor-design-system/assets/social")
+    jpg = base / (pid + ".jpg")
+    if not jpg.exists():
+        png = base / (pid + ".png")
+        try:
+            if png.exists():
+                im = Image.open(png)
+            elif png_url.startswith("http"):
+                im = Image.open(io.BytesIO(_req.get(png_url, timeout=30).content))
+            else:
+                return None
+            if im.mode in ("RGBA", "P", "LA"):
+                bg = Image.new("RGB", im.size, (251, 247, 241))  # cream card bg
+                bg.paste(im.convert("RGBA"), mask=im.convert("RGBA").split()[-1])
+                im = bg
+            else:
+                im = im.convert("RGB")
+            im.save(jpg, "JPEG", quality=90)
+        except Exception as e:
+            print(f"post-ig: jpeg render failed {pid}: {e!r}", flush=True)
+            return None
+    return f"{SOCIAL_PUBLIC_BASE}/{pid}.jpg"
+
+
+@app.route("/api/social/post-ig", methods=["POST"])
+@admin_required
+def social_post_ig():
+    # Publish an entry to the linked Instagram Business account: render a JPEG,
+    # create a media container, then publish it. Two-step per the IG API.
+    import time as _time, requests as _req
+    if not (META_IG_ID and META_PAGE_TOKEN):
+        return jsonify({"ok": False, "error": "Instagram not configured (set META_IG_ID + META_PAGE_TOKEN)"}), 400
+    pid = (request.json or {}).get("id", "")
+    entry = _social_entry(pid)
+    if not entry:
+        return jsonify({"ok": False, "error": "post not found"}), 404
+    jpg = _ensure_jpeg(pid, entry.get("img", ""))
+    if not jpg:
+        return jsonify({"ok": False, "error": "could not render a JPEG for this post"}), 400
+    base = f"https://graph.facebook.com/v21.0/{META_IG_ID}"
+    try:
+        c = _req.post(f"{base}/media",
+                      data={"image_url": jpg, "caption": entry.get("body", ""), "access_token": META_PAGE_TOKEN},
+                      timeout=60).json()
+        cid = c.get("id")
+        if not cid:
+            msg = (c.get("error", {}) or {}).get("message", "container failed")
+            return jsonify({"ok": False, "error": msg}), 502
+        p = _req.post(f"{base}/media_publish",
+                      data={"creation_id": cid, "access_token": META_PAGE_TOKEN},
+                      timeout=60).json()
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"request failed: {e}"}), 502
+    if not p.get("id"):
+        msg = (p.get("error", {}) or {}).get("message", "publish failed")
+        return jsonify({"ok": False, "error": msg}), 502
+    posted = _load_posted()
+    posted[pid] = int(_time.time())
+    _save_posted(posted)
+    return jsonify({"ok": True, "ig_post_id": p.get("id")})
 
 
 @app.route("/api/social/generate-set", methods=["POST"])
@@ -3810,6 +3900,12 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
   <span id="fbTxt">Post to Facebook Page now</span>
 </button>
 {% endif %}
+{% if ig_ready %}
+<button class="btn" id="igPostBtn" onclick="postIG()" style="margin-top:10px;">
+  <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+  <span id="igTxt">Post to Instagram now</span>
+</button>
+{% endif %}
 
 <a class="btn alt" href="{{ e.link }}" target="_blank" rel="noopener">
   <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
@@ -3842,6 +3938,11 @@ async function postFB(){var b=document.getElementById('fbPostBtn'),t=document.ge
     if(j.ok){t.textContent='Posted to Page';toast('Posted to Facebook Page');}
     else{t.textContent='Post to Facebook Page now';b.disabled=false;toast(j.error||'Post failed');}
   }catch(e){t.textContent='Post to Facebook Page now';b.disabled=false;toast('Post failed');}}
+async function postIG(){var b=document.getElementById('igPostBtn'),t=document.getElementById('igTxt');b.disabled=true;t.textContent='Posting...';
+  try{var r=await fetch('/api/social/post-ig',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:PID})});var j=await r.json();
+    if(j.ok){t.textContent='Posted to Instagram';toast('Posted to Instagram');}
+    else{t.textContent='Post to Instagram now';b.disabled=false;toast(j.error||'Post failed');}
+  }catch(e){t.textContent='Post to Instagram now';b.disabled=false;toast('Post failed');}}
 var IMGBLOB=null, IMGFILE=null;
 (function(){var el=document.getElementById('img');if(!el)return;fetch(el.src).then(function(r){return r.blob();}).then(function(b){IMGBLOB=b;IMGFILE=new File([b],el.dataset.name||'harbor-post.png',{type:b.type||'image/png'});}).catch(function(){});})();
 async function copyImg(){try{var bl=IMGBLOB||await (await fetch(document.getElementById('img').src,{mode:'cors'})).blob();await navigator.clipboard.write([new ClipboardItem({[bl.type]:bl})]);toast('Image copied');}catch(e){toast('Long-press the image to copy');}}
@@ -3872,7 +3973,9 @@ def social_post_page(post_id):
         return "Post not found", 404
     posted = bool(_load_posted().get(post_id))
     fb_ready = bool(META_PAGE_ID and META_PAGE_TOKEN)
-    resp = make_response(render_template_string(SOCIAL_POST_HTML, e=entry, posted=posted, fb_ready=fb_ready))
+    ig_ready = bool(META_IG_ID and META_PAGE_TOKEN)
+    resp = make_response(render_template_string(SOCIAL_POST_HTML, e=entry, posted=posted,
+                                                fb_ready=fb_ready, ig_ready=ig_ready))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
