@@ -3288,7 +3288,8 @@ def _save_posted(d):
 
 # brand -> filter category for generated sets
 SOCIAL_BRAND_CAT = {"harbor":"Harbor","career":"Career","fax":"Fax",
-                    "booking":"Booking","money":"Money","scan":"Scan"}
+                    "booking":"Booking","money":"Money","scan":"Scan",
+                    "tips":"Tips"}
 
 SOCIAL_HISTORY_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
@@ -3573,6 +3574,23 @@ def social_generate_set():
         "money":  ["budgeting without your bank login",
                    "private budgeting that does not sell your spending",
                    "forward receipts and alerts to track spending privately"],
+        "tips":   ["turn off your Windows advertising ID so apps stop profiling you",
+                   "disable Windows activity history and timeline tracking",
+                   "stop Windows from sending diagnostic and typing data to Microsoft",
+                   "turn off the Windows 11 lock screen and Start menu ads",
+                   "delete your Android advertising ID in one settings toggle",
+                   "stop Android apps from grabbing your location in the background",
+                   "turn off Android personalized ads",
+                   "check which Android apps can use your microphone and camera",
+                   "turn off iPhone app tracking with one toggle",
+                   "stop your iPhone from sharing your precise location with apps",
+                   "turn off iPhone personalized ads in settings",
+                   "limit which photos an iPhone app can actually see",
+                   "turn off iPhone Significant Locations history",
+                   "disable your smart TV's automatic content recognition tracking",
+                   "stop Amazon Echo and Alexa from saving your voice recordings",
+                   "turn off ad tracking on a Roku or Fire TV stick",
+                   "turn off location history and web activity in your Google account"],
     }
     brands = list(pools.keys())
     _random.shuffle(brands)
@@ -3863,6 +3881,20 @@ Both tools delete your data within 2 hours. No account needed."""
         cta_fb = "money.harborprivacy.com -- no bank login required"
         cta_ig = "Link in bio -- budgeting without bank logins"
         cta_li = "money.harborprivacy.com"
+    elif brand == "tips":
+        context = """This is a quick privacy how-to from Harbor Privacy. The post teaches one specific setting an everyday person can change on a Windows PC, Android phone, iPhone, smart TV, or smart speaker to stop being tracked. It must name the exact step-by-step path so a non-technical person can follow it (for example: Settings > Privacy & Security > Tracking > turn off Allow Apps to Request to Track). Keep it to that one tip. Harbor Privacy makes whole-home privacy automatic for the stuff you can't toggle, at harborprivacy.com."""
+        problem_angles = [
+            "Most of your gadgets ship with tracking turned ON by default. Here's a 30-second fix.",
+            "Your phone has a privacy switch most people never find. Here's where it is.",
+            "You don't need new software to stop most tracking. You need one setting changed.",
+            "The companies that make your devices bury the off switch on purpose. Here it is.",
+            "One toggle. That's all it takes to stop this device from profiling you.",
+        ]
+        import random
+        problem = random.choice(problem_angles)
+        cta_fb = "More privacy tips at harborprivacy.com/learn"
+        cta_ig = "More tips in bio"
+        cta_li = "harborprivacy.com/learn"
     else:
         context = """Harbor Privacy is a managed home network privacy service. Harbor Light $1.99/mo (ad and tracker blocking). Harbor Remote $5.99/mo with 30-day free trial (full privacy on any network). Blocks ads before they load, stops trackers, blocks malware. Works on every device automatically. No tech knowledge needed."""
         problem_angles = [
@@ -3930,8 +3962,26 @@ def _generate_image_claude(brand, topic):
                     ["Budgeting without your bank login.", "Forward receipts and alerts. Private by design."]),
         "tim":     ("HARBOR / PRIVACY", "PRIVACY TIP",   "harborprivacy.com",
                     ["Network-level privacy for your whole home.", "No tech skills needed. Every device covered."]),
+        "tips":    ("HARBOR / PRIVACY", "PRIVACY TIP",   "harborprivacy.com/learn",
+                    ["A 30-second privacy fix.", "One setting. Less tracking."]),
     }
     mark, eyebrow, url, subs = brands.get(brand, brands["harbor"])
+    # Tips render as a recognizable device-tip series: terra accent + the
+    # gadget the tip is for shown as the eyebrow (WINDOWS / ANDROID / iPHONE...).
+    accent = TEAL
+    if brand == "tips":
+        accent = TERRA
+        tl = (topic or "").lower()
+        device = next((lbl for needles, lbl in [
+            (("windows", "windows 11"), "WINDOWS TIP"),
+            (("android",), "ANDROID TIP"),
+            (("iphone", "ios"), "iPHONE TIP"),
+            (("smart tv", "content recognition", "acr"), "SMART TV TIP"),
+            (("echo", "alexa"), "ALEXA TIP"),
+            (("roku", "fire tv"), "STREAMING TIP"),
+            (("google account", "google"), "GOOGLE TIP"),
+        ] if any(n in tl for n in needles)), "PRIVACY TIP")
+        eyebrow = device
     t = (topic or "").strip()
     t = (t[0].upper() + t[1:]) if t else "Privacy by default."
     lines = _tw.wrap(t, width=20)[:4] or ["Privacy by default."]
@@ -3964,8 +4014,8 @@ def _generate_image_claude(brand, topic):
   <rect x="36" y="36" width="1008" height="1008" rx="24" ry="24" fill="none" stroke="{GRID}" stroke-width="2"/>
   <text x="90" y="148" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="26" fill="{TEAL}" letter-spacing="7" font-weight="500">{mark}</text>
   <g transform="translate(90, 198)">
-    <rect x="0" y="0" width="{ew}" height="38" rx="19" ry="19" fill="none" stroke="{TEAL}" stroke-width="1.5"/>
-    <text x="{ew/2}" y="25" text-anchor="middle" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="13" fill="{TEAL}" letter-spacing="3" font-weight="500">{eyebrow}</text>
+    <rect x="0" y="0" width="{ew}" height="38" rx="19" ry="19" fill="none" stroke="{accent}" stroke-width="1.5"/>
+    <text x="{ew/2}" y="25" text-anchor="middle" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="13" fill="{accent}" letter-spacing="3" font-weight="500">{eyebrow}</text>
   </g>
   {headsvg}
   {subsvg}
@@ -3978,7 +4028,8 @@ def _generate_image_claude(brand, topic):
     try:
         out_dir = pathlib.Path("/var/www/network/social-images")
         out_dir.mkdir(exist_ok=True)
-        stem = f"social-{brand}-{int(_t.time())}"
+        _generate_image_claude._n = getattr(_generate_image_claude, "_n", 0) + 1
+        stem = f"social-{brand}-{int(_t.time())}-{_generate_image_claude._n}"
         svgp = out_dir / (stem + ".svg")
         pngp = out_dir / (stem + ".png")
         svgp.write_text(svg)
