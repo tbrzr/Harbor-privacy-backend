@@ -4161,6 +4161,9 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px
 .btns button.copy{background:var(--teal);color:#fff;border-color:var(--teal);}
 .btns button.on{background:var(--ink);color:#fff;border-color:var(--ink);}
 .btns button.rm{color:var(--danger);}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px;}
+.filters button{border:1px solid var(--line);background:#fff;color:var(--mute);border-radius:999px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:ui-monospace,Menlo,monospace;}
+.filters button.on{background:var(--ink);color:#fff;border-color:var(--ink);}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#2d2d2d;color:#fff;padding:11px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .topnav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-4px 0 18px;padding-bottom:14px;border-bottom:1px solid var(--line);}
@@ -4192,6 +4195,14 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px
   <input id="v_contact" placeholder="Phone or email (optional)">
   <button onclick="vet()">Vet &amp; add</button>
 </div>
+<div class="filters" id="filters">
+  <button class="on" data-f="all" onclick="filt('all',this)">All</button>
+  <button data-f="new" onclick="filt('new',this)">New</button>
+  <button data-f="contacted" onclick="filt('contacted',this)">Contacted</button>
+  <button data-f="replied" onclick="filt('replied',this)">Replied</button>
+  <button data-f="won" onclick="filt('won',this)">Won</button>
+  <button data-f="skip" onclick="filt('skip',this)">Skip</button>
+</div>
 {% for l in leads %}
 <div class="card {{ l.status }}" id="c-{{ l.id }}">
   <div class="row1">
@@ -4216,6 +4227,20 @@ function toast(m){var t=document.getElementById('toast');t.textContent=m;t.class
 function copyMsg(b){var t=b.closest('.card').querySelector('textarea');try{navigator.clipboard.writeText(t.value);}catch(e){t.select();document.execCommand('copy');}toast('Message copied');}
 async function setStatus(id,status){try{await fetch('/api/leads/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,status:status})});if(status==='remove'){var c=document.getElementById('c-'+id);if(c)c.remove();toast('Removed');}else{location.reload();}}catch(e){toast('Failed');}}
 async function vet(){var name=document.getElementById('v_name').value.trim();if(!name){toast('Name required');return;}toast('Vetting...');try{var r=await fetch('/api/leads/vet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,profession:document.getElementById('v_prof').value,town:document.getElementById('v_town').value,url:document.getElementById('v_url').value,contact:document.getElementById('v_contact').value})});var d=await r.json();if(d.ok){toast('Added ('+d.lead.fit+')');location.reload();}else{toast(d.error||'Failed');}}catch(e){toast('Failed');}}
+function filt(s,btn){
+  document.querySelectorAll('#filters button').forEach(function(b){b.classList.toggle('on', b===btn);});
+  document.querySelectorAll('.card').forEach(function(c){
+    c.style.display = (s==='all' || c.classList.contains(s)) ? '' : 'none';
+  });
+}
+(function(){
+  document.querySelectorAll('#filters button').forEach(function(b){
+    var f=b.dataset.f;
+    var n = f==='all' ? document.querySelectorAll('.card').length
+                      : document.querySelectorAll('.card.'+f).length;
+    b.textContent = b.textContent + ' ' + n;
+  });
+})();
 </script>
 </body></html>"""
 
