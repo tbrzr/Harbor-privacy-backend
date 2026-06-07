@@ -4223,10 +4223,11 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px
 {% endfor %}
 <div class="toast" id="toast"></div>
 <script>
+const CSRF="{{ csrf_token }}";
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},1600);}
 function copyMsg(b){var t=b.closest('.card').querySelector('textarea');try{navigator.clipboard.writeText(t.value);}catch(e){t.select();document.execCommand('copy');}toast('Message copied');}
-async function setStatus(id,status){try{await fetch('/api/leads/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,status:status})});if(status==='remove'){var c=document.getElementById('c-'+id);if(c)c.remove();toast('Removed');}else{location.reload();}}catch(e){toast('Failed');}}
-async function vet(){var name=document.getElementById('v_name').value.trim();if(!name){toast('Name required');return;}toast('Vetting...');try{var r=await fetch('/api/leads/vet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,profession:document.getElementById('v_prof').value,town:document.getElementById('v_town').value,url:document.getElementById('v_url').value,contact:document.getElementById('v_contact').value})});var d=await r.json();if(d.ok){toast('Added ('+d.lead.fit+')');location.reload();}else{toast(d.error||'Failed');}}catch(e){toast('Failed');}}
+async function setStatus(id,status){try{var r=await fetch('/api/leads/update',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:id,status:status})});if(!r.ok){toast('Failed ('+r.status+')');return;}if(status==='remove'){var c=document.getElementById('c-'+id);if(c)c.remove();toast('Removed');}else{location.reload();}}catch(e){toast('Failed');}}
+async function vet(){var name=document.getElementById('v_name').value.trim();if(!name){toast('Name required');return;}toast('Vetting...');try{var r=await fetch('/api/leads/vet',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({name:name,profession:document.getElementById('v_prof').value,town:document.getElementById('v_town').value,url:document.getElementById('v_url').value,contact:document.getElementById('v_contact').value})});var d=await r.json();if(d.ok){toast('Added ('+d.lead.fit+')');location.reload();}else{toast(d.error||'Failed');}}catch(e){toast('Failed');}}
 function filt(s,btn){
   document.querySelectorAll('#filters button').forEach(function(b){b.classList.toggle('on', b===btn);});
   document.querySelectorAll('.card').forEach(function(c){
