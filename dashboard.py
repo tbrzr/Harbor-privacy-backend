@@ -4163,7 +4163,24 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px
 .btns button.rm{color:var(--danger);}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#2d2d2d;color:#fff;padding:11px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.topnav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-4px 0 18px;padding-bottom:14px;border-bottom:1px solid var(--line);}
+.topnav .brand{font-family:ui-monospace,Menlo,monospace;font-weight:600;font-size:14px;color:var(--ink);text-decoration:none;letter-spacing:1px;}
+.topnav .brand span{color:var(--teal);margin:0 2px;}
+.topnav .links{display:flex;gap:16px;flex-wrap:wrap;}
+.topnav .links a{font-size:13px;color:var(--mute);text-decoration:none;}
+.topnav .links a.active{color:var(--teal);font-weight:600;}
 </style></head><body>
+<div class="topnav">
+  <a href="/admin" class="brand">harbor<span>/</span>privacy</a>
+  <div class="links">
+    <a href="/admin">Customers</a>
+    <a href="/social">Social</a>
+    <a href="/leads" class="active">Leads</a>
+    <a href="/settings">Settings</a>
+    <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets</a>
+    <a href="/logout">Sign out</a>
+  </div>
+</div>
 <h1>Leads</h1>
 <div class="sub">{{ vertical }} - {{ leads|length }} active</div>
 <div class="addbox">
