@@ -633,6 +633,7 @@ NAV_ADMIN = """
     <a href="https://harborprivacy.com" style="font-size:10px;">← Site</a>
     <a href="/admin" class="{{ 'active' if active == 'admin' else '' }}">Customers</a>
     <a href="/social" class="{{ 'active' if active == 'social' else '' }}">Social</a>
+    <a href="/leads" class="{{ 'active' if active == 'leads' else '' }}">Leads</a>
     <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">Settings</a>
     <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets ↗</a>
     <a href="/logout" style="margin-left:auto;">Sign Out</a>
@@ -3335,6 +3336,7 @@ a.row.dead{opacity:.55;pointer-events:none;}
   <div class="links">
     <a href="/admin">Customers</a>
     <a href="/social" class="active">Social</a>
+    <a href="/leads">Leads</a>
     <a href="/settings">Settings</a>
     <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets</a>
     <a href="/logout">Sign out</a>
@@ -3435,6 +3437,7 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
   <div class="links">
     <a href="/admin">Customers</a>
     <a href="/social" class="active">Social</a>
+    <a href="/leads">Leads</a>
     <a href="/settings">Settings</a>
     <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets</a>
     <a href="/logout">Sign out</a>
