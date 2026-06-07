@@ -4158,6 +4158,7 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
 textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;font:13px/1.5 system-ui;color:var(--ink);background:#fcfaf6;resize:vertical;min-height:120px;}
 .btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
 .btns button{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:7px 11px;font-size:12px;cursor:pointer;}
+.btns a.gbtn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:7px 11px;font-size:12px;text-decoration:none;display:inline-flex;align-items:center;}
 .btns button.copy{background:var(--teal);color:#fff;border-color:var(--teal);}
 .btns button.on{background:var(--ink);color:#fff;border-color:var(--ink);}
 .btns button.rm{color:var(--danger);}
@@ -4213,6 +4214,7 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px
   <textarea readonly>{{ l.message }}</textarea>
   <div class="btns">
     <button class="copy" onclick="copyMsg(this)">Copy message</button>
+    <a class="gbtn" href="https://www.google.com/search?q={{ (l.name ~ ' ' ~ l.town) | urlencode }}" target="_blank" rel="noopener">Google &#8599;</a>
     <button class="{{ 'on' if l.status=='contacted' else '' }}" onclick="setStatus('{{ l.id }}','contacted')">Contacted</button>
     <button class="{{ 'on' if l.status=='replied' else '' }}" onclick="setStatus('{{ l.id }}','replied')">Replied</button>
     <button class="{{ 'on' if l.status=='won' else '' }}" onclick="setStatus('{{ l.id }}','won')">Won</button>
