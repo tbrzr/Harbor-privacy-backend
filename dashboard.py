@@ -3758,6 +3758,7 @@ def social_generate_set():
     for idx, (brand, topic) in enumerate(picks):
         prompt, platform_keys = _build_post_prompt(brand, topic, {"facebook": True, "instagram": True, "linkedin": True})
         body = ""
+        card = {"headline": "", "path": "", "action": ""}
         try:
             r = _req.post("https://api.anthropic.com/v1/messages",
                 headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY", ""),
@@ -3775,6 +3776,7 @@ def social_generate_set():
                 raise ValueError("no JSON object in model output")
             posts, _ = _json.JSONDecoder().raw_decode(raw[start:])
             body = posts.get("facebook") or posts.get("linkedin") or posts.get("instagram") or ""
+            card = {"headline": posts.get("headline") or "", "path": posts.get("path") or "", "action": posts.get("action") or ""}
         except Exception as e:
             print(f"generate-set: copy gen failed brand={brand} err={e!r}", flush=True)
             body = ""
@@ -3799,7 +3801,7 @@ def social_generate_set():
         # Render the card and copy it into the asset library so /social/img
         # serves it locally (the dashboard social-images URL is not public).
         import shutil as _sh, pathlib as _pl
-        gen_url = _generate_image_claude(brand, topic)
+        gen_url = _generate_tip_card(topic, card) if brand == "tips" else _generate_image_claude(brand, topic)
         img = ""
         if gen_url:
             stem = gen_url.rsplit("/", 1)[-1]
@@ -4150,9 +4152,15 @@ Both tools delete your data within 2 hours. No account needed."""
     if platforms.get("linkedin", True):
         platform_rules.append(f"- LinkedIn: Problem-first, slightly more professional, 2-3 sentences, end with \"{cta_li}\".")
         platform_keys.append("linkedin")
+    extra_keys = []
     if brand == "tips":
         platform_rules.append("- Hashtags: Every caption (facebook, instagram, linkedin) must end with 3 to 5 relevant hashtags on their own new line, for example: #PrivacyTips #iPhone #StopTracking #DataPrivacy")
-    platform_rules.append(f"- headline: A short punchy 4-8 word image overlay headline for this post. All caps. No punctuation. Examples: STOP LOSING CLIENTS TO VOICEMAIL / YOUR DATA STAYS YOURS / FREE SCHEDULING THAT ACTUALLY WORKS")
+        platform_rules.append('- headline: a short sentence-case action phrase for the card image, 3 to 6 words, no ending period. Example: "Turn off iPhone app tracking"')
+        platform_rules.append('- path: the exact settings menu path the person taps, with " > " between each step. Example: "Settings > Privacy & Security > Tracking"')
+        platform_rules.append('- action: the specific switch or option to turn off, short, no leading verb. Example: "Allow Apps to Request to Track"')
+        extra_keys = ["headline", "path", "action"]
+    else:
+        platform_rules.append(f"- headline: A short punchy 4-8 word image overlay headline for this post. All caps. No punctuation. Examples: STOP LOSING CLIENTS TO VOICEMAIL / YOUR DATA STAYS YOURS / FREE SCHEDULING THAT ACTUALLY WORKS")
 
     if not platform_keys:
         platform_keys = ["facebook", "instagram"]
@@ -4168,7 +4176,7 @@ Rules:
 - Short and punchy -- people scroll fast
 {chr(10).join(platform_rules)}
 
-Return JSON only with keys: {", ".join(platform_keys)}"""
+Return JSON only with keys: {", ".join(platform_keys + extra_keys)}"""
     return prompt, platform_keys
 
 SOCIAL_IMAGES_ENABLED = True  # local SVG brand-card renderer (no API quota)
@@ -4277,6 +4285,88 @@ def _generate_image_claude(brand, topic):
         return f"https://dashboard.harborprivacy.com/social-images/{stem}.png"
     except Exception as e:
         print(f"_generate_image: brand-card EXC {e!r}", flush=True)
+    return None
+
+def _generate_tip_card(topic, card):
+    # Canva-style vertical (1080x1920) privacy-tip card: cream, rounded border,
+    # terra device pill, centered lightbulb, big serif headline, the exact
+    # settings path, divider, teal action line, "A 30-second privacy fix" footer.
+    if not SOCIAL_IMAGES_ENABLED:
+        return None
+    import subprocess as _sp, time as _t, pathlib, textwrap as _tw, html as _html
+    BG = "#fbf7f1"; GRID = "#e5dfd3"; INK = "#1a2420"; MUTE = "#6b7a72"; TEAL = "#1f5d6b"; TERRA = "#c98a52"
+    card = card or {}
+    tl = (topic or "").lower()
+    label = next((lbl for needles, lbl in [
+        (("windows",), "WINDOWS TIP"), (("android",), "ANDROID TIP"),
+        (("iphone", "ios"), "iPHONE TIP"),
+        (("smart tv", "content recognition", "acr"), "SMART TV TIP"),
+        (("echo", "alexa"), "ALEXA TIP"), (("roku", "fire tv"), "STREAMING TIP"),
+        (("google account", "google"), "GOOGLE TIP"),
+    ] if any(n in tl for n in needles)), "PRIVACY TIP")
+    head = (card.get("headline") or (topic or "A 30-second privacy fix")).strip()
+    head = head[0].upper() + head[1:] if head else head
+    path = (card.get("path") or "").strip()
+    action = (card.get("action") or "").strip()
+
+    def esc(s): return _html.escape(s or "")
+    lines = _tw.wrap(head, width=11)[:4] or [head]
+    longest = max(len(l) for l in lines)
+    fs = 96 if longest <= 11 else (80 if longest <= 15 else 66)
+    lh = int(fs * 1.12)
+    pill_y = 120; bulb_cy = 430; head_y0 = 650
+    cursor = head_y0 + (len(lines) - 1) * lh + 120
+
+    pw = 64 + len(label) * 14
+    pill = (f'<rect x="80" y="{pill_y}" width="{pw}" height="58" rx="29" fill="{TERRA}"/>'
+            f'<text x="{80 + pw/2}" y="{pill_y+38}" text-anchor="middle" font-family="DM Mono, monospace" '
+            f'font-size="22" fill="#fff" letter-spacing="3" font-weight="500">{esc(label)}</text>')
+    s = 4.6
+    bulb = (f'<g transform="translate({540-12*s},{bulb_cy-12*s}) scale({s})" stroke="{TERRA}" '
+            f'stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">'
+            f'<path d="M9 18h6"/><path d="M10 22h4"/>'
+            f'<path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></g>')
+    headsvg = "".join(
+        f'<text x="540" y="{head_y0 + i*lh}" text-anchor="middle" '
+        f'font-family="DM Serif Display, Georgia, serif" font-size="{fs}" fill="{INK}">{esc(l)}</text>'
+        for i, l in enumerate(lines))
+    stepsvg = ""
+    if path:
+        sfs = 32 if len(path) <= 42 else 26
+        wrapped = _tw.wrap(path, width=max(10, int(900 / (sfs * 0.55))))[:2]
+        for i, sl in enumerate(wrapped):
+            stepsvg += (f'<text x="540" y="{cursor + i*int(sfs*1.4)}" text-anchor="middle" '
+                        f'font-family="DM Sans, sans-serif" font-size="{sfs}" fill="{INK}" font-weight="500">{esc(sl)}</text>')
+        cursor += int(sfs * 1.4) * max(1, len(wrapped)) + 30
+    cursor += 20
+    divider = f'<line x1="380" y1="{cursor}" x2="700" y2="{cursor}" stroke="{GRID}" stroke-width="2"/>'
+    cursor += 70
+    actsvg = ""
+    if action:
+        atxt = f"Turn off: {action}"
+        afs = 30 if len(atxt) <= 46 else 25
+        for i, al in enumerate(_tw.wrap(atxt, width=max(10, int(900 / (afs * 0.55))))[:2]):
+            actsvg += (f'<text x="540" y="{cursor + i*int(afs*1.4)}" text-anchor="middle" '
+                       f'font-family="DM Sans, sans-serif" font-size="{afs}" fill="{TEAL}" font-weight="500">{esc(al)}</text>')
+    footer = (f'<text x="540" y="1800" text-anchor="middle" font-family="DM Mono, monospace" '
+              f'font-size="26" fill="{MUTE}" letter-spacing="2">A 30-second privacy fix</text>')
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920">'
+           f'<rect width="1080" height="1920" fill="{BG}"/>'
+           f'<rect x="44" y="44" width="992" height="1832" rx="48" fill="none" stroke="{GRID}" stroke-width="2"/>'
+           f'{pill}{bulb}{headsvg}{stepsvg}{divider}{actsvg}{footer}</svg>')
+    try:
+        out_dir = pathlib.Path("/var/www/network/social-images")
+        out_dir.mkdir(exist_ok=True)
+        _generate_tip_card._n = getattr(_generate_tip_card, "_n", 0) + 1
+        stem = f"tip-{int(_t.time())}-{_generate_tip_card._n}"
+        svgp = out_dir / (stem + ".svg")
+        pngp = out_dir / (stem + ".png")
+        svgp.write_text(svg)
+        _sp.run(["rsvg-convert", "-w", "1080", "-h", "1920", str(svgp), "-o", str(pngp)],
+                check=True, timeout=30)
+        return f"https://dashboard.harborprivacy.com/social-images/{stem}.png"
+    except Exception as e:
+        print(f"_generate_tip_card: EXC {e!r}", flush=True)
     return None
 
 @app.route("/api/social/generate", methods=["POST"])
