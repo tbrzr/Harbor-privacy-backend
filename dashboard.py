@@ -3766,8 +3766,14 @@ def social_generate_set():
                       "messages": [{"role": "user", "content": prompt}]},
                 timeout=30)
             rj = r.json()
-            content = rj["content"][0]["text"].strip().lstrip("```json").rstrip("```").strip()
-            posts = _json.loads(content)
+            raw = rj["content"][0]["text"]
+            # Decode the first JSON object only. The model sometimes wraps it in
+            # code fences or appends prose after it, which broke a bare json.loads
+            # with "Extra data". Skip to the first brace, raw_decode, ignore the rest.
+            start = raw.find("{")
+            if start < 0:
+                raise ValueError("no JSON object in model output")
+            posts, _ = _json.JSONDecoder().raw_decode(raw[start:])
             body = posts.get("facebook") or posts.get("linkedin") or posts.get("instagram") or ""
         except Exception as e:
             print(f"generate-set: copy gen failed brand={brand} err={e!r}", flush=True)
@@ -3815,10 +3821,22 @@ def social_generate_set():
         })
         ids.append(pid); added += 1
 
+    # Atomic write: temp file in the same dir, then os.replace. This only needs
+    # write permission on the directory (owned by ubuntu), so the save survives
+    # the manifest being left root-owned by the daily social-refresh cron.
+    import os as _os, tempfile as _tf
+    tmp = None
     try:
-        with open(SOCIAL_MANIFEST, "w") as _f:
+        fd, tmp = _tf.mkstemp(dir=_os.path.dirname(SOCIAL_MANIFEST), prefix=".manifest-", suffix=".tmp")
+        with _os.fdopen(fd, "w") as _f:
             _json.dump(man, _f, indent=2, ensure_ascii=False)
+        _os.replace(tmp, SOCIAL_MANIFEST)
     except Exception as e:
+        if tmp:
+            try:
+                _os.unlink(tmp)
+            except Exception:
+                pass
         return jsonify({"ok": False, "error": f"save failed: {e}"}), 500
     return jsonify({"ok": True, "added": added, "ids": ids})
 
