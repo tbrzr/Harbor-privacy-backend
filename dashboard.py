@@ -4090,6 +4090,192 @@ def api_csrf():
         session["csrf"] = tok
     return jsonify({"csrf": tok})
 
+# ===== Leads (AI lead generator + vetting) =====
+LEADS_FILE = "/home/ubuntu/harbor-leads.json"
+
+def _leads_load():
+    import json as _j
+    try:
+        with open(LEADS_FILE) as f:
+            return _j.load(f)
+    except Exception:
+        return {"version": 1, "vertical": "leads", "leads": []}
+
+def _leads_save(data):
+    import json as _j, os as _os, tempfile as _tf
+    tmp = None
+    try:
+        fd, tmp = _tf.mkstemp(dir=_os.path.dirname(LEADS_FILE), prefix=".leads-", suffix=".tmp")
+        with _os.fdopen(fd, "w") as f:
+            _j.dump(data, f, indent=2, ensure_ascii=False)
+        _os.replace(tmp, LEADS_FILE)
+        return True
+    except Exception as e:
+        if tmp:
+            try: _os.unlink(tmp)
+            except Exception: pass
+        print(f"leads save failed: {e!r}", flush=True)
+        return False
+
+def _lead_message(name, profession, town):
+    n = name.split(",")[0].strip()
+    where = f" in {town}" if town else ""
+    return (f"Hi {n}, I'm Tim Brazer, local on the South Shore. I came across your {profession} "
+            f"practice{where}. I built a scheduling tool made for private practice: the intake "
+            "answers a client fills in at booking are never written to our database, they go "
+            "straight to your inbox, so the booking layer stays completely outside your client "
+            "confidentiality. It also handles online scheduling and reminders, and it's free to "
+            "start. Could I set up a page for your practice so you can see it? No cost, no "
+            "commitment.\n\nBest,\nTim - harborprivacy.com/booking-for-therapists")
+
+LEADS_HTML = """<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Leads - {{ vertical }}</title>
+<style>
+:root{--bg:#fbf7f1;--ink:#1a2420;--mute:#6b7a72;--teal:#1f5d6b;--terra:#c98a52;--line:#e5dfd3;--surface:#fff;--danger:#b3563f;--ok:#1f7a5b;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,system-ui,"DM Sans",sans-serif;padding:18px;padding-top:max(18px,env(safe-area-inset-top));max-width:780px;margin:0 auto;}
+h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;margin:4px 0 2px;}
+.sub{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--mute);letter-spacing:1px;text-transform:uppercase;margin-bottom:18px;}
+.addbox{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:22px;}
+.addbox h2{font-size:13px;margin:0 0 10px;font-family:ui-monospace,monospace;color:var(--teal);letter-spacing:1px;text-transform:uppercase;}
+.addbox input{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:8px;font:14px/1.4 system-ui;background:#fcfaf6;color:var(--ink);}
+.addbox button{width:100%;border:none;border-radius:10px;padding:12px;font-size:15px;font-weight:600;background:var(--teal);color:#fff;cursor:pointer;}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;}
+.card.skip,.card.won{opacity:.55;}
+.row1{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+.nm{font-weight:600;font-size:16px;}
+.meta{font-size:13px;color:var(--mute);margin:2px 0 8px;}
+.badge{font-family:ui-monospace,monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:999px;white-space:nowrap;}
+.fit-yes{background:#e3f1ec;color:var(--ok);}
+.fit-maybe{background:#f6ecdd;color:var(--terra);}
+.fit-no{background:#f6e3de;color:var(--danger);}
+.fit-unvetted{background:#eee9df;color:var(--mute);}
+.book{font-size:12px;color:var(--mute);margin-bottom:8px;}
+textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;font:13px/1.5 system-ui;color:var(--ink);background:#fcfaf6;resize:vertical;min-height:120px;}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.btns button{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:7px 11px;font-size:12px;cursor:pointer;}
+.btns button.copy{background:var(--teal);color:#fff;border-color:var(--teal);}
+.btns button.on{background:var(--ink);color:#fff;border-color:var(--ink);}
+.btns button.rm{color:var(--danger);}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#2d2d2d;color:#fff;padding:11px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style></head><body>
+<h1>Leads</h1>
+<div class="sub">{{ vertical }} - {{ leads|length }} active</div>
+<div class="addbox">
+  <h2>Vet &amp; add a lead</h2>
+  <input id="v_name" placeholder="Name (e.g. Jane Smith, LICSW)">
+  <input id="v_prof" placeholder="Profession" value="therapist">
+  <input id="v_town" placeholder="Town">
+  <input id="v_url" placeholder="Website URL (optional - AI checks their booking system)">
+  <input id="v_contact" placeholder="Phone or email (optional)">
+  <button onclick="vet()">Vet &amp; add</button>
+</div>
+{% for l in leads %}
+<div class="card {{ l.status }}" id="c-{{ l.id }}">
+  <div class="row1">
+    <div><div class="nm">{{ l.name }}</div><div class="meta">{{ l.profession }} - {{ l.town }}{% if l.contact %} - {{ l.contact }}{% endif %}</div></div>
+    <span class="badge fit-{{ l.fit }}">{{ l.fit }}</span>
+  </div>
+  <div class="book">Booking: {{ l.booking }}{% if l.reason %} - {{ l.reason }}{% endif %}</div>
+  <textarea readonly>{{ l.message }}</textarea>
+  <div class="btns">
+    <button class="copy" onclick="copyMsg(this)">Copy message</button>
+    <button class="{{ 'on' if l.status=='contacted' else '' }}" onclick="setStatus('{{ l.id }}','contacted')">Contacted</button>
+    <button class="{{ 'on' if l.status=='replied' else '' }}" onclick="setStatus('{{ l.id }}','replied')">Replied</button>
+    <button class="{{ 'on' if l.status=='won' else '' }}" onclick="setStatus('{{ l.id }}','won')">Won</button>
+    <button class="{{ 'on' if l.status=='skip' else '' }}" onclick="setStatus('{{ l.id }}','skip')">Skip</button>
+    <button class="rm" onclick="setStatus('{{ l.id }}','remove')">Remove</button>
+  </div>
+</div>
+{% endfor %}
+<div class="toast" id="toast"></div>
+<script>
+function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},1600);}
+function copyMsg(b){var t=b.closest('.card').querySelector('textarea');try{navigator.clipboard.writeText(t.value);}catch(e){t.select();document.execCommand('copy');}toast('Message copied');}
+async function setStatus(id,status){try{await fetch('/api/leads/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,status:status})});if(status==='remove'){var c=document.getElementById('c-'+id);if(c)c.remove();toast('Removed');}else{location.reload();}}catch(e){toast('Failed');}}
+async function vet(){var name=document.getElementById('v_name').value.trim();if(!name){toast('Name required');return;}toast('Vetting...');try{var r=await fetch('/api/leads/vet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name,profession:document.getElementById('v_prof').value,town:document.getElementById('v_town').value,url:document.getElementById('v_url').value,contact:document.getElementById('v_contact').value})});var d=await r.json();if(d.ok){toast('Added ('+d.lead.fit+')');location.reload();}else{toast(d.error||'Failed');}}catch(e){toast('Failed');}}
+</script>
+</body></html>"""
+
+@app.route("/leads")
+@admin_required
+def leads_page():
+    data = _leads_load()
+    leads = [l for l in data.get("leads", []) if l.get("status") != "removed"]
+    order = {"new": 0, "replied": 1, "contacted": 2, "won": 3, "skip": 4}
+    leads.sort(key=lambda l: (order.get(l.get("status"), 9), -l.get("added", 0)))
+    return render_template_string(LEADS_HTML, leads=leads, vertical=data.get("vertical", "leads"))
+
+@app.route("/api/leads/update", methods=["POST"])
+@admin_required
+def leads_update():
+    d = request.json or {}
+    lid = d.get("id"); status = d.get("status")
+    data = _leads_load(); found = False
+    for l in data.get("leads", []):
+        if l.get("id") == lid:
+            if status == "remove":
+                l["status"] = "removed"
+            elif status in ("new", "contacted", "replied", "won", "skip"):
+                l["status"] = status
+            found = True; break
+    if not found:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    _leads_save(data)
+    return jsonify({"ok": True})
+
+@app.route("/api/leads/vet", methods=["POST"])
+@admin_required
+def leads_vet():
+    import time as _t, json as _j, requests as _rq
+    d = request.json or {}
+    name = (d.get("name") or "").strip()
+    profession = (d.get("profession") or "therapist").strip() or "therapist"
+    town = (d.get("town") or "").strip()
+    url = (d.get("url") or "").strip()
+    contact = (d.get("contact") or "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "name required"}), 400
+    booking = "unvetted"; fit = "unvetted"; reason = ""
+    if url:
+        try:
+            if not url.startswith("http"):
+                url = "https://" + url
+            r = _rq.get(url, timeout=20, headers={"User-Agent": "Mozilla/5.0"})
+            text = r.text[:6000]
+            prompt = ("You are vetting a therapist as a sales lead for a free booking tool aimed at "
+                "SOLO, PRIVATE-PAY therapists who do NOT use a full practice-management EHR. From this "
+                "website HTML decide and return JSON only with keys booking_system, fit, reason.\n"
+                "- booking_system: the scheduling platform if any (TherapyPortal, SimplePractice, Calendly, "
+                "Acuity, IntakeQ, Jane, Kareo/Tebra), or 'phone/email only' if none is present.\n"
+                "- fit: 'yes' if a solo/private-pay practice with no full EHR or online scheduler we would "
+                "replace; 'no' if on a full EHR or clearly an insurance-billing group; 'maybe' if unclear.\n"
+                "- reason: one short sentence.\n\nHTML:\n" + text)
+            rr = _rq.post("https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY", ""),
+                         "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                json={"model": "claude-haiku-4-5-20251001", "max_tokens": 300,
+                      "messages": [{"role": "user", "content": prompt}]},
+                timeout=30)
+            raw = rr.json()["content"][0]["text"]
+            obj, _ = _j.JSONDecoder().raw_decode(raw[raw.find("{"):])
+            booking = obj.get("booking_system") or "unvetted"
+            fit = obj.get("fit") or "maybe"
+            reason = obj.get("reason") or ""
+        except Exception as e:
+            print(f"leads vet failed: {e!r}", flush=True)
+            booking = "vet error"; fit = "maybe"; reason = "auto-vet failed, check manually"
+    data = _leads_load()
+    lead = {"id": f"ld-{int(_t.time())}", "name": name, "profession": profession, "town": town,
+            "contact": contact, "source": url or "manual", "fit": fit, "booking": booking,
+            "reason": reason, "channel": "email / phone" if contact else "email / contact form",
+            "message": _lead_message(name, profession, town), "status": "new", "added": int(_t.time())}
+    data.setdefault("leads", []).insert(0, lead)
+    _leads_save(data)
+    return jsonify({"ok": True, "lead": lead})
+
 def _build_post_prompt(brand, topic, platforms):
     import json as _json
     if brand == "career":
