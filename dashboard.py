@@ -3997,7 +3997,16 @@ async function postIG(){var b=document.getElementById('igPostBtn'),t=document.ge
     else{t.textContent='Post to Instagram now';b.disabled=false;toast(j.error||'Post failed');}
   }catch(e){t.textContent='Post to Instagram now';b.disabled=false;toast('Post failed');}}
 var IMGBLOB=null, IMGFILE=null;
-(function(){var el=document.getElementById('img');if(!el)return;fetch(el.src).then(function(r){return r.blob();}).then(function(b){IMGBLOB=b;IMGFILE=new File([b],el.dataset.name||'harbor-post.png',{type:b.type||'image/png'});}).catch(function(){});})();
+(function(){
+  // Preload every preview image into a per-element blob/File so Save can use
+  // navigator.share within the click gesture (clean "Save Image" on iOS).
+  document.querySelectorAll('img.preview').forEach(function(el){
+    fetch(el.src).then(function(r){return r.blob();}).then(function(b){
+      el._blob=b; el._file=new File([b], el.dataset.name||'harbor-post.png', {type:b.type||'image/png'});
+      if(el.id==='img'){IMGBLOB=b;IMGFILE=el._file;}
+    }).catch(function(){});
+  });
+})();
 async function copyImg(){try{var bl=IMGBLOB||await (await fetch(document.getElementById('img').src,{mode:'cors'})).blob();await navigator.clipboard.write([new ClipboardItem({[bl.type]:bl})]);toast('Image copied');}catch(e){toast('Long-press the image to copy');}}
 async function dlImg(){var el=document.getElementById('img');var name=el.dataset.name||'harbor-post.png';
   try{
@@ -4005,8 +4014,13 @@ async function dlImg(){var el=document.getElementById('img');var name=el.dataset
     var bl=IMGBLOB||await (await fetch(el.src)).blob();
     var u=URL.createObjectURL(bl);var a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);toast('Saved');
   }catch(e){if(e&&e.name==='AbortError')return;window.open(el.src,'_blank');}}
-async function copyImgEl(id){try{var el=document.getElementById(id);var bl=await (await fetch(el.src,{mode:'cors'})).blob();await navigator.clipboard.write([new ClipboardItem({[bl.type]:bl})]);toast('Image copied');}catch(e){toast('Long-press the image to copy');}}
-async function dlImgEl(id){var el=document.getElementById(id);var name=el.dataset.name||'harbor-post.png';try{var bl=await (await fetch(el.src)).blob();var u=URL.createObjectURL(bl);var a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);toast('Saved');}catch(e){window.open(el.src,'_blank');}}
+async function copyImgEl(id){try{var el=document.getElementById(id);var bl=el._blob||await (await fetch(el.src,{mode:'cors'})).blob();await navigator.clipboard.write([new ClipboardItem({[bl.type]:bl})]);toast('Image copied');}catch(e){toast('Long-press the image to copy');}}
+async function dlImgEl(id){var el=document.getElementById(id);var name=el.dataset.name||'harbor-post.png';
+  try{
+    if(el._file && navigator.canShare && navigator.canShare({files:[el._file]})){await navigator.share({files:[el._file]});return;}
+    var bl=el._blob||await (await fetch(el.src)).blob();
+    var u=URL.createObjectURL(bl);var a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);toast('Saved');
+  }catch(e){if(e&&e.name==='AbortError')return;window.open(el.src,'_blank');}}
 </script></body></html>"""
 
 
