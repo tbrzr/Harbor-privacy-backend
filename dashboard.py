@@ -3801,26 +3801,41 @@ def social_generate_set():
         # Render the card and copy it into the asset library so /social/img
         # serves it locally (the dashboard social-images URL is not public).
         import shutil as _sh, pathlib as _pl
-        gen_url = _generate_tip_card(topic, card) if brand == "tips" else _generate_image_claude(brand, topic)
-        img = ""
-        if gen_url:
-            stem = gen_url.rsplit("/", 1)[-1]
+        def _stash(gurl, suffix):
+            # copy a freshly rendered card from social-images into the asset
+            # library as <pid><suffix>.png and return its public URL
+            if not gurl:
+                return ""
+            stem = gurl.rsplit("/", 1)[-1]
             src = _pl.Path("/var/www/network/social-images") / stem
-            dst = _pl.Path("/home/ubuntu/harbor-design-system/assets/social") / (pid + ".png")
+            dst = _pl.Path("/home/ubuntu/harbor-design-system/assets/social") / (pid + suffix + ".png")
             try:
                 if src.exists():
                     _sh.copyfile(src, dst)
-                    img = f"https://assets.harborprivacy.com/raw/social/{pid}.png"
+                    return f"https://assets.harborprivacy.com/raw/social/{pid}{suffix}.png"
             except Exception as e:
-                print(f"generate-set: image copy failed {pid}: {e!r}", flush=True)
-        man["entries"].append({
+                print(f"generate-set: image copy failed {pid}{suffix}: {e!r}", flush=True)
+            return ""
+        img = ""
+        img_square = ""
+        if brand == "tips":
+            img = _stash(_generate_tip_card(topic, card, "story"), "")
+            img_square = _stash(_generate_tip_card(topic, card, "square"), "-sq")
+        else:
+            img = _stash(_generate_image_claude(brand, topic), "")
+        entry = {
             "id": pid, "category": cat,
             "hdr": f"{cat} / {head} -> https://harborprivacy.com",
             "img": img or "",
             "link": "https://harborprivacy.com",
             "tags": "lightbulb,shield",
             "body": body,
-        })
+        }
+        if img_square:
+            entry["img_square"] = img_square
+        if brand == "tips":
+            entry["tip"] = card  # keep structured fields for re-rendering
+        man["entries"].append(entry)
         ids.append(pid); added += 1
 
     # Atomic write: temp file in the same dir, then os.replace. This only needs
@@ -3915,6 +3930,23 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
   </div>
 </div>
 
+{% if e.img_square %}
+<div class="card">
+  <div class="eyebrow" style="margin-bottom:8px;">Square image (feed)</div>
+  <img class="preview" id="imgsq" src="/social/img/{{ e.id }}?sq=1" alt="" data-name="{{ e.id }}-sq.png">
+  <div class="row">
+    <button class="btn alt" onclick="copyImgEl('imgsq')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      Copy image
+    </button>
+    <button class="btn" onclick="dlImgEl('imgsq')">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+      Save image
+    </button>
+  </div>
+</div>
+{% endif %}
+
 {% if fb_ready %}
 <button class="btn" id="fbPostBtn" onclick="postFB()" style="margin-top:10px;">
   <svg viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
@@ -3973,6 +4005,8 @@ async function dlImg(){var el=document.getElementById('img');var name=el.dataset
     var bl=IMGBLOB||await (await fetch(el.src)).blob();
     var u=URL.createObjectURL(bl);var a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);toast('Saved');
   }catch(e){if(e&&e.name==='AbortError')return;window.open(el.src,'_blank');}}
+async function copyImgEl(id){try{var el=document.getElementById(id);var bl=await (await fetch(el.src,{mode:'cors'})).blob();await navigator.clipboard.write([new ClipboardItem({[bl.type]:bl})]);toast('Image copied');}catch(e){toast('Long-press the image to copy');}}
+async function dlImgEl(id){var el=document.getElementById(id);var name=el.dataset.name||'harbor-post.png';try{var bl=await (await fetch(el.src)).blob();var u=URL.createObjectURL(bl);var a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);toast('Saved');}catch(e){window.open(el.src,'_blank');}}
 </script></body></html>"""
 
 
@@ -4010,11 +4044,16 @@ def social_post_img(post_id):
     entry = _social_entry(post_id)
     if not entry:
         return "not found", 404
-    local = pathlib.Path("/home/ubuntu/harbor-design-system/assets/social") / (post_id + ".png")
+    sq = bool(request.args.get("sq"))
+    suffix = "-sq" if sq else ""
+    remote = (entry.get("img_square") if sq else entry.get("img")) or ""
+    local = pathlib.Path("/home/ubuntu/harbor-design-system/assets/social") / (post_id + suffix + ".png")
     if local.exists():
         return send_file(str(local), mimetype="image/png")
+    if not remote:
+        return "not found", 404
     try:
-        r = _req.get(entry["img"], timeout=20)
+        r = _req.get(remote, timeout=20)
         ctype = r.headers.get("Content-Type", "image/png")
         # Persist into the asset library so the image is reusable and future
         # requests serve the local copy instead of re-proxying the remote URL.
@@ -4023,10 +4062,10 @@ def social_post_img(post_id):
                 local.parent.mkdir(parents=True, exist_ok=True)
                 local.write_bytes(r.content)
             except Exception as e:
-                print(f"social_post_img: cache write failed for {post_id}: {e!r}", flush=True)
+                print(f"social_post_img: cache write failed for {post_id}{suffix}: {e!r}", flush=True)
         return Response(r.content, mimetype=ctype)
     except Exception:
-        return redirect(entry["img"])
+        return redirect(remote)
 
 
 @app.route("/api/csrf")
@@ -4287,14 +4326,25 @@ def _generate_image_claude(brand, topic):
         print(f"_generate_image: brand-card EXC {e!r}", flush=True)
     return None
 
-def _generate_tip_card(topic, card):
-    # Canva-style vertical (1080x1920) privacy-tip card: cream, rounded border,
-    # terra device pill, centered lightbulb, big serif headline, the exact
-    # settings path, divider, teal action line, "A 30-second privacy fix" footer.
+def _generate_tip_card(topic, card, fmt="story"):
+    # Canva-style privacy-tip card: cream, rounded border, terra device pill,
+    # centered lightbulb, big serif headline, the exact settings path, divider,
+    # teal action line, "A 30-second privacy fix" footer.
+    # fmt = "story" (1080x1920 vertical) or "square" (1080x1080).
     if not SOCIAL_IMAGES_ENABLED:
         return None
     import subprocess as _sp, time as _t, pathlib, textwrap as _tw, html as _html
     BG = "#fbf7f1"; GRID = "#e5dfd3"; INK = "#1a2420"; MUTE = "#6b7a72"; TEAL = "#1f5d6b"; TERRA = "#c98a52"
+    if fmt == "square":
+        W = H = 1080; bx, by, bw, bh, brx = 32, 32, 1016, 1016, 40
+        pill_y = 72; bulb_cy = 250; bscale = 3.0; head_y0 = 430; footer_y = 1012
+        wrapw = 14; f_big, f_mid, f_sm = 78, 66, 54; foot_fs = 24
+        head_gap = 90; step_gap = 20; div_gap = 55
+    else:
+        W, H = 1080, 1920; bx, by, bw, bh, brx = 44, 44, 992, 1832, 48
+        pill_y = 120; bulb_cy = 430; bscale = 4.6; head_y0 = 650; footer_y = 1800
+        wrapw = 11; f_big, f_mid, f_sm = 96, 80, 66; foot_fs = 26
+        head_gap = 120; step_gap = 30; div_gap = 70
     card = card or {}
     tl = (topic or "").lower()
     label = next((lbl for needles, lbl in [
@@ -4310,18 +4360,17 @@ def _generate_tip_card(topic, card):
     action = (card.get("action") or "").strip()
 
     def esc(s): return _html.escape(s or "")
-    lines = _tw.wrap(head, width=11)[:4] or [head]
+    lines = _tw.wrap(head, width=wrapw)[:4] or [head]
     longest = max(len(l) for l in lines)
-    fs = 96 if longest <= 11 else (80 if longest <= 15 else 66)
+    fs = f_big if longest <= wrapw else (f_mid if longest <= wrapw + 4 else f_sm)
     lh = int(fs * 1.12)
-    pill_y = 120; bulb_cy = 430; head_y0 = 650
-    cursor = head_y0 + (len(lines) - 1) * lh + 120
+    cursor = head_y0 + (len(lines) - 1) * lh + head_gap
 
     pw = 64 + len(label) * 14
     pill = (f'<rect x="80" y="{pill_y}" width="{pw}" height="58" rx="29" fill="{TERRA}"/>'
             f'<text x="{80 + pw/2}" y="{pill_y+38}" text-anchor="middle" font-family="DM Mono, monospace" '
             f'font-size="22" fill="#fff" letter-spacing="3" font-weight="500">{esc(label)}</text>')
-    s = 4.6
+    s = bscale
     bulb = (f'<g transform="translate({540-12*s},{bulb_cy-12*s}) scale({s})" stroke="{TERRA}" '
             f'stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">'
             f'<path d="M9 18h6"/><path d="M10 22h4"/>'
@@ -4337,10 +4386,10 @@ def _generate_tip_card(topic, card):
         for i, sl in enumerate(wrapped):
             stepsvg += (f'<text x="540" y="{cursor + i*int(sfs*1.4)}" text-anchor="middle" '
                         f'font-family="DM Sans, sans-serif" font-size="{sfs}" fill="{INK}" font-weight="500">{esc(sl)}</text>')
-        cursor += int(sfs * 1.4) * max(1, len(wrapped)) + 30
-    cursor += 20
+        cursor += int(sfs * 1.4) * max(1, len(wrapped)) + step_gap
+    cursor += 18
     divider = f'<line x1="380" y1="{cursor}" x2="700" y2="{cursor}" stroke="{GRID}" stroke-width="2"/>'
-    cursor += 70
+    cursor += div_gap
     actsvg = ""
     if action:
         atxt = f"Turn off: {action}"
@@ -4348,21 +4397,21 @@ def _generate_tip_card(topic, card):
         for i, al in enumerate(_tw.wrap(atxt, width=max(10, int(900 / (afs * 0.55))))[:2]):
             actsvg += (f'<text x="540" y="{cursor + i*int(afs*1.4)}" text-anchor="middle" '
                        f'font-family="DM Sans, sans-serif" font-size="{afs}" fill="{TEAL}" font-weight="500">{esc(al)}</text>')
-    footer = (f'<text x="540" y="1800" text-anchor="middle" font-family="DM Mono, monospace" '
-              f'font-size="26" fill="{MUTE}" letter-spacing="2">A 30-second privacy fix</text>')
-    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1920">'
-           f'<rect width="1080" height="1920" fill="{BG}"/>'
-           f'<rect x="44" y="44" width="992" height="1832" rx="48" fill="none" stroke="{GRID}" stroke-width="2"/>'
+    footer = (f'<text x="540" y="{footer_y}" text-anchor="middle" font-family="DM Mono, monospace" '
+              f'font-size="{foot_fs}" fill="{MUTE}" letter-spacing="2">A 30-second privacy fix</text>')
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}">'
+           f'<rect width="{W}" height="{H}" fill="{BG}"/>'
+           f'<rect x="{bx}" y="{by}" width="{bw}" height="{bh}" rx="{brx}" fill="none" stroke="{GRID}" stroke-width="2"/>'
            f'{pill}{bulb}{headsvg}{stepsvg}{divider}{actsvg}{footer}</svg>')
     try:
         out_dir = pathlib.Path("/var/www/network/social-images")
         out_dir.mkdir(exist_ok=True)
         _generate_tip_card._n = getattr(_generate_tip_card, "_n", 0) + 1
-        stem = f"tip-{int(_t.time())}-{_generate_tip_card._n}"
+        stem = f"tip-{fmt}-{int(_t.time())}-{_generate_tip_card._n}"
         svgp = out_dir / (stem + ".svg")
         pngp = out_dir / (stem + ".png")
         svgp.write_text(svg)
-        _sp.run(["rsvg-convert", "-w", "1080", "-h", "1920", str(svgp), "-o", str(pngp)],
+        _sp.run(["rsvg-convert", "-w", str(W), "-h", str(H), str(svgp), "-o", str(pngp)],
                 check=True, timeout=30)
         return f"https://dashboard.harborprivacy.com/social-images/{stem}.png"
     except Exception as e:
