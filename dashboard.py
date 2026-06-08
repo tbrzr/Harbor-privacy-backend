@@ -3455,6 +3455,7 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
     <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
     Generate tips set
   </button>
+  <a class="btn alt" href="/social/pages">Apex pages</a>
   <a class="btn alt" href="/social/sent">Sent log</a>
   <span class="count"><b id="visCount">0</b> posts</span>
 </div>
@@ -4083,6 +4084,124 @@ def social_post_img(post_id):
         return Response(r.content, mimetype=ctype)
     except Exception:
         return redirect(remote)
+
+
+# ===== Live apex marketing-page inventory (reel planning surface) =====
+NETWORK_DIR = "/var/www/network"
+# Utility/funnel/legal pages that are not reel material.
+PAGES_EXCLUDE = {
+    "404", "adblock-test", "already-member", "checkout", "confirm-your-email",
+    "docs", "fax-status", "fax-success", "index", "privacy", "scan-results",
+    "setup-guide", "slow-down", "terms", "welcome", "welcome-paid",
+}
+PAGES_ORDER = ["Booking niches", "Booking comparisons", "Scan & data removal",
+               "Products & landers", "South Shore towns"]
+
+
+def _page_bucket(slug):
+    if slug.startswith("booking-for-"):
+        return "Booking niches"
+    if slug.startswith("booking-vs-") or slug == "booking-compare":
+        return "Booking comparisons"
+    if slug.startswith("scan"):
+        return "Scan & data removal"
+    if slug.endswith("MA"):
+        return "South Shore towns"
+    return "Products & landers"
+
+
+def _page_title(path):
+    import re as _re, html as _html
+    try:
+        head = open(path, encoding="utf-8", errors="ignore").read(2000)
+    except Exception:
+        return ""
+    m = _re.search(r"<title>(.*?)</title>", head, _re.S | _re.I)
+    if not m:
+        return ""
+    t = _html.unescape(m.group(1)).strip()
+    # Trim the site-name suffix for a cleaner label.
+    for sep in (" — ", " | ", ": "):
+        if sep in t:
+            t = t.split(sep, 1)[1] if t.lower().startswith("harbor") else t.split(sep, 1)[0]
+            break
+    return t.strip()
+
+
+SOCIAL_PAGES_HTML = """<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Apex pages</title>
+<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+<style>
+:root{--bg:#fbf7f1;--ink:#1a2420;--mute:#6b7a72;--teal:#1f5d6b;--line:#e5dfd3;--surface:#fff;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,system-ui,"DM Sans",sans-serif;padding:20px;padding-top:max(20px,calc(env(safe-area-inset-top) + 14px));max-width:760px;margin:0 auto;}
+.topnav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-4px 0 18px;padding-bottom:14px;border-bottom:1px solid var(--line);}
+.topnav .brand{font-family:ui-monospace,Menlo,monospace;font-weight:600;font-size:14px;color:var(--ink);text-decoration:none;letter-spacing:1px;}
+.topnav .brand span{color:var(--teal);margin:0 2px;}
+.topnav .links{display:flex;gap:16px;flex-wrap:wrap;}
+.topnav .links a{font-size:13px;color:var(--mute);text-decoration:none;}
+.topnav .links a.active{color:var(--teal);font-weight:600;}
+.eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:3px;color:var(--teal);text-transform:uppercase;}
+h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;margin:6px 0 4px;}
+.sub{color:var(--mute);font-size:14px;margin:0 0 20px;}
+h2{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:19px;margin:26px 0 10px;display:flex;align-items:baseline;gap:8px;}
+h2 .n{font-family:ui-monospace,monospace;font-size:12px;color:var(--mute);letter-spacing:1px;}
+a.row{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:11px 14px;margin-bottom:8px;text-decoration:none;color:inherit;}
+a.row:hover{border-color:var(--teal);}
+.row .path{font-family:ui-monospace,Menlo,monospace;font-size:13px;color:var(--teal);font-weight:600;white-space:nowrap;}
+.row .title{font-size:13px;color:var(--mute);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.row .ext{margin-left:auto;flex:0 0 auto;width:15px;height:15px;stroke:var(--mute);fill:none;stroke-width:2;}
+.foot{color:var(--mute);font-size:12px;margin-top:24px;font-family:ui-monospace,monospace;}
+</style></head><body>
+<div class="topnav">
+  <a href="/admin" class="brand">harbor<span>/</span>privacy</a>
+  <div class="links">
+    <a href="/admin">Customers</a>
+    <a href="/social" class="active">Social</a>
+    <a href="/leads">Leads</a>
+    <a href="/settings">Settings</a>
+    <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets</a>
+    <a href="/logout">Sign out</a>
+  </div>
+</div>
+<div class="eyebrow">Harbor social</div>
+<h1>Live apex pages</h1>
+<p class="sub">{{ total }} marketing pages live on harborprivacy.com. Tap one to open it, then make a reel from it.</p>
+{% for cat, items in groups %}
+<h2>{{ cat }} <span class="n">{{ items|length }}</span></h2>
+{% for p in items %}
+<a class="row" href="{{ p.url }}" target="_blank" rel="noopener">
+  <span class="path">/{{ p.slug }}</span>
+  <span class="title">{{ p.title }}</span>
+  <svg class="ext" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+</a>
+{% endfor %}
+{% endfor %}
+<p class="foot">Served live from /var/www/network. New booking-for / scan / town pages appear here automatically.</p>
+</body></html>"""
+
+
+@app.route("/social/pages")
+@admin_required
+def social_pages():
+    import glob as _glob, os as _os
+    groups = {c: [] for c in PAGES_ORDER}
+    total = 0
+    for fp in _glob.glob(_os.path.join(NETWORK_DIR, "*.html")):
+        slug = _os.path.basename(fp)[:-5]
+        if slug in PAGES_EXCLUDE:
+            continue
+        groups[_page_bucket(slug)].append({
+            "slug": slug,
+            "url": f"https://harborprivacy.com/{slug}",
+            "title": _page_title(fp),
+        })
+        total += 1
+    ordered = [(c, sorted(groups[c], key=lambda p: p["slug"])) for c in PAGES_ORDER if groups[c]]
+    resp = make_response(render_template_string(SOCIAL_PAGES_HTML, groups=ordered, total=total))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @app.route("/api/csrf")
