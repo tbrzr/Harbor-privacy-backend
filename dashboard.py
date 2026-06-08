@@ -4284,6 +4284,11 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px
 .filters{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 18px;}
 .filters button{border:1px solid var(--line);background:#fff;color:var(--mute);border-radius:999px;padding:6px 14px;font-size:13px;cursor:pointer;font-family:ui-monospace,Menlo,monospace;}
 .filters button.on{background:var(--ink);color:#fff;border-color:var(--ink);}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px;}
+.tools input{flex:1;min-width:180px;border:1px solid var(--line);border-radius:999px;padding:8px 14px;font:14px/1.4 system-ui;background:#fcfaf6;color:var(--ink);}
+.tools button{border:1px solid var(--line);background:#fff;color:var(--mute);border-radius:999px;padding:8px 14px;font-size:13px;cursor:pointer;font-family:ui-monospace,Menlo,monospace;white-space:nowrap;}
+.tools button.on{background:var(--terra);color:#fff;border-color:var(--terra);}
+.badge.pri{background:#fbe9d6;color:var(--terra);margin-left:6px;}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#2d2d2d;color:#fff;padding:11px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .topnav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-4px 0 18px;padding-bottom:14px;border-bottom:1px solid var(--line);}
@@ -4315,6 +4320,10 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px
   <input id="v_contact" placeholder="Phone or email (optional)">
   <button onclick="vet()">Vet &amp; add</button>
 </div>
+<div class="tools">
+  <input id="search" type="search" placeholder="Search name, town, profession..." oninput="applyFilters()">
+  <button id="sortbtn" onclick="toggleSort(this)">Sort: priority</button>
+</div>
 <div class="filters" id="filters">
   <button class="on" data-f="all" onclick="filt('all',this)">All</button>
   <button data-f="new" onclick="filt('new',this)">New</button>
@@ -4324,9 +4333,9 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px
   <button data-f="skip" onclick="filt('skip',this)">Skip</button>
 </div>
 {% for l in leads %}
-<div class="card {{ l.status }}" id="c-{{ l.id }}">
+<div class="card {{ l.status }}" id="c-{{ l.id }}" data-idx="{{ loop.index0 }}" data-priority="{{ l.priority|default('normal') }}" data-search="{{ (l.name ~ ' ' ~ l.profession ~ ' ' ~ l.town ~ ' ' ~ l.contact ~ ' ' ~ l.booking)|lower }}">
   <div class="row1">
-    <div><div class="nm">{{ l.name }}</div><div class="meta">{{ l.profession }} - {{ l.town }}{% if l.contact %} - {{ l.contact }}{% endif %}</div></div>
+    <div><div class="nm">{{ l.name }}{% if l.priority=='high' %}<span class="badge pri">priority</span>{% endif %}</div><div class="meta">{{ l.profession }} - {{ l.town }}{% if l.contact %} - {{ l.contact }}{% endif %}</div></div>
     <span class="badge fit-{{ l.fit }}">{{ l.fit }}</span>
   </div>
   <div class="book">Booking: {{ l.booking }}{% if l.reason %} - {{ l.reason }}{% endif %}</div>
@@ -4349,11 +4358,33 @@ function toast(m){var t=document.getElementById('toast');t.textContent=m;t.class
 function copyMsg(b){var t=b.closest('.card').querySelector('textarea');try{navigator.clipboard.writeText(t.value);}catch(e){t.select();document.execCommand('copy');}toast('Message copied');}
 async function setStatus(id,status){try{var r=await fetch('/api/leads/update',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:id,status:status})});if(!r.ok){toast('Failed ('+r.status+')');return;}if(status==='remove'){var c=document.getElementById('c-'+id);if(c)c.remove();toast('Removed');}else{location.reload();}}catch(e){toast('Failed');}}
 async function vet(){var name=document.getElementById('v_name').value.trim();if(!name){toast('Name required');return;}toast('Vetting...');try{var r=await fetch('/api/leads/vet',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({name:name,profession:document.getElementById('v_prof').value,town:document.getElementById('v_town').value,url:document.getElementById('v_url').value,contact:document.getElementById('v_contact').value})});var d=await r.json();if(d.ok){toast('Added ('+d.lead.fit+')');location.reload();}else{toast(d.error||'Failed');}}catch(e){toast('Failed');}}
+var curStatus='all', sortOn=false;
 function filt(s,btn){
+  curStatus=s;
   document.querySelectorAll('#filters button').forEach(function(b){b.classList.toggle('on', b===btn);});
+  applyFilters();
+}
+function applyFilters(){
+  var q=(document.getElementById('search').value||'').trim().toLowerCase();
   document.querySelectorAll('.card').forEach(function(c){
-    c.style.display = (s==='all' || c.classList.contains(s)) ? '' : 'none';
+    var okStatus = (curStatus==='all' || c.classList.contains(curStatus));
+    var okSearch = (!q || (c.dataset.search||'').indexOf(q)>=0);
+    c.style.display = (okStatus && okSearch) ? '' : 'none';
   });
+}
+function toggleSort(btn){
+  sortOn=!sortOn;
+  btn.classList.toggle('on', sortOn);
+  var cards=Array.prototype.slice.call(document.querySelectorAll('.card'));
+  cards.sort(function(a,b){
+    if(sortOn){
+      var pa=a.dataset.priority==='high'?0:1, pb=b.dataset.priority==='high'?0:1;
+      if(pa!==pb) return pa-pb;
+    }
+    return (+a.dataset.idx)-(+b.dataset.idx);
+  });
+  var anchor=document.getElementById('toast');
+  cards.forEach(function(c){anchor.parentNode.insertBefore(c, anchor);});
 }
 (function(){
   document.querySelectorAll('#filters button').forEach(function(b){
