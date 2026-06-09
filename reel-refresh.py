@@ -15,7 +15,7 @@ from pathlib import Path
 
 # social-refresh.py has a hyphen (not importable by name) -> load by path.
 # Its main() is guarded by __name__=="__main__", so importing runs no side effects.
-_spec = importlib.util.spec_from_file_location("social_refresh", "/home/ubuntu/social-refresh.py")
+_spec = importlib.util.spec_from_file_location("social_refresh", "/home/ubuntu/harbor-backend/social-refresh.py")
 sr = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(sr)
 
