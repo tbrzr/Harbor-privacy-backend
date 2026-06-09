@@ -633,6 +633,7 @@ NAV_ADMIN = """
     <a href="https://harborprivacy.com" style="font-size:10px;">← Site</a>
     <a href="/admin" class="{{ 'active' if active == 'admin' else '' }}">Customers</a>
     <a href="/social" class="{{ 'active' if active == 'social' else '' }}">Social</a>
+    <a href="/linkedin" class="{{ 'active' if active == 'linkedin' else '' }}">LinkedIn</a>
     <a href="/leads" class="{{ 'active' if active == 'leads' else '' }}">Leads</a>
     <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">Settings</a>
     <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets ↗</a>
@@ -3860,6 +3861,235 @@ def social_generate_set():
                 pass
         return jsonify({"ok": False, "error": f"save failed: {e}"}), 500
     return jsonify({"ok": True, "added": added, "ids": ids})
+
+
+# ════════════════════════════════════════════════════════════
+# LinkedIn personal-post generator
+# Drafts a post (hook -> take -> tie-back -> question) for a chosen persona.
+# Link goes in first_comment, not the body (LinkedIn demotes in-body links).
+# Personas can be overridden by /home/ubuntu/harbor-backend/linkedin-personas.json
+# ════════════════════════════════════════════════════════════
+def _linkedin_personas():
+    base = {
+        "harbor_founder": {
+            "label": "Harbor founder / builder",
+            "voice": ("First person, a founder building in public. Plain, direct, specific. "
+                      "Real numbers, real tradeoffs, what broke and what you learned. No hype, no buzzwords."),
+            "positioning": ("Tim Brazer, founder of Harbor Privacy, a privacy-first suite of small tools "
+                            "(booking, anonymous fax, data-broker removal/Scan, money, neighbor network management, "
+                            "encrypted DNS). Ships fast and mostly solo on a home lab plus cloud VMs."),
+            "tie_back": ("Connect the topic to privacy and, only when it fits naturally, to a relevant Harbor "
+                         "product. Never force a pitch. The story is the point, the product is the proof."),
+            "hashtags": ["privacy", "buildinpublic", "datasecurity"],
+        },
+        "healthcare_ops_leader": {
+            "label": "Healthcare ops leader (job hunt)",
+            "voice": ("First person, a credible operations leader. Calm, results-oriented, people-first. "
+                      "Shows judgment and outcomes, not jargon. Confident, never desperate."),
+            "positioning": ("Tim Brazer, a healthcare operations leader pursuing an MBA and open to a leadership "
+                            "role in healthcare operations. Strengths: process improvement, team building, "
+                            "patient and customer experience, cross-functional execution, and data privacy / HIPAA "
+                            "awareness (builds privacy and HIPAA-friendly tools on the side)."),
+            "tie_back": ("Tie the topic to operations leadership lessons: efficiency, patient experience, staffing, "
+                         "process, compliance, change management. Position Tim as a thoughtful leader and give a "
+                         "subtle, dignified signal that he is open to the right role. Never sound like a plea."),
+            "hashtags": ["healthcare", "operations", "leadership"],
+        },
+    }
+    try:
+        import json as _j
+        p = "/home/ubuntu/harbor-backend/linkedin-personas.json"
+        if os.path.exists(p):
+            with open(p) as _f:
+                base.update(_j.load(_f) or {})
+    except Exception as e:
+        print(f"linkedin personas override failed: {e!r}", flush=True)
+    return base
+
+
+LINKEDIN_HTML = """<!doctype html><html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LinkedIn post generator</title>
+<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+<style>
+:root{--bg:#0a0e0f;--ink:#e8f0ef;--mute:#6b8a87;--teal:#00e5c0;--line:#1e2a2d;--surface:#111618;--surface-2:#151c1e;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,system-ui,"DM Sans",sans-serif;padding:20px;padding-top:max(20px,calc(env(safe-area-inset-top) + 14px));max-width:680px;margin:0 auto;}
+.eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:3px;color:var(--teal);text-transform:uppercase;}
+h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:24px;line-height:1.2;margin:6px 0 6px;color:var(--ink);}
+.sub{color:var(--mute);font-size:14px;margin:0 0 18px;}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px;}
+label{display:block;font-size:13px;font-weight:600;margin:0 0 6px;color:var(--ink);}
+.hint{font-size:12px;color:var(--mute);font-weight:400;}
+textarea,input,select{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;font:15px/1.5 -apple-system,system-ui,sans-serif;color:var(--ink);background:var(--surface-2);resize:vertical;}
+textarea,input,select{outline:none;}
+textarea:focus,input:focus,select:focus{border-color:var(--teal);}
+::placeholder{color:var(--mute);opacity:.8;}
+textarea{min-height:90px;}
+textarea#post{min-height:240px;}
+select{appearance:none;background:var(--surface-2);}
+select option{background:var(--surface);color:var(--ink);}
+.field{margin-bottom:14px;}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;margin-top:6px;background:var(--teal);color:#04231f;text-decoration:none;}
+.btn.alt{background:transparent;color:var(--teal);border:1.5px solid var(--teal);font-weight:600;}
+.btn:active{opacity:.8;}.btn:disabled{opacity:.5;}
+.btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;}
+.row{display:flex;gap:10px;}.row .btn{margin-top:0;}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--teal);color:#04231f;padding:12px 20px;border-radius:999px;font-size:14px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;z-index:9;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.back{display:inline-flex;align-items:center;gap:6px;color:var(--teal);text-decoration:none;font-size:14px;font-weight:600;margin-bottom:16px;}
+.back svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
+</style></head><body>
+<a href="/social" class="back"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Social</a>
+<div class="eyebrow">Personal posts</div>
+<h1>LinkedIn post generator</h1>
+<p class="sub">Paste a headline or topic, pick who you are posting as, add your own angle. The link goes in the first comment so LinkedIn does not bury the post.</p>
+
+<div class="card">
+  <div class="field">
+    <label for="persona">Post as</label>
+    <select id="persona">
+      {% for p in personas %}<option value="{{ p.key }}">{{ p.label }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="field">
+    <label for="topic">Topic or headline to react to <span class="hint">(a news story, a trend, or a moment from your week)</span></label>
+    <textarea id="topic" placeholder="e.g. Another health system breach exposed 2M patient records this week..."></textarea>
+  </div>
+  <div class="field">
+    <label for="angle">Your own angle / experience to include <span class="hint">(optional, but makes it yours)</span></label>
+    <textarea id="angle" placeholder="e.g. When I ran intake we cut no-shows 30% by... / I built Harbor Fax because..."></textarea>
+  </div>
+  <div class="field">
+    <label for="link">Link for the first comment <span class="hint">(optional)</span></label>
+    <input id="link" type="text" placeholder="https://...">
+  </div>
+  <button class="btn" id="genbtn" onclick="gen(this)">
+    <svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/></svg>
+    Write the post
+  </button>
+</div>
+
+<div class="card" id="result" style="display:none;">
+  <div class="eyebrow" style="margin-bottom:8px;">Draft</div>
+  <textarea id="post" readonly></textarea>
+  <div class="row" style="margin-top:10px;">
+    <button class="btn" onclick="cp('post','Post copied')">
+      <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      Copy post
+    </button>
+    <button class="btn alt" onclick="gen(document.getElementById('genbtn'))">
+      <svg viewBox="0 0 24 24"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Regenerate
+    </button>
+  </div>
+  <div class="eyebrow" style="margin:16px 0 8px;">First comment (drop your link here)</div>
+  <textarea id="fc" readonly style="min-height:90px;"></textarea>
+  <button class="btn alt" onclick="cp('fc','First comment copied')" style="margin-top:10px;">
+    <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    Copy first comment
+  </button>
+  <a class="btn" href="https://www.linkedin.com/feed/?shareActive=true" target="_blank" rel="noopener" style="margin-top:10px;">
+    <svg viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+    Open LinkedIn composer
+  </a>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+var CSRF="{{ csrf_token }}";
+async function gen(btn){
+  var t=document.getElementById('topic').value.trim();
+  if(!t){toast('Add a topic or headline first');return;}
+  var lbl=btn.innerHTML; btn.disabled=true; btn.textContent='Writing...';
+  try{
+    var r=await fetch('/api/linkedin/generate',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},
+      body:JSON.stringify({persona:document.getElementById('persona').value,topic:t,
+        angle:document.getElementById('angle').value,link:document.getElementById('link').value})});
+    var j=await r.json();
+    if(!j.ok){toast(j.error||'Failed');return;}
+    document.getElementById('post').value=j.full;
+    document.getElementById('fc').value=j.first_comment||'';
+    document.getElementById('result').style.display='block';
+    document.getElementById('result').scrollIntoView({behavior:'smooth'});
+    toast('Draft ready');
+  }catch(e){toast('Network error');}
+  finally{btn.disabled=false; btn.innerHTML=lbl;}
+}
+function cp(id,msg){var el=document.getElementById(id);el.select();el.setSelectionRange(0,99999);
+  navigator.clipboard.writeText(el.value).then(function(){toast(msg);},function(){document.execCommand('copy');toast(msg);});}
+function toast(m){var x=document.getElementById('toast');x.textContent=m;x.classList.add('show');setTimeout(function(){x.classList.remove('show');},1600);}
+</script>
+</body></html>"""
+
+
+@app.route("/linkedin")
+@admin_required
+def linkedin_page():
+    P = _linkedin_personas()
+    personas = [{"key": k, "label": v.get("label", k)} for k, v in P.items()]
+    resp = make_response(render_template_string(LINKEDIN_HTML, personas=personas, active="linkedin"))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.route("/api/linkedin/generate", methods=["POST"])
+@admin_required
+def linkedin_generate():
+    import requests as _rq, json as _j
+    d = request.get_json(silent=True) or {}
+    topic = (d.get("topic") or "").strip()
+    angle = (d.get("angle") or "").strip()
+    link  = (d.get("link") or "").strip()
+    if not topic:
+        return jsonify({"ok": False, "error": "Add a topic or headline to react to."}), 400
+    P = _linkedin_personas()
+    per = P.get(d.get("persona", "")) or next(iter(P.values()))
+    angle_txt = (f"\nYour own angle or experience to weave in (use it, do not ignore it):\n{angle}\n"
+                 if angle else "")
+    link_txt = (f"The first_comment MUST naturally include this link: {link}"
+                if link else "If no specific link fits, make first_comment a short call to action with NO url.")
+    prompt = (
+        f"You write a LinkedIn post for {per['positioning']}\n"
+        f"Voice: {per['voice']}\n\n"
+        f"TOPIC or headline to react to:\n{topic}\n{angle_txt}\n"
+        "Write ONE LinkedIn post with this exact structure:\n"
+        "- A single scroll-stopping hook as the first line, on its own (max about 12 words). "
+        "It is all readers see before 'see more'.\n"
+        "- Then 3 to 6 short lines or tiny paragraphs: set up the topic, give YOUR specific take "
+        "(what most people miss), then connect it to your own work or experience. "
+        f"{per['tie_back']}\n"
+        "- End with one short question that invites comments.\n\n"
+        "Rules: first person. Plain language. No em dashes anywhere. No emoji. Short lines with blank "
+        "lines between thoughts. Do NOT put any url in the post body (LinkedIn demotes in-body links). "
+        "Keep the whole post under 1300 characters. " + link_txt + "\n\n"
+        "Return ONLY a JSON object:\n"
+        '  "hook": the first line\n'
+        '  "body": everything after the hook (no hashtags, no url)\n'
+        '  "hashtags": array of exactly 3 lowercase tags, no # sign\n'
+        '  "first_comment": a short first comment (this is where any link goes)'
+    )
+    try:
+        r = _rq.post("https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY", ""),
+                     "anthropic-version": "2023-06-01", "content-type": "application/json"},
+            json={"model": "claude-sonnet-4-6", "max_tokens": 900,
+                  "messages": [{"role": "user", "content": prompt}]},
+            timeout=45)
+        raw = r.json()["content"][0]["text"]
+        obj, _ = _j.JSONDecoder().raw_decode(raw[raw.find("{"):])
+    except Exception as e:
+        print(f"linkedin generate failed: {e!r}", flush=True)
+        return jsonify({"ok": False, "error": "Generation failed, try again."}), 502
+    hook = (obj.get("hook") or "").strip()
+    body = (obj.get("body") or "").strip()
+    tags = obj.get("hashtags") or per.get("hashtags", [])
+    tags = ["#" + str(t).lstrip("#") for t in tags][:3]
+    fc = (obj.get("first_comment") or "").strip()
+    full = hook + "\n\n" + body + (("\n\n" + " ".join(tags)) if tags else "")
+    return jsonify({"ok": True, "hook": hook, "body": body, "hashtags": tags,
+                    "first_comment": fc, "full": full})
 
 
 SOCIAL_POST_HTML = """<!doctype html><html lang="en"><head>
