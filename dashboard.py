@@ -3934,6 +3934,20 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
   </div>
 </div>
 
+{% if e.source == 'reel' %}
+<div class="card">
+  <div class="eyebrow" style="margin-bottom:8px;">Reel video</div>
+  <video class="preview" id="vid" src="/social/public/{{ e.id }}.mp4" poster="/social/img/{{ e.id }}" controls playsinline preload="metadata" style="background:#000;"></video>
+  <div class="row">
+    <button class="btn" onclick="dlVid()">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+      Save reel
+    </button>
+  </div>
+  <div class="eyebrow" style="margin-top:8px;">Silent by design. Add Facebook or Instagram music when you upload.</div>
+</div>
+{% endif %}
+
 {% if e.img_square %}
 <div class="card">
   <div class="eyebrow" style="margin-bottom:8px;">Square image (feed)</div>
@@ -4016,6 +4030,13 @@ async function dlImg(){var el=document.getElementById('img');var name=el.dataset
   try{
     if(IMGFILE && navigator.canShare && navigator.canShare({files:[IMGFILE]})){await navigator.share({files:[IMGFILE]});return;}
     var bl=IMGBLOB||await (await fetch(el.src)).blob();
+    var u=URL.createObjectURL(bl);var a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);toast('Saved');
+  }catch(e){if(e&&e.name==='AbortError')return;window.open(el.src,'_blank');}}
+async function dlVid(){var el=document.getElementById('vid');if(!el)return;var name='{{ e.id }}.mp4';
+  try{
+    var bl=await (await fetch(el.src)).blob();
+    var f=new File([bl],name,{type:bl.type||'video/mp4'});
+    if(navigator.canShare && navigator.canShare({files:[f]})){await navigator.share({files:[f]});return;}
     var u=URL.createObjectURL(bl);var a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);toast('Saved');
   }catch(e){if(e&&e.name==='AbortError')return;window.open(el.src,'_blank');}}
 async function copyImgEl(id){try{var el=document.getElementById(id);var bl=el._blob||await (await fetch(el.src,{mode:'cors'})).blob();await navigator.clipboard.write([new ClipboardItem({[bl.type]:bl})]);toast('Image copied');}catch(e){toast('Long-press the image to copy');}}
