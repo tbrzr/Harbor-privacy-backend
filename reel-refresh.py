@@ -183,7 +183,17 @@ def main():
     arg = sys.argv[1] if len(sys.argv) > 1 else ""
     brand = arg if arg in BRANDS else sr.pick_brand(data["entries"])
     mark, eyebrow, url, _ = BRANDS[brand]
-    seed = sr.pick_seed(data, brand)
+    # Optional ad-hoc reel: `reel-refresh.py <brand> "<idea>" [link-slug]`.
+    # The idea is a one-off seed (skips the tip-bank rotation) and the optional
+    # link-slug (e.g. harborprivacy.com/booking-for-dog-walkers) becomes the
+    # post link so niche landing pages can be promoted. The on-screen CTA url
+    # stays the brand default to avoid overflowing the scene.
+    idea = sys.argv[2].strip() if len(sys.argv) > 2 else ""
+    learn = sys.argv[3].strip() if len(sys.argv) > 3 else ""
+    if idea:
+        seed = {"id": "adhoc", "idea": idea, "learn": learn or None}
+    else:
+        seed = sr.pick_seed(data, brand)
 
     post = None
     for a in range(5):
@@ -225,7 +235,9 @@ def main():
         "link": f"https://{link_to}", "tags": "lightbulb,shield", "body": post["caption"].strip(),
     }
     if seed:
-        data.setdefault("used_seeds", []).append(seed["id"]); entry["seed"] = seed["id"]
+        entry["seed"] = seed["id"]
+        if seed["id"] != "adhoc":  # don't pollute the tip-bank rotation
+            data.setdefault("used_seeds", []).append(seed["id"])
     data["entries"].append(entry)
     dropped = prune_reels(data)
 
