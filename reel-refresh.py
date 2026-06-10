@@ -178,9 +178,234 @@ def prune_reels(data):
     return len(drop)
 
 
+# ---------------------------------------------------------------------------
+# PET PACK: a visually distinct reel for the dog-walker / groomer sprint.
+# Deep-teal frame (not the cream tip-card), pain-point-first script, amber paw
+# accent, and each script points at its matching niche booking landing page.
+# Invoke with `reel-refresh.py pets`.
+# ---------------------------------------------------------------------------
+PBG="#143f49"; PCREAM="#fbf7f1"; PSOFT="#a7c6cc"; PACC="#e8a86a"; PLINE="rgba(255,255,255,0.12)"
+
+PET_SEEDS = [
+    {"id":"pet-walker-noshow","who":"dog walker","eyebrow":"FOR DOG WALKERS",
+     "learn":"harborprivacy.com/booking-for-dog-walkers",
+     "idea":"clients text to cancel last minute or just no-show, blowing up the day's route"},
+    {"id":"pet-groomer-double","who":"dog groomer","eyebrow":"FOR GROOMERS",
+     "learn":"harborprivacy.com/booking-for-dog-groomers",
+     "idea":"two dogs land in the same slot because requests come in by text, DM, and call at once"},
+    {"id":"pet-sitter-holiday","who":"pet sitter","eyebrow":"FOR PET SITTERS",
+     "learn":"harborprivacy.com/booking-for-pet-sitters",
+     "idea":"holiday weeks fill up fast and you lose track of who asked for which dates first"},
+    {"id":"pet-mobile-route","who":"mobile pet groomer","eyebrow":"MOBILE GROOMERS",
+     "learn":"harborprivacy.com/booking-for-mobile-pet-groomers",
+     "idea":"you are driving between houses all day and cannot pick up booking calls"},
+    {"id":"pet-afterhours","who":"dog walker","eyebrow":"FOR DOG WALKERS",
+     "learn":"harborprivacy.com/booking-for-dog-walkers",
+     "idea":"booking requests arrive at 11pm while you sleep and the client cools off by morning"},
+]
+
+
+def pick_pet_seed(data):
+    """Least-recently-used pet seed (never-used ones first)."""
+    used = data.get("used_pet_seeds", [])
+    last = {sid: i for i, sid in enumerate(used)}
+    return min(PET_SEEDS, key=lambda s: last.get(s["id"], -1))
+
+
+def pet_reel_post(seed, data):
+    key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not key:
+        sys.exit("ANTHROPIC_API_KEY not set")
+    avoid = sr.recent_headlines(data["entries"], "booking")
+    avoid_txt = ("\nDo NOT repeat these recent hooks: " + "; ".join(avoid)) if avoid else ""
+    prompt = f"""You script a SHORT vertical phone reel aimed at one solo {seed['who']} who runs the whole business off their phone.
+Voice: warm, plain, talking to a single tired small-business owner. No hype, no em dashes, no emoji.
+Open on this real pain: {seed['idea']}.
+Harbor Booking is the fix: a free booking page where clients self-book, reschedule, and can leave a deposit, so the owner stops playing phone tag.
+
+Return ONLY a JSON object with these keys:
+  "hook": a short pain-point opener the {seed['who']} feels instantly (max 38 chars, sentence case)
+  "steps": array of 3 to 4 short lines that move from the pain to the fix (each max 48 chars, no numbering)
+  "caption": 2-3 short paragraphs, ending with the line {seed['learn']} then 3-4 hashtags
+Make it feel like a real day on the job, concrete, not marketing.{avoid_txt}"""
+    body = json.dumps({
+        "model": "claude-haiku-4-5-20251001", "max_tokens": 700,
+        "messages": [{"role": "user", "content": prompt}],
+    }).encode()
+    req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body, method="POST",
+        headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
+    with urllib.request.urlopen(req, timeout=40) as r:
+        d = json.load(r)
+    txt = d["content"][0]["text"].strip()
+    txt = txt[txt.find("{"): txt.rfind("}") + 1]
+    return json.loads(txt)
+
+
+def pet_ok(seed, p):
+    hook  = (p.get("hook") or "").strip()
+    steps = p.get("steps") or []
+    cap   = (p.get("caption") or "").strip()
+    if not hook or len(hook) > 44:                          return "bad hook"
+    if not isinstance(steps, list) or not (3 <= len(steps) <= 4): return "bad steps count"
+    steps = [(s or "").strip() for s in steps]
+    if any(not s or len(s) > 54 for s in steps):            return "step len"
+    if not (120 <= len(cap) <= 800):                        return f"caption len {len(cap)}"
+    if seed["learn"] not in cap:                            return "missing link"
+    blob = hook + cap + "".join(steps)
+    if DASH in blob or ENDASH in blob:                      return "em dash"
+    low = cap.lower()
+    if "no account" in low or "no sign" in low:             return "false no-account claim"
+    if any(x in low for x in ["lorem", "placeholder", "as an ai", "[insert"]):
+        return "placeholder text"
+    return None
+
+
+def _paw(cx, cy, s, fill):
+    """Small paw: one pad + four toes, scaled by s."""
+    out = [f'<ellipse cx="{cx}" cy="{cy}" rx="{1.5*s:.1f}" ry="{1.25*s:.1f}" fill="{fill}"/>']
+    for dx, dy, r in [(-1.6,-1.0,0.5),(-0.5,-1.7,0.55),(0.6,-1.7,0.55),(1.6,-1.0,0.5)]:
+        out.append(f'<circle cx="{cx+dx*s:.1f}" cy="{cy+dy*s:.1f}" r="{r*s:.1f}" fill="{fill}"/>')
+    return "".join(out)
+
+
+def pet_scene_svg(eyebrow, url, hook, steps, n_steps, cta=False):
+    """Deep-teal full-frame scene; same geometry as the cream scene, inverted palette."""
+    ew = 22 + len(eyebrow) * 12
+    p = [f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}">
+  <defs><radialGradient id="pg" cx="50%" cy="0%" r="70%"><stop offset="0%" stop-color="rgba(232,168,106,0.16)"/><stop offset="100%" stop-color="rgba(232,168,106,0)"/></radialGradient></defs>
+  <rect width="{W}" height="{H}" fill="{PBG}"/><rect width="{W}" height="{H}" fill="url(#pg)"/>
+  <rect x="36" y="36" width="{W-72}" height="{H-72}" rx="28" ry="28" fill="none" stroke="{PLINE}" stroke-width="2"/>
+  <text x="90" y="170" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="28" fill="{PSOFT}" letter-spacing="7" font-weight="500">HARBOR / BOOKING</text>
+  <g transform="translate(90, 210)"><rect x="0" y="0" width="{ew}" height="40" rx="20" ry="20" fill="none" stroke="{PACC}" stroke-width="1.5"/>
+  <text x="{ew/2}" y="27" text-anchor="middle" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="14" fill="{PACC}" letter-spacing="3" font-weight="500">{html.escape(eyebrow)}</text></g>''']
+    p.append(_paw(W-150, 175, 16, PACC))
+
+    hook = hook.strip(); hook = hook[0].upper() + hook[1:]
+    hlines = _wrap(hook, 15)[:3]
+    longest = max(len(l) for l in hlines)
+    fs = 120 if longest <= 10 else (100 if longest <= 14 else 82)
+    lh = int(fs * 1.1); y0 = 520
+    for i, l in enumerate(hlines):
+        p.append(f'<text x="90" y="{y0+i*lh}" font-family="DM Serif Display, Georgia, serif" '
+                 f'font-size="{fs}" fill="{PCREAM}">{html.escape(l)}</text>')
+
+    if cta:
+        p.append(f'<text x="90" y="1140" font-family="DM Sans, system-ui, sans-serif" '
+                 f'font-size="48" fill="{PSOFT}">Free booking page. Start here:</text>')
+        p.append(f'<text x="90" y="1240" font-family="DM Mono, ui-monospace, Menlo, monospace" '
+                 f'font-size="46" fill="{PACC}" letter-spacing="1">{html.escape(url)}</text>')
+    else:
+        sy = y0 + len(hlines) * lh + 120
+        for idx in range(n_steps):
+            wl = _wrap(steps[idx], 26)
+            p.append(f'<text x="92" y="{sy}" font-family="DM Sans, system-ui, sans-serif" '
+                     f'font-size="46" fill="{PACC}" font-weight="700">&#8250;</text>')
+            for j, seg in enumerate(wl):
+                p.append(f'<text x="142" y="{sy+j*54}" font-family="DM Sans, system-ui, sans-serif" '
+                         f'font-size="42" fill="{PCREAM}">{html.escape(seg)}</text>')
+            sy += 54 * len(wl) + 48
+
+    p.append(f'<line x1="90" y1="{H-210}" x2="{W-90}" y2="{H-210}" stroke="{PLINE}" stroke-width="1.5"/>')
+    p.append(f'<text x="{W-90}" y="{H-140}" text-anchor="end" font-family="DM Mono, ui-monospace, Menlo, monospace" '
+             f'font-size="30" fill="{PSOFT}" letter-spacing="2" font-weight="500">{html.escape(url)}</text>')
+    p.append('</svg>')
+    return "".join(p)
+
+
+def pet_poster_svg(eyebrow, hook, steps):
+    """Square 1080 dark poster for the dashboard grid (matches the reel look)."""
+    S = 1080; ew = 22 + len(eyebrow) * 12
+    hook = hook.strip(); hook = hook[0].upper() + hook[1:]
+    hl = _wrap(hook, 14)[:3]; longest = max(len(l) for l in hl)
+    fs = 104 if longest <= 10 else (86 if longest <= 14 else 72); lh = int(fs * 1.1); y0 = 430
+    p = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {S} {S}">',
+         f'<defs><radialGradient id="pg2" cx="50%" cy="0%" r="80%"><stop offset="0%" stop-color="rgba(232,168,106,0.16)"/><stop offset="100%" stop-color="rgba(232,168,106,0)"/></radialGradient></defs>',
+         f'<rect width="{S}" height="{S}" fill="{PBG}"/><rect width="{S}" height="{S}" fill="url(#pg2)"/>',
+         f'<rect x="28" y="28" width="{S-56}" height="{S-56}" rx="26" ry="26" fill="none" stroke="{PLINE}" stroke-width="2"/>',
+         f'<text x="72" y="130" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="24" fill="{PSOFT}" letter-spacing="6" font-weight="500">HARBOR / BOOKING</text>',
+         f'<g transform="translate(72,162)"><rect width="{ew}" height="38" rx="19" ry="19" fill="none" stroke="{PACC}" stroke-width="1.5"/><text x="{ew/2}" y="25" text-anchor="middle" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="13" fill="{PACC}" letter-spacing="3">{html.escape(eyebrow)}</text></g>']
+    p.append(_paw(S-130, 150, 14, PACC))
+    for i, l in enumerate(hl):
+        p.append(f'<text x="72" y="{y0+i*lh}" font-family="DM Serif Display, Georgia, serif" '
+                 f'font-size="{fs}" fill="{PCREAM}">{html.escape(l)}</text>')
+    sy = y0 + len(hl) * lh + 70
+    for s in steps[:2]:
+        wl = _wrap(s, 30)
+        p.append(f'<text x="74" y="{sy}" font-family="DM Sans, system-ui, sans-serif" '
+                 f'font-size="40" fill="{PACC}" font-weight="700">&#8250;</text>')
+        for j, seg in enumerate(wl):
+            p.append(f'<text x="120" y="{sy+j*48}" font-family="DM Sans, system-ui, sans-serif" '
+                     f'font-size="36" fill="{PCREAM}">{html.escape(seg)}</text>')
+        sy += 48 * len(wl) + 34
+    p.append(f'<text x="72" y="{S-70}" font-family="DM Mono, ui-monospace, Menlo, monospace" '
+             f'font-size="26" fill="{PSOFT}" letter-spacing="2">harborprivacy.com/booking</text>')
+    p.append('</svg>')
+    return "".join(p)
+
+
+def render_square(svg, path, S=1080):
+    sp = path.with_suffix(".pp.svg"); sp.write_text(svg)
+    subprocess.run(["rsvg-convert", "-w", str(S), "-h", str(S), str(sp), "-o", str(path)],
+                   check=True, timeout=30)
+    sp.unlink()
+
+
+def main_pets(data):
+    seed = pick_pet_seed(data)
+    post = None
+    for a in range(5):
+        try:
+            cand = pet_reel_post(seed, data)
+        except Exception as e:
+            print(f"generate attempt {a} failed: {e!r}"); continue
+        why = pet_ok(seed, cand)
+        if why is None:
+            post = cand; break
+        print(f"rejected (attempt {a}): {why}")
+    if not post:
+        sys.exit("no quality pet reel produced; nothing added")
+
+    ts = int(time.time()); stem = f"reel-petbooking-{ts}"
+    steps = [s.strip() for s in post["steps"]]
+    url = "harborprivacy.com/booking"; eyebrow = seed["eyebrow"]
+
+    scenes, durs = [], []
+    s0 = SOCIAL_DIR / f"{stem}.s0.png"
+    render_png(pet_scene_svg(eyebrow, url, post["hook"], steps, 0), s0); scenes.append(s0); durs.append(2.4)
+    for i in range(1, len(steps) + 1):
+        sp = SOCIAL_DIR / f"{stem}.s{i}.png"
+        render_png(pet_scene_svg(eyebrow, url, post["hook"], steps, i), sp); scenes.append(sp); durs.append(1.9)
+    sc = SOCIAL_DIR / f"{stem}.cta.png"
+    render_png(pet_scene_svg(eyebrow, url, post["hook"], steps, len(steps), cta=True), sc); scenes.append(sc); durs.append(2.6)
+
+    build_reel(scenes, durs, SOCIAL_DIR / f"{stem}.mp4")
+    render_square(pet_poster_svg(eyebrow, post["hook"], steps), SOCIAL_DIR / f"{stem}.png")
+    for p in scenes:
+        try: p.unlink()
+        except Exception: pass
+
+    entry = {
+        "id": stem, "category": "tip", "source": "reel", "brand": "booking", "created": ts,
+        "head": post["hook"], "hdr": f"REEL / {post['hook']} -> {seed['learn']}",
+        "img": f"{ASSET_BASE}/{stem}.png", "video": f"{ASSET_BASE}/{stem}.mp4",
+        "link": f"https://{seed['learn']}", "tags": "calendar,shield", "body": post["caption"].strip(),
+        "seed": seed["id"],
+    }
+    data["entries"].append(entry)
+    data.setdefault("used_pet_seeds", []).append(seed["id"])
+    dropped = prune_reels(data)
+
+    tmp = MANIFEST.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(data, indent=2)); os.replace(tmp, MANIFEST)
+    secs = sum(durs) - 0.4 * (len(scenes) - 1)
+    print(f"added {stem} | PET {seed['eyebrow']} | steps={len(steps)} | ~{secs:.1f}s | -> {seed['learn']} | reels pruned {dropped}")
+
+
 def main():
     data = sr.load_manifest()
     arg = sys.argv[1] if len(sys.argv) > 1 else ""
+    if arg in ("pets", "--pets"):
+        return main_pets(data)
     brand = arg if arg in BRANDS else sr.pick_brand(data["entries"])
     mark, eyebrow, url, _ = BRANDS[brand]
     # Optional ad-hoc reel: `reel-refresh.py <brand> "<idea>" [link-slug]`.
