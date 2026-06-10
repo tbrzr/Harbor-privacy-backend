@@ -3736,21 +3736,10 @@ def social_generate_set():
         brands = [only]
     else:
         brands = list(pools.keys())
-    _random.shuffle(brands)
-    picks = []
-    if len(brands) == 1:
-        # single-brand set (e.g. tips): pick distinct topics, no repeats
-        b = brands[0]
-        topics = pools[b][:]
-        _random.shuffle(topics)
-        picks = [(b, t) for t in topics[:count]]
-    else:
-        i = 0
-        while len(picks) < count:
-            b = brands[i % len(brands)]
-            picks.append((b, _random.choice(pools[b])))
-            i += 1
 
+    # Load the manifest up front so picks can dedup against topics already
+    # generated in earlier runs. Mirrors the used_seeds rotation the cron
+    # (social-refresh.py) uses so the on-demand button stops repeating.
     added, ids = 0, []
     try:
         with open(SOCIAL_MANIFEST) as _f:
@@ -3758,6 +3747,42 @@ def social_generate_set():
     except Exception:
         man = {"version": 1, "entries": []}
     man.setdefault("entries", [])
+    used_set = set(man.setdefault("used_topics", []))
+
+    def _avail(b):
+        """Topics for brand b not used recently; restart the brand's rotation
+        (forget its history) once every one of its topics has been used."""
+        fresh = [t for t in pools[b] if t not in used_set]
+        if not fresh:
+            for t in pools[b]:
+                used_set.discard(t)
+            fresh = pools[b][:]
+        return fresh
+
+    _random.shuffle(brands)
+    picks = []
+    if len(brands) == 1:
+        # single-brand set (e.g. tips): distinct topics, no in-batch repeats
+        topics = _avail(brands[0])
+        _random.shuffle(topics)
+        picks = [(brands[0], t) for t in topics[:count]]
+    else:
+        # round-robin across brands, sampling WITHOUT replacement per brand
+        bags = {}
+        for b in brands:
+            bag = _avail(b)
+            _random.shuffle(bag)
+            bags[b] = bag
+        i = 0
+        while len(picks) < count and any(bags.values()):
+            b = brands[i % len(brands)]
+            if bags[b]:
+                picks.append((b, bags[b].pop()))
+            i += 1
+    # Remember everything picked so the next run avoids it.
+    for _b, _t in picks:
+        used_set.add(_t)
+    man["used_topics"] = sorted(used_set)
 
     ts = int(_time.time())
     for idx, (brand, topic) in enumerate(picks):
@@ -3836,6 +3861,7 @@ def social_generate_set():
             "tags": "lightbulb,shield",
             "body": body,
         }
+        entry["topic"] = topic  # dedup key for future generate-set runs
         if img_square:
             entry["img_square"] = img_square
         if brand == "tips":
