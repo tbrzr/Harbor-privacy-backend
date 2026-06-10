@@ -3466,6 +3466,14 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
     <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
     Generate tips set
   </button>
+  <button class="btn alt" id="genReelBtn" onclick="genReel(this)">
+    <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/></svg>
+    Generate reel
+  </button>
+  <button class="btn alt" id="genPetReelBtn" onclick="genReel(this,'pets')">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="20" cy="16" r="2"/><circle cx="4" cy="8" r="2"/><path d="M14.7 16.8a4 4 0 0 0-5.4 0c-1.5 1.4-3.3 2.2-3.3 4 0 1.6 1.4 2.4 3 2.4 1.2 0 1.8-.5 3-.5s1.8.5 3 .5c1.6 0 3-.8 3-2.4 0-1.8-1.8-2.6-3.3-4z"/></svg>
+    Generate pet reel
+  </button>
   <a class="btn alt" href="/social/pages">Apex pages</a>
   <a class="btn alt" href="/social/sent">Sent log</a>
   <span class="count"><b id="visCount">0</b> posts</span>
@@ -3528,6 +3536,15 @@ async function genSet(b,only){
     if(j.ok){toast('Added '+j.added+' new posts'); setTimeout(function(){location.reload();},900);}
     else{toast(j.error||'Generation failed'); b.disabled=false; b.textContent=label;}
   }catch(e){toast('Generation failed'); b.disabled=false; b.textContent=label;}
+}
+async function genReel(b,mode){
+  var label=b.textContent.trim(); b.disabled=true; b.textContent='Building reel...';
+  try{
+    var r=await fetch('/api/social/generate-reel',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify(mode?{mode:mode}:{})});
+    var j=await r.json();
+    if(j.ok){toast(mode==='pets'?'Pet reel built':'Reel built'); setTimeout(function(){location.reload();},900);}
+    else{toast(j.error||'Reel build failed'); b.disabled=false; b.textContent=label;}
+  }catch(e){toast('Reel build failed (timeout?)'); b.disabled=false; b.textContent=label;}
 }
 recount();
 </script></body></html>"""
@@ -3897,6 +3914,31 @@ def social_generate_set():
                 pass
         return jsonify({"ok": False, "error": f"save failed: {e}"}), 500
     return jsonify({"ok": True, "added": added, "ids": ids})
+
+
+@app.route("/api/social/generate-reel", methods=["POST"])
+@admin_required
+def social_generate_reel():
+    """On-demand reel build. mode=='pets' runs the deep-teal pet pack; anything
+    else runs the normal brand rotation. Synchronous: reel-refresh.py renders the
+    scenes + ffmpeg mp4 + poster and appends the manifest itself (~20-40s). Runs as
+    the service user (ubuntu) so the manifest stays ubuntu-owned, no chown needed."""
+    import subprocess as _sp
+    mode = ((request.get_json(silent=True) or {}).get("mode") or "").strip().lower()
+    extra = ["pets"] if mode == "pets" else []
+    cmd = ["/usr/bin/python3", "/home/ubuntu/harbor-backend/reel-refresh.py", *extra]
+    try:
+        r = _sp.run(cmd, capture_output=True, text=True, timeout=240,
+                    cwd="/home/ubuntu/harbor-backend", env=os.environ.copy())
+    except _sp.TimeoutExpired:
+        return jsonify({"ok": False, "error": "reel build timed out"}), 504
+    added = next((l for l in (r.stdout or "").splitlines() if l.startswith("added ")), "")
+    if r.returncode != 0 or not added:
+        # surface the script's own last line (e.g. quality-gate reason)
+        tail = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
+        return jsonify({"ok": False, "error": tail[-1] if tail else "reel generation failed"}), 500
+    parts = added.split()
+    return jsonify({"ok": True, "id": parts[1] if len(parts) > 1 else "", "pet": mode == "pets"})
 
 
 # ════════════════════════════════════════════════════════════
