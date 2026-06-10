@@ -17,3 +17,5 @@ webhook.py.bak*
 signup-stats.json
 email-failures.json
 agh-snapshot.json
+
+linkedin-seed-state.json

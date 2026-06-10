@@ -3907,6 +3907,18 @@ def _linkedin_personas():
             "tie_back": ("Connect the topic to privacy and, only when it fits naturally, to a relevant Harbor "
                          "product. Never force a pitch. The story is the point, the product is the proof."),
             "hashtags": ["privacy", "buildinpublic", "datasecurity"],
+            "seeds": [
+                "a small thing that broke in production this week and the unglamorous lesson in it",
+                "why you reach for boring, proven tech instead of the trendy thing",
+                "the real cost of building a feature nobody actually asked for",
+                "what shipping mostly solo teaches you that a big team hides",
+                "a privacy default most companies get wrong, and the simple fix",
+                "why you put the customer's data out of your own reach on purpose",
+                "the difference between a tool people try once and a tool people keep",
+                "a moment you almost over-engineered something and stopped yourself",
+                "what running your own home lab teaches you about real reliability",
+                "why 'no account required' is a feature, not a missing one",
+            ],
         },
         "healthcare_ops_leader": {
             "label": "Healthcare ops leader (job hunt)",
@@ -3920,6 +3932,18 @@ def _linkedin_personas():
                          "process, compliance, change management. Position Tim as a thoughtful leader and give a "
                          "subtle, dignified signal that he is open to the right role. Never sound like a plea."),
             "hashtags": ["healthcare", "operations", "leadership"],
+            "seeds": [
+                "a staffing lesson from a hard shift and how you would handle it now",
+                "why steady process beats daily heroics in operations",
+                "what patient experience actually comes down to, beyond the survey score",
+                "a change-management mistake you learned from and the fix",
+                "how you would cut appointment no-shows without adding headcount",
+                "the operations metric leaders watch that frontline staff feel first",
+                "why cross-functional trust moves faster than any new software",
+                "a small workflow change that saved real time, and how you found it",
+                "what privacy and HIPAA awareness looks like in day-to-day operations",
+                "how you onboard a new team member so they are useful in week one",
+            ],
         },
     }
     try:
@@ -3931,6 +3955,29 @@ def _linkedin_personas():
     except Exception as e:
         print(f"linkedin personas override failed: {e!r}", flush=True)
     return base
+
+
+def _pick_linkedin_seed(pkey, per):
+    """Pick a fresh theme seed for auto-generation, rotating to avoid recent repeats."""
+    import json as _j, random as _r
+    seeds = per.get("seeds") or ["a specific lesson from your week and why it matters"]
+    statef = "/home/ubuntu/harbor-backend/linkedin-seed-state.json"
+    used = {}
+    try:
+        if os.path.exists(statef):
+            used = _j.load(open(statef)) or {}
+    except Exception:
+        used = {}
+    recent = used.get(pkey, [])
+    pool = [s for s in seeds if s not in recent] or seeds
+    choice = _r.choice(pool)
+    used[pkey] = (recent + [choice])[-max(1, len(seeds) // 2):]
+    try:
+        with open(statef, "w") as _f:
+            _j.dump(used, _f)
+    except Exception:
+        pass
+    return choice
 
 
 LINKEDIN_HTML = """<!doctype html><html lang="en"><head>
@@ -3970,7 +4017,7 @@ select option{background:var(--surface);color:var(--ink);}
 <a href="/social" class="back"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Social</a>
 <div class="eyebrow">Personal posts</div>
 <h1>LinkedIn post generator</h1>
-<p class="sub">Paste a headline or topic, pick who you are posting as, add your own angle. The link goes in the first comment so LinkedIn does not bury the post.</p>
+<p class="sub">Pick who you are posting as and hit Write. Leave the topic blank and it picks a fresh angle for you, or paste a headline to react to. The link goes in the first comment so LinkedIn does not bury the post.</p>
 
 <div class="card">
   <div class="field">
@@ -3980,7 +4027,7 @@ select option{background:var(--surface);color:var(--ink);}
     </select>
   </div>
   <div class="field">
-    <label for="topic">Topic or headline to react to <span class="hint">(a news story, a trend, or a moment from your week)</span></label>
+    <label for="topic">Topic or headline <span class="hint">(optional, leave blank and it writes one for you)</span></label>
     <textarea id="topic" placeholder="e.g. Another health system breach exposed 2M patient records this week..."></textarea>
   </div>
   <div class="field">
@@ -4027,7 +4074,6 @@ select option{background:var(--surface);color:var(--ink);}
 var CSRF="{{ csrf_token }}";
 async function gen(btn){
   var t=document.getElementById('topic').value.trim();
-  if(!t){toast('Add a topic or headline first');return;}
   var lbl=btn.innerHTML; btn.disabled=true; btn.textContent='Writing...';
   try{
     var r=await fetch('/api/linkedin/generate',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},
@@ -4068,10 +4114,18 @@ def linkedin_generate():
     topic = (d.get("topic") or "").strip()
     angle = (d.get("angle") or "").strip()
     link  = (d.get("link") or "").strip()
-    if not topic:
-        return jsonify({"ok": False, "error": "Add a topic or headline to react to."}), 400
     P = _linkedin_personas()
-    per = P.get(d.get("persona", "")) or next(iter(P.values()))
+    pkey = d.get("persona") or next(iter(P.keys()))
+    per = P.get(pkey) or next(iter(P.values()))
+    if topic:
+        topic_block = f"TOPIC or headline to react to:\n{topic}\n"
+    else:
+        seed = _pick_linkedin_seed(pkey, per)
+        topic_block = (
+            "No topic was given, so this is your own post. Develop THIS theme, inventing "
+            "concrete, realistic specifics from your own experience. Do NOT fabricate exact "
+            "statistics, employer names, dates, or specific events; keep any specifics "
+            "plausible and general rather than invented facts:\n" + seed + "\n")
     angle_txt = (f"\nYour own angle or experience to weave in (use it, do not ignore it):\n{angle}\n"
                  if angle else "")
     link_txt = (f"The first_comment MUST naturally include this link: {link}"
@@ -4079,7 +4133,7 @@ def linkedin_generate():
     prompt = (
         f"You write a LinkedIn post for {per['positioning']}\n"
         f"Voice: {per['voice']}\n\n"
-        f"TOPIC or headline to react to:\n{topic}\n{angle_txt}\n"
+        f"{topic_block}{angle_txt}\n"
         "Write ONE LinkedIn post with this exact structure:\n"
         "- A single scroll-stopping hook as the first line, on its own (max about 12 words). "
         "It is all readers see before 'see more'.\n"
