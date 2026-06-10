@@ -3337,6 +3337,7 @@ a.row.dead{opacity:.55;pointer-events:none;}
   <div class="links">
     <a href="/admin">Customers</a>
     <a href="/social" class="active">Social</a>
+    <a href="/linkedin">LinkedIn</a>
     <a href="/leads">Leads</a>
     <a href="/settings">Settings</a>
     <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets</a>
@@ -3394,6 +3395,14 @@ SOCIAL_LIBRARY_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Social library</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/social-icon-180.png">
+<link rel="manifest" href="/social-app.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Harbor Social">
+<meta name="theme-color" content="#1f5d6b">
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister();});}).catch(function(){});}</script>
 <script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
 <style>
 :root{--bg:#fbf7f1;--ink:#1a2420;--mute:#6b7a72;--teal:#1f5d6b;--line:#e5dfd3;}
@@ -3438,6 +3447,7 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
   <div class="links">
     <a href="/admin">Customers</a>
     <a href="/social" class="active">Social</a>
+    <a href="/linkedin">LinkedIn</a>
     <a href="/leads">Leads</a>
     <a href="/settings">Settings</a>
     <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets</a>
@@ -3986,7 +3996,7 @@ LINKEDIN_HTML = """<!doctype html><html lang="en"><head>
 <title>LinkedIn post generator</title>
 <script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
 <style>
-:root{--bg:#0a0e0f;--ink:#e8f0ef;--mute:#6b8a87;--teal:#00e5c0;--line:#1e2a2d;--surface:#111618;--surface-2:#151c1e;}
+:root{--bg:#fbf7f1;--ink:#1a2420;--mute:#6b7a72;--teal:#1f5d6b;--line:#e5dfd3;--surface:#ffffff;--surface-2:#f6f1e7;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,system-ui,"DM Sans",sans-serif;padding:20px;padding-top:max(20px,calc(env(safe-area-inset-top) + 14px));max-width:680px;margin:0 auto;}
 .eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:3px;color:var(--teal);text-transform:uppercase;}
@@ -4004,12 +4014,12 @@ textarea#post{min-height:240px;}
 select{appearance:none;background:var(--surface-2);}
 select option{background:var(--surface);color:var(--ink);}
 .field{margin-bottom:14px;}
-.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;margin-top:6px;background:var(--teal);color:#04231f;text-decoration:none;}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:700;cursor:pointer;margin-top:6px;background:var(--teal);color:#fff;text-decoration:none;}
 .btn.alt{background:transparent;color:var(--teal);border:1.5px solid var(--teal);font-weight:600;}
 .btn:active{opacity:.8;}.btn:disabled{opacity:.5;}
 .btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;}
 .row{display:flex;gap:10px;}.row .btn{margin-top:0;}
-.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:var(--teal);color:#04231f;padding:12px 20px;border-radius:999px;font-size:14px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;z-index:9;}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#2d2d2d;color:#fff;padding:12px 20px;border-radius:999px;font-size:14px;font-weight:600;opacity:0;transition:.25s;pointer-events:none;z-index:9;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .back{display:inline-flex;align-items:center;gap:6px;color:var(--teal);text-decoration:none;font-size:14px;font-weight:600;margin-bottom:16px;}
 .back svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
@@ -4040,7 +4050,11 @@ select option{background:var(--surface);color:var(--ink);}
   </div>
   <button class="btn" id="genbtn" onclick="gen(this)">
     <svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/></svg>
-    Write the post
+    Write a post
+  </button>
+  <button class="btn alt" onclick="surprise()" style="margin-top:8px;">
+    <svg viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+    Surprise me
   </button>
 </div>
 
@@ -4088,6 +4102,13 @@ async function gen(btn){
     toast('Draft ready');
   }catch(e){toast('Network error');}
   finally{btn.disabled=false; btn.innerHTML=lbl;}
+}
+function surprise(){
+  var sel=document.getElementById('persona');
+  if(sel&&sel.options.length){sel.selectedIndex=Math.floor(Math.random()*sel.options.length);}
+  document.getElementById('topic').value='';
+  document.getElementById('angle').value='';
+  gen(document.getElementById('genbtn'));
 }
 function cp(id,msg){var el=document.getElementById(id);el.select();el.setSelectionRange(0,99999);
   navigator.clipboard.writeText(el.value).then(function(){toast(msg);},function(){document.execCommand('copy');toast(msg);});}
@@ -4490,6 +4511,7 @@ a.row:hover{border-color:var(--teal);}
   <div class="links">
     <a href="/admin">Customers</a>
     <a href="/social" class="active">Social</a>
+    <a href="/linkedin">LinkedIn</a>
     <a href="/leads">Leads</a>
     <a href="/settings">Settings</a>
     <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets</a>
@@ -4584,6 +4606,14 @@ def _lead_message(name, profession, town):
 LEADS_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Leads - {{ vertical }}</title>
+<link rel="apple-touch-icon" sizes="180x180" href="/leads-icon-180.png">
+<link rel="manifest" href="/leads-app.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Harbor Leads">
+<meta name="theme-color" content="#1f5d6b">
+<script>if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){rs.forEach(function(r){r.unregister();});}).catch(function(){});}</script>
 <style>
 :root{--bg:#fbf7f1;--ink:#1a2420;--mute:#6b7a72;--teal:#1f5d6b;--terra:#c98a52;--line:#e5dfd3;--surface:#fff;--danger:#b3563f;--ok:#1f7a5b;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
