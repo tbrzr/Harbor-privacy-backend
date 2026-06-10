@@ -187,29 +187,33 @@ def prune_reels(data):
 PBG="#143f49"; PCREAM="#fbf7f1"; PSOFT="#a7c6cc"; PACC="#e8a86a"; PLINE="rgba(255,255,255,0.12)"
 
 PET_SEEDS = [
-    {"id":"pet-walker-noshow","who":"dog walker","eyebrow":"FOR DOG WALKERS",
+    {"id":"pet-walker-noshow","who":"dog walker","eyebrow":"FOR DOG WALKERS","niche":"walkers",
      "learn":"harborprivacy.com/booking-for-dog-walkers",
      "idea":"clients text to cancel last minute or just no-show, blowing up the day's route"},
-    {"id":"pet-groomer-double","who":"dog groomer","eyebrow":"FOR GROOMERS",
+    {"id":"pet-groomer-double","who":"dog groomer","eyebrow":"FOR GROOMERS","niche":"groomers",
      "learn":"harborprivacy.com/booking-for-dog-groomers",
      "idea":"two dogs land in the same slot because requests come in by text, DM, and call at once"},
-    {"id":"pet-sitter-holiday","who":"pet sitter","eyebrow":"FOR PET SITTERS",
+    {"id":"pet-sitter-holiday","who":"pet sitter","eyebrow":"FOR PET SITTERS","niche":"sitters",
      "learn":"harborprivacy.com/booking-for-pet-sitters",
      "idea":"holiday weeks fill up fast and you lose track of who asked for which dates first"},
-    {"id":"pet-mobile-route","who":"mobile pet groomer","eyebrow":"MOBILE GROOMERS",
+    {"id":"pet-mobile-route","who":"mobile pet groomer","eyebrow":"MOBILE GROOMERS","niche":"mobile",
      "learn":"harborprivacy.com/booking-for-mobile-pet-groomers",
      "idea":"you are driving between houses all day and cannot pick up booking calls"},
-    {"id":"pet-afterhours","who":"dog walker","eyebrow":"FOR DOG WALKERS",
+    {"id":"pet-afterhours","who":"dog walker","eyebrow":"FOR DOG WALKERS","niche":"walkers",
      "learn":"harborprivacy.com/booking-for-dog-walkers",
      "idea":"booking requests arrive at 11pm while you sleep and the client cools off by morning"},
 ]
+PET_NICHES = ("walkers", "groomers", "sitters", "mobile")
 
 
-def pick_pet_seed(data):
-    """Least-recently-used pet seed (never-used ones first)."""
+def pick_pet_seed(data, niche=""):
+    """Least-recently-used pet seed (never-used first); optional niche filter.
+    When a niche has more than one seed (walkers), still picks the stalest one."""
+    pool = [s for s in PET_SEEDS if s.get("niche") == niche] if niche else PET_SEEDS
+    pool = pool or PET_SEEDS
     used = data.get("used_pet_seeds", [])
     last = {sid: i for i, sid in enumerate(used)}
-    return min(PET_SEEDS, key=lambda s: last.get(s["id"], -1))
+    return min(pool, key=lambda s: last.get(s["id"], -1))
 
 
 def pet_reel_post(seed, data):
@@ -350,8 +354,8 @@ def render_square(svg, path, S=1080):
     sp.unlink()
 
 
-def main_pets(data):
-    seed = pick_pet_seed(data)
+def main_pets(data, niche=""):
+    seed = pick_pet_seed(data, niche)
     post = None
     for a in range(5):
         try:
@@ -405,7 +409,8 @@ def main():
     data = sr.load_manifest()
     arg = sys.argv[1] if len(sys.argv) > 1 else ""
     if arg in ("pets", "--pets"):
-        return main_pets(data)
+        niche = sys.argv[2].strip().lower() if len(sys.argv) > 2 else ""
+        return main_pets(data, niche if niche in PET_NICHES else "")
     brand = arg if arg in BRANDS else sr.pick_brand(data["entries"])
     mark, eyebrow, url, _ = BRANDS[brand]
     # Optional ad-hoc reel: `reel-refresh.py <brand> "<idea>" [link-slug]`.

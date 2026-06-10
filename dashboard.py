@@ -3470,6 +3470,13 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
     <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/></svg>
     Generate reel
   </button>
+  <select id="petNiche" title="Pet niche" class="btn alt" style="font-weight:600;-webkit-appearance:menulist;appearance:menulist;">
+    <option value="">Pets: rotate</option>
+    <option value="walkers">Dog walkers</option>
+    <option value="groomers">Groomers</option>
+    <option value="sitters">Pet sitters</option>
+    <option value="mobile">Mobile groomers</option>
+  </select>
   <button class="btn alt" id="genPetReelBtn" onclick="genReel(this,'pets')">
     <svg viewBox="0 0 24 24"><circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="20" cy="16" r="2"/><circle cx="4" cy="8" r="2"/><path d="M14.7 16.8a4 4 0 0 0-5.4 0c-1.5 1.4-3.3 2.2-3.3 4 0 1.6 1.4 2.4 3 2.4 1.2 0 1.8-.5 3-.5s1.8.5 3 .5c1.6 0 3-.8 3-2.4 0-1.8-1.8-2.6-3.3-4z"/></svg>
     Generate pet reel
@@ -3539,8 +3546,10 @@ async function genSet(b,only){
 }
 async function genReel(b,mode){
   var label=b.textContent.trim(); b.disabled=true; b.textContent='Building reel...';
+  var payload=mode?{mode:mode}:{};
+  if(mode==='pets'){var sel=document.getElementById('petNiche'); if(sel&&sel.value)payload.niche=sel.value;}
   try{
-    var r=await fetch('/api/social/generate-reel',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify(mode?{mode:mode}:{})});
+    var r=await fetch('/api/social/generate-reel',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify(payload)});
     var j=await r.json();
     if(j.ok){toast(mode==='pets'?'Pet reel built':'Reel built'); setTimeout(function(){location.reload();},900);}
     else{toast(j.error||'Reel build failed'); b.disabled=false; b.textContent=label;}
@@ -3924,8 +3933,14 @@ def social_generate_reel():
     scenes + ffmpeg mp4 + poster and appends the manifest itself (~20-40s). Runs as
     the service user (ubuntu) so the manifest stays ubuntu-owned, no chown needed."""
     import subprocess as _sp
-    mode = ((request.get_json(silent=True) or {}).get("mode") or "").strip().lower()
-    extra = ["pets"] if mode == "pets" else []
+    body = request.get_json(silent=True) or {}
+    mode = (body.get("mode") or "").strip().lower()
+    extra = []
+    if mode == "pets":
+        extra.append("pets")
+        niche = (body.get("niche") or "").strip().lower()
+        if niche in ("walkers", "groomers", "sitters", "mobile"):
+            extra.append(niche)
     cmd = ["/usr/bin/python3", "/home/ubuntu/harbor-backend/reel-refresh.py", *extra]
     try:
         r = _sp.run(cmd, capture_output=True, text=True, timeout=240,
