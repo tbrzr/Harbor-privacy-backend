@@ -1748,6 +1748,65 @@ def decal_request():
     return _adblock_cors(make_response(jsonify({"ok": True})))
 
 
+# Sticker shop cart: maps the apex cart to one Stripe Checkout Session so a
+# customer can preorder several designs in a single checkout (the per-design
+# Payment Links only do one item each).
+STICKER_PRICES = {
+    "my-dns-is-mine":                "price_1TgwcQCOrGNrBgIfXcWKrbwE",
+    "i-read-it":                     "price_1TgwcRCOrGNrBgIfn5Di9P3J",
+    "no-logs":                       "price_1TgwcSCOrGNrBgIfeo6apQWS",
+    "not-the-product":               "price_1TgwcSCOrGNrBgIfyv6QNfLS",
+    "cookies-declined":              "price_1TgwcTCOrGNrBgIfSaapM7h9",
+    "i-host-my-own":                 "price_1TgwcUCOrGNrBgIfleuSGfRM",
+    "trackers-hate-this":            "price_1TgwcVCOrGNrBgIfyzZfLBuc",
+    "encrypted-at-harbor":           "price_1TgwcWCOrGNrBgIfa5PcigoM",
+    "ask-me-about-my-dns":           "price_1TgwcXCOrGNrBgIfZds7rm3E",
+    "hello-my-name-is-redacted":     "price_1Tgy7zCOrGNrBgIfBmxk39cv",
+    "hello-my-data-is-not-for-sale": "price_1Tgy7yCOrGNrBgIfS5NdqedI",
+    "pack":                          "price_1TgwcXCOrGNrBgIfO3ygVLVY",
+}
+
+@app.route("/api/sticker-checkout", methods=["POST", "OPTIONS"])
+def sticker_checkout():
+    if request.method == "OPTIONS":
+        return _adblock_cors(make_response("", 204))
+    import requests as _req
+    secret = os.environ.get("STRIPE_SECRET", "")
+    if not secret:
+        return _adblock_cors(make_response(jsonify({"error": "billing unavailable"}), 503))
+    cart = (request.get_json(silent=True) or {}).get("cart") or []
+    form = {
+        "mode": "payment",
+        "success_url": "https://harborprivacy.com/stickers?ok=1",
+        "cancel_url": "https://harborprivacy.com/stickers",
+        "shipping_address_collection[allowed_countries][0]": "US",
+        "custom_text[submit][message]": "Preorder. Ships in 2 to 3 weeks; we email you the day it goes out.",
+    }
+    idx = 0
+    for item in cart:
+        slug = str((item or {}).get("id", ""))
+        try:
+            qty = int((item or {}).get("qty", 1))
+        except Exception:
+            qty = 1
+        if slug in STICKER_PRICES and 1 <= qty <= 50:
+            form[f"line_items[{idx}][price]"] = STICKER_PRICES[slug]
+            form[f"line_items[{idx}][quantity]"] = str(qty)
+            idx += 1
+    if idx == 0:
+        return _adblock_cors(make_response(jsonify({"error": "cart is empty"}), 400))
+    try:
+        r = _req.post("https://api.stripe.com/v1/checkout/sessions",
+                      data=form, auth=(secret, ""), timeout=20)
+        j = r.json()
+    except Exception as e:
+        return _adblock_cors(make_response(jsonify({"error": str(e)}), 502))
+    if r.status_code >= 400 or "url" not in j:
+        msg = (j.get("error") or {}).get("message", "stripe error")
+        return _adblock_cors(make_response(jsonify({"error": msg}), 400))
+    return _adblock_cors(make_response(jsonify({"url": j["url"]})))
+
+
 @app.route("/api/signup-stats")
 def signup_stats():
     try:
