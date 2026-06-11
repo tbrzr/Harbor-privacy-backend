@@ -40,6 +40,9 @@ BRANDS = {
                 "verifiable removal receipts not vague status pages, cheaper than DeleteMe and Incogni, "
                 "masked email burner addresses that forward to your real inbox so you stop handing the real one to stores and forms, "
                 "kill a masked address the day it starts getting spam and you know exactly who leaked it"),
+    "stickers":("HARBOR / STICKERS","STICKER DROP", "harborprivacy.com/stickers",
+                "die-cut vinyl laptop stickers with privacy slogans like My DNS is mine, I read the privacy policy, and Cookies declined, "
+                "weatherproof and matte, now open for preorder shipping in 2 to 3 weeks, 4 dollars each or 18 for the pack of nine, for homelab and privacy people"),
 }
 # brands where "no account / no signup" claims are FALSE -> reject if present
 ACCOUNT_REQUIRED = {"booking", "money", "neighbor", "scan"}

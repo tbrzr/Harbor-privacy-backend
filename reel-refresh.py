@@ -112,8 +112,9 @@ def scene_svg(brand, hook, steps, n_steps, cta=False):
                  f'font-size="{fs}" fill="{INK}">{html.escape(l)}</text>')
 
     if cta:
+        lead = "Preorder now:" if brand == "stickers" else "Free to start. Try it:"
         p.append(f'<text x="90" y="1140" font-family="DM Sans, system-ui, sans-serif" '
-                 f'font-size="48" fill="{MUTE}">Free to start. Try it:</text>')
+                 f'font-size="48" fill="{MUTE}">{html.escape(lead)}</text>')
         p.append(f'<text x="90" y="1240" font-family="DM Mono, ui-monospace, Menlo, monospace" '
                  f'font-size="46" fill="{TEAL}" letter-spacing="1">{html.escape(url)}</text>')
     else:
