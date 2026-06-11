@@ -1711,6 +1711,43 @@ def adblock_checkout():
     return _adblock_cors(make_response(jsonify({"client_secret": j["client_secret"]})))
 
 
+@app.route("/api/decal-request", methods=["POST", "OPTIONS"])
+def decal_request():
+    """Public lead form from the apex sticker shop: a business requests a free
+    'powered by Harbor Booking' window decal. Records the lead and emails Tim.
+    Reuses the adblock CORS scope (same harborprivacy.com origins)."""
+    if request.method == "OPTIONS":
+        return _adblock_cors(make_response("", 204))
+    import json as _j, time as _t, html as _html
+    data = request.get_json(silent=True) or {}
+    biz   = (data.get("biz") or "").strip()[:120]
+    email = (data.get("email") or "").strip()[:160]
+    link  = (data.get("link") or "").strip()[:300]
+    msg   = (data.get("msg") or "").strip()[:1500]
+    if not biz or "@" not in email:
+        return _adblock_cors(make_response(jsonify({"error": "business name and a valid email are required"}), 400))
+    rec = {"ts": int(_t.time()), "biz": biz, "email": email, "link": link, "msg": msg,
+           "ip": request.headers.get("X-Forwarded-For", request.remote_addr or "")}
+    try:
+        with open("/home/ubuntu/harbor-decal-requests.jsonl", "a") as f:
+            f.write(_j.dumps(rec, ensure_ascii=False) + "\n")
+    except Exception as e:
+        print(f"decal request log failed: {e!r}", flush=True)
+    try:
+        from webhook import send_email
+        e_ = lambda s: _html.escape(s or "")
+        body = (f"<div style='font-family:sans-serif;color:#1a2420;max-width:560px;'>"
+                f"<h2 style='font-family:Georgia,serif;font-weight:400;'>New Booking decal request</h2>"
+                f"<p><strong>Business:</strong> {e_(biz)}</p>"
+                f"<p><strong>Email:</strong> {e_(email)}</p>"
+                f"<p><strong>Booking link:</strong> {e_(link) or '(none yet)'}</p>"
+                f"<p><strong>Notes:</strong><br>{e_(msg).replace(chr(10), '<br>') or '(none)'}</p></div>")
+        send_email("info@harborprivacy.com", f"Booking decal request - {biz}", body)
+    except Exception as e:
+        print(f"decal request email failed: {e!r}", flush=True)
+    return _adblock_cors(make_response(jsonify({"ok": True})))
+
+
 @app.route("/api/signup-stats")
 def signup_stats():
     try:
