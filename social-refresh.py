@@ -19,6 +19,12 @@ IMG_JUNK   = Path("/var/www/network/social-images")
 MAX_AI     = 24          # cap on AI-generated entries in the pool
 JUNK_AGE_D = 14          # delete social-images files older than this many days
 
+# Stickers are a real product with designed cards + hand-written captions, so the
+# rotation serves the pre-rendered posts (make-sticker-posts.py) instead of letting
+# the AI invent copy. posts.json is the shared source of truth.
+SRC_PER_STICKER = Path("/home/ubuntu/harbor-design-system/assets/stickers/social/per-sticker")
+STICKER_POSTS = SRC_PER_STICKER / "posts.json"
+
 BRANDS = {
     "harbor":  ("HARBOR / PRIVACY", "PRIVACY TIP",  "harborprivacy.com",
                 "home network privacy, encrypted DNS, ad/tracker blocking, parental controls, ISP tracking, smart-device spying"),
@@ -88,6 +94,54 @@ def pick_seed(data, brand):
         data["used_seeds"] = [u for u in data.get("used_seeds", []) if u not in ids]
         pool = seeds
     return random.choice(pool)
+
+
+def sticker_entry(data):
+    """Pick the next unused sticker (cycling once all are used) and return a ready
+    manifest entry built from the pre-rendered image + posts.json caption. No AI,
+    no card render. Uses a stable id per slug so re-runs replace rather than pile up,
+    which also means prune never has to delete the shared sticker image files."""
+    doc = json.loads(STICKER_POSTS.read_text())
+    posts = doc["posts"]
+    img_base = doc["img_base"].rstrip("/")
+    link = doc.get("link", "harborprivacy.com/stickers")
+
+    used = set(data.get("used_stickers", []))
+    pool = [p for p in posts if p["slug"] not in used]
+    if not pool:                       # exhausted -> restart the cycle
+        data["used_stickers"] = []
+        pool = posts
+    p = random.choice(pool)
+    pid = f"sticker-{p['slug']}"
+
+    # The /social/img route serves a LOCAL png from assets/social and only falls
+    # back to entry["img"] (login-walled here). So drop a png copy of the square
+    # card into SOCIAL_DIR, exactly like the AI path's render_card does.
+    src = SRC_PER_STICKER / f"{p['slug']}-square-1080.jpg"
+    try:
+        from PIL import Image
+        im = Image.open(src).convert("RGB")
+        im.save(SOCIAL_DIR / f"{pid}.png", "PNG")
+        im.save(SOCIAL_DIR / f"{pid}-sq.png", "PNG")   # square preview on the post page
+    except Exception as e:
+        print(f"sticker_entry: could not stage png for {pid}: {e!r}")
+
+    body = f"{p['caption']}\n\n{link}\n\n{p['hashtags']}"
+    entry = {
+        "id": pid,
+        "category": "Stickers",
+        "source": "sticker",
+        "brand": "stickers",
+        "created": int(time.time()),
+        "head": p["head"],
+        "hdr": f"STICKERS / {p['head']} -> {link}",
+        "img": f"{img_base}/{p['slug']}-square-1080.jpg",
+        "link": f"https://{link}",
+        "tags": "lightbulb,shield",
+        "body": body,
+    }
+    data.setdefault("used_stickers", []).append(p["slug"])
+    return entry
 
 
 def ai_post(brand, seed, data):
@@ -205,6 +259,21 @@ def main():
     data = load_manifest()
     brand = pick_brand(data["entries"])
     mark, eyebrow, url, _ = BRANDS[brand]
+
+    if brand == "stickers":
+        # Serve a real designed sticker post, not an AI-generated card.
+        entry = sticker_entry(data)
+        # stable id per slug: drop any prior card for this slug so it refreshes
+        # in place instead of accumulating (and without touching the shared image).
+        data["entries"] = [e for e in data["entries"] if e.get("id") != entry["id"]]
+        data["entries"].append(entry)
+        dropped, freed = prune(data)
+        tmp = MANIFEST.with_suffix(".json.tmp")
+        tmp.write_text(json.dumps(data, indent=2))
+        os.replace(tmp, MANIFEST)
+        print(f"added {entry['id']} | brand=stickers | pool={len(data['entries'])} | dropped {dropped} ai | freed {freed//1024}KB junk")
+        return
+
     seed = pick_seed(data, brand)
     post = None
     for attempt in range(3):
