@@ -5676,55 +5676,7 @@ def api_contact():
 
 
 # ── ROUTES: SECURITY + SYSTEM INFO WIDGETS ──────────────────
-_SEC_CACHE = {"ts": 0, "data": None}
 _SYS_CACHE = {"ts": 0, "data": None}
-
-def _run_cscli(*args):
-    import subprocess, json as _json
-    try:
-        r = subprocess.run(["sudo", "/usr/bin/cscli", *args, "-o", "json"],
-                           capture_output=True, timeout=8, text=True)
-        return _json.loads(r.stdout) if r.stdout.strip() else []
-    except Exception:
-        return []
-
-@app.route("/api/security-status")
-def api_security_status():
-    import time as _t
-    now = _t.time()
-    if _SEC_CACHE["data"] and (now - _SEC_CACHE["ts"]) < 30:
-        d = _SEC_CACHE["data"]
-    else:
-        decisions = _run_cscli("decisions", "list")
-        alerts_24h = _run_cscli("alerts", "list", "--since", "24h")
-        # Decisions list returns nested structure
-        bans = []
-        for a in decisions:
-            for dec in a.get("decisions", []):
-                if dec.get("type") == "ban":
-                    bans.append({
-                        "ip": dec.get("value"),
-                        "scenario": dec.get("scenario", "").replace("crowdsecurity/", ""),
-                        "country": a.get("source", {}).get("cn", "?"),
-                        "duration": dec.get("duration", "")[:8],
-                    })
-        # Scenario counts in last 24h
-        scn = {}
-        for a in alerts_24h:
-            name = (a.get("scenario") or "").replace("crowdsecurity/", "")
-            if name: scn[name] = scn.get(name, 0) + 1
-        top_scenarios = sorted(scn.items(), key=lambda x: -x[1])[:5]
-        d = {
-            "active_bans": len(bans),
-            "bans": bans[:8],
-            "alerts_24h": len(alerts_24h),
-            "top_scenarios": top_scenarios,
-            "updated": int(now),
-        }
-        _SEC_CACHE.update({"ts": now, "data": d})
-    resp = jsonify(d)
-    resp.headers["Access-Control-Allow-Origin"] = "*"
-    return resp
 
 @app.route("/api/system-info")
 def api_system_info():
@@ -5759,8 +5711,8 @@ def api_system_info():
         except: disk_pct = 0; disk_used_gb = disk_total_gb = 0
         # services
         services = ["harbor-dashboard","harbor-booking","harbor-fax","harbor-webhook",
-                    "harbor-career","brazer-dashboard","nginx","crowdsec",
-                    "crowdsec-firewall-bouncer","fail2ban","AdGuardHome"]
+                    "harbor-career","brazer-dashboard","nginx",
+                    "fail2ban","AdGuardHome"]
         svc = {}
         for sv in services:
             try:
