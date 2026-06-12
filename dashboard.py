@@ -320,6 +320,16 @@ def _verify_setup_token(token, email):
     return bool(expected) and hmac.compare_digest(token, expected)
 
 
+def _login_redirect():
+    # Preserve the page the user was heading to (e.g. /social or /leads from
+    # a PWA start_url) so login can send them back instead of dumping them
+    # on /admin or /dashboard.
+    from urllib.parse import quote
+    nxt = request.full_path if request.query_string else request.path
+    if nxt and nxt.startswith("/") and not nxt.startswith("//") and nxt not in ("/", "/login", "/logout"):
+        return redirect("/login?next=" + quote(nxt, safe=""))
+    return redirect("/login")
+
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -330,7 +340,7 @@ def login_required(f):
             if part.startswith("hp_token="):
                 tokens.append(part[len("hp_token="):])
         if not tokens:
-            return redirect("/login")
+            return _login_redirect()
         payload = None
         for t in tokens:
             p = verify_token(t)
@@ -338,7 +348,7 @@ def login_required(f):
                 payload = p
                 break
         if not payload:
-            return redirect("/login")
+            return _login_redirect()
         request.user_email = payload["email"]
         request.is_admin = payload.get("admin", False)
         return f(*args, **kwargs)
@@ -356,7 +366,7 @@ def admin_required(f):
             if part.startswith("hp_token="):
                 tokens.append(part[len("hp_token="):])
         if not tokens:
-            return redirect("/login")
+            return _login_redirect()
         payload = None
         for t in tokens:
             p = verify_token(t)
@@ -427,6 +437,10 @@ STYLE = """<!DOCTYPE html>
   .nav-links{display:flex;gap:8px;align-items:center;flex-wrap:wrap;row-gap:6px;}
   .nav-links a{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.06em;padding:6px 10px;border-radius:6px;transition:color 0.15s,background 0.15s;}
   .nav-links a:hover,.nav-links a.active{color:var(--accent);background:rgba(0,229,192,0.06);}
+  .nav-drop{position:relative;}
+  .nav-drop-menu{display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px;min-width:170px;z-index:70;flex-direction:column;gap:2px;box-shadow:0 8px 24px rgba(0,0,0,0.35);}
+  .nav-drop.open .nav-drop-menu{display:flex;}
+  .nav-drop-menu a{display:block;padding:8px 10px;white-space:nowrap;}
   .wrap{max-width:960px;margin:0 auto;padding:48px 32px 80px;position:relative;z-index:1;}
   .wrap-sm{max-width:500px;margin:0 auto;padding:60px 32px;position:relative;z-index:1;}
   .card{background:linear-gradient(180deg,var(--surface),#0f1517);border:1px solid var(--border);border-radius:var(--radius);padding:32px;margin-bottom:20px;box-shadow:var(--shadow);}
@@ -534,8 +548,12 @@ STYLE = """<!DOCTYPE html>
 })();
 function toggleGroup(btn){var body=btn.nextElementSibling;var arrow=btn.querySelector('.group-arrow');if(body.style.display==='none'){body.style.display='block';arrow.innerHTML='&#9650;';}else{body.style.display='none';arrow.innerHTML='&#9660;';}}
 var TIMEOUT=30*60*1000,WARNING=25*60*1000,timer,warnTimer,warned=false;
-function resetTimer(){clearTimeout(timer);clearTimeout(warnTimer);warned=false;var w=document.getElementById("timeout-warning");if(w)w.style.display="none";warnTimer=setTimeout(showWarning,WARNING);timer=setTimeout(function(){window.location.href="/logout";},TIMEOUT);}
+// Skip the inactivity auto-logout for admin in installed PWAs; a parked app
+// icon would otherwise always reopen on the login page.
+var HP_NO_TIMEOUT=(function(){try{var m=document.querySelector('meta[name="hp-is-admin"]');return m&&m.getAttribute('content')==='yes'&&window.matchMedia('(display-mode: standalone)').matches;}catch(e){return false;}})();
+function resetTimer(){if(HP_NO_TIMEOUT)return;clearTimeout(timer);clearTimeout(warnTimer);warned=false;var w=document.getElementById("timeout-warning");if(w)w.style.display="none";warnTimer=setTimeout(showWarning,WARNING);timer=setTimeout(function(){window.location.href="/logout";},TIMEOUT);}
 function showWarning(){if(warned)return;warned=true;var w=document.getElementById("timeout-warning");if(w)w.style.display="flex";}
+document.addEventListener("click",function(e){document.querySelectorAll(".nav-drop.open").forEach(function(d){if(!d.contains(e.target))d.classList.remove("open");});});
 document.addEventListener("mousemove",resetTimer);
 document.addEventListener("keypress",resetTimer);
 document.addEventListener("click",resetTimer);
@@ -635,11 +653,64 @@ NAV_ADMIN = """
     <a href="/social" class="{{ 'active' if active == 'social' else '' }}">Social</a>
     <a href="/linkedin" class="{{ 'active' if active == 'linkedin' else '' }}">LinkedIn</a>
     <a href="/leads" class="{{ 'active' if active == 'leads' else '' }}">Leads</a>
+    <div class="nav-drop">
+      <a href="#" onclick="this.parentNode.classList.toggle('open');return false;" class="{% if active in ('links','analytics','logs','scan') %}active{% endif %}">Tools &#9662;</a>
+      <div class="nav-drop-menu">
+        <a href="/admin/links" class="{{ 'active' if active == 'links' else '' }}">Link Manager</a>
+        <a href="/admin/analytics" class="{{ 'active' if active == 'analytics' else '' }}">DNS Analytics</a>
+        <a href="/admin/logs" class="{{ 'active' if active == 'logs' else '' }}">Live Logs</a>
+        <a href="/admin/scan" class="{{ 'active' if active == 'scan' else '' }}">Harbor Scan</a>
+      </div>
+    </div>
     <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">Settings</a>
     <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets ↗</a>
     <a href="/logout" style="margin-left:auto;">Sign Out</a>
   </div>
 </nav>"""
+
+# Shared topnav + PWA bottom tabs for the light (cream) admin pages:
+# /social, /social/sent, /social/pages, /leads, /linkedin.
+# Render with nav_active set to 'social', 'leads', or 'linkedin'.
+# Relies on the host page defining --ink/--mute/--teal/--line CSS vars
+# (all five cream templates share the same palette).
+NAV_LIGHT = """
+<style>
+.topnav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-4px 0 18px;padding-bottom:14px;border-bottom:1px solid var(--line);}
+.topnav .brand{font-family:ui-monospace,Menlo,monospace;font-weight:600;font-size:14px;color:var(--ink);text-decoration:none;letter-spacing:1px;}
+.topnav .brand span{color:var(--teal);margin:0 2px;}
+.topnav .links{display:flex;gap:16px;flex-wrap:wrap;}
+.topnav .links a{font-size:13px;color:var(--mute);text-decoration:none;}
+.topnav .links a.active{color:var(--teal);font-weight:600;}
+.lt-tabs{display:none;}
+.lt-tabs a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 4px;color:var(--mute);text-decoration:none;font-family:ui-monospace,Menlo,monospace;font-size:9px;letter-spacing:.08em;font-weight:600;min-height:44px;-webkit-tap-highlight-color:transparent;}
+.lt-tabs a.active{color:var(--teal);}
+.lt-tabs svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+@media all and (display-mode:standalone) and (max-width:768px){
+  .topnav .links{display:none;}
+  body{padding-bottom:calc(80px + env(safe-area-inset-bottom));}
+  .lt-tabs{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;align-items:stretch;background:rgba(251,247,241,0.96);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom)) 4px;z-index:60;backdrop-filter:saturate(160%) blur(14px);-webkit-backdrop-filter:saturate(160%) blur(14px);}
+}
+</style>
+<div class="topnav">
+  <a href="/admin" class="brand">harbor<span>/</span>privacy</a>
+  <div class="links">
+    <a href="/admin">Customers</a>
+    <a href="/social" class="{{ 'active' if nav_active == 'social' else '' }}">Social</a>
+    <a href="/linkedin" class="{{ 'active' if nav_active == 'linkedin' else '' }}">LinkedIn</a>
+    <a href="/leads" class="{{ 'active' if nav_active == 'leads' else '' }}">Leads</a>
+    <a href="/settings">Settings</a>
+    <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets</a>
+    <a href="/logout">Sign out</a>
+  </div>
+</div>
+<nav class="lt-tabs" aria-label="Primary">
+  <a href="/social" class="{{ 'active' if nav_active == 'social' else '' }}"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span>Social</span></a>
+  <a href="/leads" class="{{ 'active' if nav_active == 'leads' else '' }}"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg><span>Leads</span></a>
+  <a href="/linkedin" class="{{ 'active' if nav_active == 'linkedin' else '' }}"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg><span>LinkedIn</span></a>
+  <a href="/admin"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Customers</span></a>
+  <a href="/logout"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sign out</span></a>
+</nav>
+"""
 
 # ════════════════════════════════════════════════════════════
 # SECTION 10 — ROUTES: AUTH
@@ -694,6 +765,11 @@ def login():
     email = request.args.get("email", "").lower().strip()
     error = None
     show_2fa = False
+
+    # Internal-path-only post-login destination (from PWA start_url etc.)
+    nxt = (request.form.get("next") or request.args.get("next") or "").strip()
+    if not (nxt.startswith("/") and not nxt.startswith("//") and ":" not in nxt):
+        nxt = ""
 
     if request.method == "POST":
         action = request.form.get("action", "")
@@ -787,10 +863,10 @@ def login():
                                     new_lines.append(_json.dumps(r))
                                 open(CUSTOMERS_LOG,"w").write("\n".join(new_lines) + "\n")
                             except: pass
-                            resp = make_response(redirect("/admin" if is_admin else "/dashboard"))
+                            resp = make_response(redirect(nxt or ("/admin" if is_admin else "/dashboard")))
                             resp.set_cookie("hp_token", "", expires=0, path="/")
                             resp.set_cookie("hp_token", "", expires=0, path="/", domain=".harborprivacy.com")
-                            resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=86400, domain=".harborprivacy.com")
+                            resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=2592000 if is_admin else 86400, domain=".harborprivacy.com")
                             return resp
                     else:
                         is_admin = email == ADMIN_EMAIL
@@ -809,10 +885,10 @@ def login():
                                 new_lines.append(_json.dumps(r))
                             open(CUSTOMERS_LOG,"w").write("\n".join(new_lines) + "\n")
                         except: pass
-                        resp = make_response(redirect("/admin" if is_admin else "/dashboard"))
+                        resp = make_response(redirect(nxt or ("/admin" if is_admin else "/dashboard")))
                         resp.set_cookie("hp_token", "", expires=0, path="/")
                         resp.set_cookie("hp_token", "", expires=0, path="/", domain=".harborprivacy.com")
-                        resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=86400, domain=".harborprivacy.com")
+                        resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=2592000 if is_admin else 86400, domain=".harborprivacy.com")
                         return resp
 
     html = STYLE + """
@@ -832,16 +908,18 @@ def login():
   {% if step == '1' %}
   <form method="POST">
     <input type="hidden" name="action" value="check_email">
+    <input type="hidden" name="next" value="{{ nxt }}">
     <input type="email" name="email" placeholder="Your email address" value="{{ email }}" required autocomplete="email" autofocus>
     <button type="submit" class="btn" style="width:100%;">Continue →</button>
   </form>
   {% else %}
   <form method="POST">
     <input type="hidden" name="action" value="login">
+    <input type="hidden" name="next" value="{{ nxt }}">
     <input type="hidden" name="email" value="{{ email }}">
     <div style="background:var(--surface);border:1px solid var(--border);padding:12px 16px;margin-bottom:16px;font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);display:flex;justify-content:space-between;align-items:center;">
       <span>{{ email }}</span>
-      <a href="/login" style="font-size:11px;color:var(--accent);text-decoration:none;">Change</a>
+      <a href="/login{% if nxt %}?next={{ nxt|urlencode }}{% endif %}" style="font-size:11px;color:var(--accent);text-decoration:none;">Change</a>
     </div>
     {% if show_2fa %}
     <input type="hidden" name="pw_token" value="{{ pw_tok }}">
@@ -861,7 +939,7 @@ def login():
     import hmac as _hmac2, hashlib as _hs2
     _key2 = app.secret_key if isinstance(app.secret_key, bytes) else app.secret_key.encode()
     pw_tok = _hmac2.new(_key2, email.encode(), _hs2.sha256).hexdigest() if email else ""
-    return render_template_string(html, step=step, email=email, error=error, show_2fa=show_2fa, pw_tok=pw_tok)
+    return render_template_string(html, step=step, email=email, error=error, show_2fa=show_2fa, pw_tok=pw_tok, nxt=nxt)
 
 @app.route("/dns-whoami/<token>")
 def dns_whoami(token):
@@ -2013,7 +2091,7 @@ def admin_analytics():
   </div>
   <a href="/admin" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;">← Back to Admin</a>
 </div></html>"""
-    return render_template_string(html, active="admin")
+    return render_template_string(html, active="analytics")
 
 @app.route("/admin/links", methods=["GET"])
 @admin_required
@@ -2109,7 +2187,7 @@ async function moveLink(i, dir){
 }
 </script>
 </html>"""
-    return render_template_string(html, links=enumerate(links), active="admin")
+    return render_template_string(html, links=enumerate(links), active="links")
 
 @app.route("/api/admin/links", methods=["POST"])
 @admin_required
@@ -3421,25 +3499,8 @@ a.row.dead{opacity:.55;pointer-events:none;}
 .badge{display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--teal);border:1px solid var(--teal);border-radius:999px;padding:2px 8px;margin-left:8px;vertical-align:middle;}
 .empty{color:var(--mute);text-align:center;padding:40px 0;}
 .chev{margin-left:auto;flex:0 0 auto;width:18px;height:18px;stroke:var(--mute);fill:none;stroke-width:2;}
-.topnav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-4px 0 18px;padding-bottom:14px;border-bottom:1px solid var(--line);}
-.topnav .brand{font-family:ui-monospace,Menlo,monospace;font-weight:600;font-size:14px;color:var(--ink);text-decoration:none;letter-spacing:1px;}
-.topnav .brand span{color:var(--teal);margin:0 2px;}
-.topnav .links{display:flex;gap:16px;flex-wrap:wrap;}
-.topnav .links a{font-size:13px;color:var(--mute);text-decoration:none;}
-.topnav .links a.active{color:var(--teal);font-weight:600;}
 </style></head><body>
-<div class="topnav">
-  <a href="/admin" class="brand">harbor<span>/</span>privacy</a>
-  <div class="links">
-    <a href="/admin">Customers</a>
-    <a href="/social" class="active">Social</a>
-    <a href="/linkedin">LinkedIn</a>
-    <a href="/leads">Leads</a>
-    <a href="/settings">Settings</a>
-    <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets</a>
-    <a href="/logout">Sign out</a>
-  </div>
-</div>
+""" + NAV_LIGHT + """
 <div class="eyebrow">Harbor social</div>
 <h1>Sent posts</h1>
 {% if not hist %}<div class="empty">No posts sent yet. They show up here after the next scheduled send.</div>{% endif %}
@@ -3483,7 +3544,7 @@ def social_sent():
             hist.append(r)
     except Exception:
         pass
-    resp = make_response(render_template_string(SOCIAL_HISTORY_HTML, hist=hist))
+    resp = make_response(render_template_string(SOCIAL_HISTORY_HTML, hist=hist, nav_active="social"))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
@@ -3507,13 +3568,12 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,sy
 .eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:3px;color:var(--teal);text-transform:uppercase;}
 h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;margin:6px 0 4px;}
 .sub{color:var(--mute);font-size:14px;margin:0 0 16px;}
-.topnav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-4px 0 18px;padding-bottom:14px;border-bottom:1px solid var(--line);}
-.topnav .brand{font-family:ui-monospace,Menlo,monospace;font-weight:600;font-size:14px;color:var(--ink);text-decoration:none;letter-spacing:1px;}
-.topnav .brand span{color:var(--teal);margin:0 2px;}
-.topnav .links{display:flex;gap:16px;flex-wrap:wrap;}
-.topnav .links a{font-size:13px;color:var(--mute);text-decoration:none;}
-.topnav .links a.active{color:var(--teal);font-weight:600;}
 .bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+.genwrap{position:relative;}
+.genlist{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:50;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px;min-width:220px;flex-direction:column;gap:8px;box-shadow:0 12px 32px rgba(26,36,32,0.14);}
+.genwrap.open .genlist{display:flex;}
+.genlist .btn{justify-content:flex-start;width:100%;}
+.genlist select{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:10px;font:14px/1.4 -apple-system,system-ui,sans-serif;color:var(--ink);background:var(--surface-2,#f6f1e7);}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:12px;padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer;background:var(--teal);color:#fff;text-decoration:none;}
 .btn.alt{background:#fff;color:var(--teal);border:1.5px solid var(--teal);}
 .btn:active{opacity:.85;}.btn[disabled]{opacity:.6;cursor:default;}
@@ -3538,45 +3598,43 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#2d2d2d;color:#fff;padding:12px 20px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:9;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 </style></head><body>
-<div class="topnav">
-  <a href="/admin" class="brand">harbor<span>/</span>privacy</a>
-  <div class="links">
-    <a href="/admin">Customers</a>
-    <a href="/social" class="active">Social</a>
-    <a href="/linkedin">LinkedIn</a>
-    <a href="/leads">Leads</a>
-    <a href="/settings">Settings</a>
-    <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets</a>
-    <a href="/logout">Sign out</a>
-  </div>
-</div>
+""" + NAV_LIGHT + """
 <div class="eyebrow">Harbor social</div>
 <h1>Post library</h1>
 <p class="sub">Pick a post, copy the caption and image, and schedule it. Mark posts as used so you do not repeat.</p>
 <div class="bar">
-  <button class="btn" id="genBtn" onclick="genSet(this)">
-    <svg viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
-    Generate a new set
-  </button>
-  <button class="btn alt" id="genTipsBtn" onclick="genSet(this,'tips')">
-    <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
-    Generate tips set
-  </button>
-  <button class="btn alt" id="genReelBtn" onclick="genReel(this)">
-    <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/></svg>
-    Generate reel
-  </button>
-  <select id="petNiche" title="Pet niche" class="btn alt" style="font-weight:600;-webkit-appearance:menulist;appearance:menulist;">
-    <option value="">Pets: rotate</option>
-    <option value="walkers">Dog walkers</option>
-    <option value="groomers">Groomers</option>
-    <option value="sitters">Pet sitters</option>
-    <option value="mobile">Mobile groomers</option>
-  </select>
-  <button class="btn alt" id="genPetReelBtn" onclick="genReel(this,'pets')">
-    <svg viewBox="0 0 24 24"><circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="20" cy="16" r="2"/><circle cx="4" cy="8" r="2"/><path d="M14.7 16.8a4 4 0 0 0-5.4 0c-1.5 1.4-3.3 2.2-3.3 4 0 1.6 1.4 2.4 3 2.4 1.2 0 1.8-.5 3-.5s1.8.5 3 .5c1.6 0 3-.8 3-2.4 0-1.8-1.8-2.6-3.3-4z"/></svg>
-    Generate pet reel
-  </button>
+  <div class="genwrap" id="genWrap">
+    <button class="btn" id="genBtn" onclick="document.getElementById('genWrap').classList.toggle('open')">
+      <svg viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+      Generate
+      <svg viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="genlist">
+      <button class="btn alt" onclick="genSet(this)">
+        <svg viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+        New post set
+      </button>
+      <button class="btn alt" onclick="genSet(this,'tips')">
+        <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
+        Tips set
+      </button>
+      <button class="btn alt" onclick="genReel(this)">
+        <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/></svg>
+        Reel
+      </button>
+      <select id="petNiche" title="Pet niche">
+        <option value="">Pets: rotate niche</option>
+        <option value="walkers">Dog walkers</option>
+        <option value="groomers">Groomers</option>
+        <option value="sitters">Pet sitters</option>
+        <option value="mobile">Mobile groomers</option>
+      </select>
+      <button class="btn alt" onclick="genReel(this,'pets')">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="20" cy="16" r="2"/><circle cx="4" cy="8" r="2"/><path d="M14.7 16.8a4 4 0 0 0-5.4 0c-1.5 1.4-3.3 2.2-3.3 4 0 1.6 1.4 2.4 3 2.4 1.2 0 1.8-.5 3-.5s1.8.5 3 .5c1.6 0 3-.8 3-2.4 0-1.8-1.8-2.6-3.3-4z"/></svg>
+        Pet reel
+      </button>
+    </div>
+  </div>
   <a class="btn alt" href="/social/pages">Apex pages</a>
   <a class="btn alt" href="/social/sent">Sent log</a>
   <span class="count"><b id="visCount">0</b> posts</span>
@@ -3652,6 +3710,7 @@ async function genReel(b,mode){
   }catch(e){toast('Reel build failed (timeout?)'); b.disabled=false; b.textContent=label;}
 }
 recount();
+document.addEventListener('click',function(e){var w=document.getElementById('genWrap');if(w&&!w.contains(e.target))w.classList.remove('open');});
 </script></body></html>"""
 
 
@@ -3675,7 +3734,7 @@ def social():
     # newest entries first so freshly generated sets show on top
     out.reverse()
     cats = sorted({o["category"] for o in out})
-    resp = make_response(render_template_string(SOCIAL_LIBRARY_HTML, entries=out, cats=cats))
+    resp = make_response(render_template_string(SOCIAL_LIBRARY_HTML, entries=out, cats=cats, nav_active="social"))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
@@ -4177,7 +4236,7 @@ select option{background:var(--surface);color:var(--ink);}
 .back{display:inline-flex;align-items:center;gap:6px;color:var(--teal);text-decoration:none;font-size:14px;font-weight:600;margin-bottom:16px;}
 .back svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
 </style></head><body>
-<a href="/social" class="back"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Social</a>
+""" + NAV_LIGHT + """
 <div class="eyebrow">Personal posts</div>
 <h1>LinkedIn post generator</h1>
 <p class="sub">Pick who you are posting as and hit Write. Leave the topic blank and it picks a fresh angle for you, or paste a headline to react to. The link goes in the first comment so LinkedIn does not bury the post.</p>
@@ -4275,7 +4334,7 @@ function toast(m){var x=document.getElementById('toast');x.textContent=m;x.class
 def linkedin_page():
     P = _linkedin_personas()
     personas = [{"key": k, "label": v.get("label", k)} for k, v in P.items()]
-    resp = make_response(render_template_string(LINKEDIN_HTML, personas=personas, active="linkedin"))
+    resp = make_response(render_template_string(LINKEDIN_HTML, personas=personas, nav_active="linkedin"))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
@@ -4641,12 +4700,6 @@ SOCIAL_PAGES_HTML = """<!doctype html><html lang="en"><head>
 :root{--bg:#fbf7f1;--ink:#1a2420;--mute:#6b7a72;--teal:#1f5d6b;--line:#e5dfd3;--surface:#fff;}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,system-ui,"DM Sans",sans-serif;padding:20px;padding-top:max(20px,calc(env(safe-area-inset-top) + 14px));max-width:760px;margin:0 auto;}
-.topnav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-4px 0 18px;padding-bottom:14px;border-bottom:1px solid var(--line);}
-.topnav .brand{font-family:ui-monospace,Menlo,monospace;font-weight:600;font-size:14px;color:var(--ink);text-decoration:none;letter-spacing:1px;}
-.topnav .brand span{color:var(--teal);margin:0 2px;}
-.topnav .links{display:flex;gap:16px;flex-wrap:wrap;}
-.topnav .links a{font-size:13px;color:var(--mute);text-decoration:none;}
-.topnav .links a.active{color:var(--teal);font-weight:600;}
 .eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:3px;color:var(--teal);text-transform:uppercase;}
 h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;margin:6px 0 4px;}
 .sub{color:var(--mute);font-size:14px;margin:0 0 20px;}
@@ -4659,18 +4712,7 @@ a.row:hover{border-color:var(--teal);}
 .row .ext{margin-left:auto;flex:0 0 auto;width:15px;height:15px;stroke:var(--mute);fill:none;stroke-width:2;}
 .foot{color:var(--mute);font-size:12px;margin-top:24px;font-family:ui-monospace,monospace;}
 </style></head><body>
-<div class="topnav">
-  <a href="/admin" class="brand">harbor<span>/</span>privacy</a>
-  <div class="links">
-    <a href="/admin">Customers</a>
-    <a href="/social" class="active">Social</a>
-    <a href="/linkedin">LinkedIn</a>
-    <a href="/leads">Leads</a>
-    <a href="/settings">Settings</a>
-    <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets</a>
-    <a href="/logout">Sign out</a>
-  </div>
-</div>
+""" + NAV_LIGHT + """
 <div class="eyebrow">Harbor social</div>
 <h1>Live apex pages</h1>
 <p class="sub">{{ total }} marketing pages live on harborprivacy.com. Tap one to open it, then make a reel from it.</p>
@@ -4705,7 +4747,7 @@ def social_pages():
         })
         total += 1
     ordered = [(c, sorted(groups[c], key=lambda p: p["slug"])) for c in PAGES_ORDER if groups[c]]
-    resp = make_response(render_template_string(SOCIAL_PAGES_HTML, groups=ordered, total=total))
+    resp = make_response(render_template_string(SOCIAL_PAGES_HTML, groups=ordered, total=total, nav_active="social"))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
@@ -4812,24 +4854,8 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px
 .fu[data-due="1"]{border-top-color:var(--danger);}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#2d2d2d;color:#fff;padding:11px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
-.topnav{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:-4px 0 18px;padding-bottom:14px;border-bottom:1px solid var(--line);}
-.topnav .brand{font-family:ui-monospace,Menlo,monospace;font-weight:600;font-size:14px;color:var(--ink);text-decoration:none;letter-spacing:1px;}
-.topnav .brand span{color:var(--teal);margin:0 2px;}
-.topnav .links{display:flex;gap:16px;flex-wrap:wrap;}
-.topnav .links a{font-size:13px;color:var(--mute);text-decoration:none;}
-.topnav .links a.active{color:var(--teal);font-weight:600;}
 </style></head><body>
-<div class="topnav">
-  <a href="/admin" class="brand">harbor<span>/</span>privacy</a>
-  <div class="links">
-    <a href="/admin">Customers</a>
-    <a href="/social">Social</a>
-    <a href="/leads" class="active">Leads</a>
-    <a href="/settings">Settings</a>
-    <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets</a>
-    <a href="/logout">Sign out</a>
-  </div>
-</div>
+""" + NAV_LIGHT + """
 <h1>Leads</h1>
 <div class="sub">{{ vertical }} - {{ leads|length }} active</div>
 <div class="addbox">
@@ -4940,7 +4966,7 @@ def leads_page():
     leads.sort(key=lambda l: (order.get(l.get("status"), 9), -l.get("added", 0)))
     import datetime as _dt
     today = _dt.date.today().isoformat()
-    return render_template_string(LEADS_HTML, leads=leads, vertical=data.get("vertical", "leads"), today=today)
+    return render_template_string(LEADS_HTML, leads=leads, vertical=data.get("vertical", "leads"), today=today, nav_active="leads")
 
 @app.route("/api/leads/update", methods=["POST"])
 @admin_required
@@ -6216,14 +6242,14 @@ _HS_OVERVIEW_TMPL = """<div class="wrap">
 @admin_required
 def admin_scan_overview():
     data = _hs_summary()
-    return render_template_string(STYLE + NAV_ADMIN + _HS_OVERVIEW_TMPL, data=data)
+    return render_template_string(STYLE + NAV_ADMIN + _HS_OVERVIEW_TMPL, data=data, active="scan")
 
 @app.route("/admin/scan/profile/<int:profile_id>")
 @admin_required
 def admin_scan_profile(profile_id):
     data = _hs_summary(profile_id=profile_id)
     return render_template_string(STYLE + NAV_ADMIN + _HS_PROFILE_TMPL,
-                                  data=data, pid=profile_id)
+                                  data=data, pid=profile_id, active="scan")
 
 # harbor-help SSO + alias routes (loaded from snippet file so dashboard.py
 # stays slim; routes register at import time via decorators inside the snippet).

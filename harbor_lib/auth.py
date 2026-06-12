@@ -10,11 +10,14 @@ from .config import SECRET_KEY
 
 
 def make_token(email, is_admin=False):
+    # Admin tokens live 30 days so the Social/Leads PWAs are not asking for
+    # a login every workday; customer tokens stay short-lived.
+    ttl = timedelta(days=30) if is_admin else timedelta(hours=8)
     return jwt.encode(
         {
             "email": email,
             "admin": is_admin,
-            "exp": datetime.utcnow() + timedelta(hours=8),
+            "exp": datetime.utcnow() + ttl,
         },
         SECRET_KEY,
         algorithm="HS256",
