@@ -689,7 +689,7 @@ NAV_LIGHT = """
 @media all and (display-mode:standalone) and (max-width:768px){
   .topnav .links{display:none;}
   body{padding-bottom:calc(80px + env(safe-area-inset-bottom));}
-  .lt-tabs{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;align-items:stretch;background:rgba(251,247,241,0.96);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom)) 4px;z-index:60;backdrop-filter:saturate(160%) blur(14px);-webkit-backdrop-filter:saturate(160%) blur(14px);}
+  .lt-tabs{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;align-items:stretch;background:#fbf7f1;border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom)) 4px;z-index:60;}
 }
 </style>
 <div class="topnav">
@@ -3482,7 +3482,7 @@ SOCIAL_BRAND_CAT = {"harbor":"Harbor","career":"Career","fax":"Fax",
 
 SOCIAL_HISTORY_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Sent posts</title>
 <script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
 <style>
@@ -3551,7 +3551,7 @@ def social_sent():
 
 SOCIAL_LIBRARY_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Social library</title>
 <link rel="apple-touch-icon" sizes="180x180" href="/social-icon-180.png">
 <link rel="manifest" href="/social-app.webmanifest">
@@ -4205,7 +4205,7 @@ def _pick_linkedin_seed(pkey, per):
 
 LINKEDIN_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>LinkedIn post generator</title>
 <script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
 <style>
@@ -4408,7 +4408,7 @@ def linkedin_generate():
 
 SOCIAL_POST_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>{{ e.hdr }}</title>
 <script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
 <style>
@@ -4694,7 +4694,7 @@ def _page_title(path):
 
 
 SOCIAL_PAGES_HTML = """<!doctype html><html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Apex pages</title>
 <script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
 <style>
@@ -4800,7 +4800,7 @@ def _lead_message(name, profession, town):
             "commitment.\n\nBest,\nTim - harborprivacy.com/booking-for-therapists")
 
 LEADS_HTML = """<!doctype html><html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Leads - {{ vertical }}</title>
 <link rel="apple-touch-icon" sizes="180x180" href="/leads-icon-180.png">
 <link rel="manifest" href="/leads-app.webmanifest">
@@ -6293,7 +6293,7 @@ def _etsy_listings():
 
 ETSY_PAGE_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Etsy listings</title>
 <script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
 <style>
