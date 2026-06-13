@@ -6264,13 +6264,13 @@ ETSY_STICKER_DIR = "/home/ubuntu/harbor-design-system/assets/stickers"
 
 def _etsy_listings():
     # Parses etsy-listings.md: blockquote = shared description footer;
-    # each "### N. Name" section needs Slug/Title/Description (top)/Tags lines.
+    # each "### N. Name" section needs Slug/SKU/Title/Description (top)/Tags lines.
     import re as _re, os as _os
     try:
         with open(ETSY_LISTINGS_MD) as _f:
             md = _f.read()
     except Exception:
-        return [], ""
+        return [], "", {}
     footer = " ".join(l.lstrip(">").strip() for l in md.splitlines() if l.startswith(">"))
     out = []
     for sec in _re.split(r"\n### ", md)[1:]:
@@ -6282,13 +6282,26 @@ def _etsy_listings():
         slug = grab("Slug")
         if not slug:
             continue
+        # gallery: every variant that exists on disk, hero first
+        imgs = []
+        def add(label, fname, suffix):
+            if _os.path.exists(_os.path.join(ETSY_MOCKUP_DIR, fname)):
+                imgs.append({"label": label, "name": fname,
+                             "src": "/etsy/img/" + slug + suffix})
+        add("Mockup", slug + "-mockup.jpg", "")
+        add("Scale", slug + "-scale.jpg", "?variant=scale")
+        add("On a laptop", slug + "-laptop.jpg", "?variant=laptop")
+        if slug == "the-whole-harbor-pack" and _os.path.exists(
+                _os.path.join(ETSY_MOCKUP_DIR, "the-whole-harbor-grid.jpg")):
+            imgs.append({"label": "All nine", "name": "the-whole-harbor-grid.jpg",
+                         "src": "/etsy/img/the-whole-harbor-grid"})
         out.append({
-            "name": name, "slug": slug, "title": grab("Title"),
-            "desc": grab(r"Description \(top\)"), "tags": grab("Tags"),
-            "has_img": _os.path.exists(_os.path.join(ETSY_MOCKUP_DIR, slug + "-mockup.jpg")),
+            "name": name, "slug": slug, "sku": grab("SKU"), "title": grab("Title"),
+            "desc": grab(r"Description \(top\)"), "tags": grab("Tags"), "imgs": imgs,
             "has_print": _os.path.exists(_os.path.join(ETSY_STICKER_DIR, slug + "@300dpi.png")),
         })
-    return out, footer
+    shared = {"has_specs": _os.path.exists(_os.path.join(ETSY_MOCKUP_DIR, "etsy-specs.jpg"))}
+    return out, footer, shared
 
 
 ETSY_PAGE_HTML = """<!doctype html><html lang="en"><head>
@@ -6315,6 +6328,15 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
 .btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;}
 .row{display:flex;gap:10px;}.row .btn{margin-top:10px;}
 .fldlbl{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:2px;color:var(--mute);text-transform:uppercase;margin:14px 0 6px;}
+.skuline{display:flex;align-items:center;gap:8px;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--mute);margin:0 0 12px;}
+.skuline code{background:#f3eee6;border:1px solid var(--line);border-radius:6px;padding:3px 8px;color:var(--ink);font-size:13px;letter-spacing:1px;}
+.sku-copy{border:1px solid var(--teal);background:#fff;color:var(--teal);border-radius:6px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;}
+.gallery{display:flex;gap:10px;flex-wrap:wrap;}
+.gitem{flex:1 1 calc(50% - 5px);min-width:150px;}
+.gitem img.preview{margin:0;}
+.glabel{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--mute);text-align:center;margin:6px 0 4px;}
+.grow{display:flex;gap:6px;}
+.btn.mini{margin-top:0;padding:9px;font-size:13px;}
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#2d2d2d;color:#fff;padding:12px 20px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:9;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 </style></head><body>
@@ -6337,20 +6359,43 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
   <b>Returns:</b> no returns/exchanges (made to order) &middot; cancellations ok within 2h &middot; replace damaged/lost by message
 </div>
 
-{% for l in listings %}
+{% if shared.has_specs %}
 <div class="card">
-  <h2>{{ l.name }}</h2>
-  {% if l.has_img %}
-  <img class="preview" id="img-{{ l.slug }}" src="/etsy/img/{{ l.slug }}" data-name="{{ l.slug }}-mockup.jpg" loading="lazy" alt="">
+  <div class="fldlbl">Specs tile &mdash; add to any listing's photos</div>
+  <img class="preview" id="img-specs" src="/etsy/img/etsy-specs" data-name="etsy-specs.jpg" alt="">
   <div class="row">
-    <button class="btn alt" onclick="copyImgEl('img-{{ l.slug }}')">
+    <button class="btn alt" onclick="copyImgEl('img-specs')">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
       Copy image
     </button>
-    <button class="btn" onclick="dlImgEl('img-{{ l.slug }}')">
+    <button class="btn" onclick="dlImgEl('img-specs')">
       <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
       Save image
     </button>
+  </div>
+</div>
+{% endif %}
+
+{% for l in listings %}
+<div class="card">
+  <h2>{{ l.name }}</h2>
+  {% if l.sku %}
+  <div class="skuline">SKU <code>{{ l.sku }}</code>
+    <button class="sku-copy" onclick="copySku('{{ l.sku }}')">copy</button>
+  </div>
+  {% endif %}
+  {% if l.imgs %}
+  <div class="gallery">
+    {% for im in l.imgs %}
+    <div class="gitem">
+      <img class="preview" id="img-{{ l.slug }}-{{ loop.index }}" src="{{ im.src }}" data-name="{{ im.name }}" loading="lazy" alt="{{ im.label }}">
+      <div class="glabel">{{ im.label }}</div>
+      <div class="grow">
+        <button class="btn alt mini" onclick="copyImgEl('img-{{ l.slug }}-{{ loop.index }}')">Copy</button>
+        <button class="btn mini" onclick="dlImgEl('img-{{ l.slug }}-{{ loop.index }}')">Save</button>
+      </div>
+    </div>
+    {% endfor %}
   </div>
   {% endif %}
   {% if l.has_print %}
@@ -6394,6 +6439,7 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
 <script>
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},1600);}
 function copyVal(id,msg){var b=document.getElementById(id);b.select();navigator.clipboard.writeText(b.value).then(function(){toast(msg);},function(){document.execCommand('copy');toast(msg);});}
+function copySku(s){navigator.clipboard.writeText(s).then(function(){toast('SKU copied');},function(){toast('SKU copied');});}
 (function(){
   // Preload previews into per-element blob/File so Save can use
   // navigator.share within the click gesture (clean "Save Image" on iOS).
@@ -6423,8 +6469,9 @@ async function dlPrint(slug){var name=slug+'-300dpi.png';
 @app.route("/etsy")
 @admin_required
 def etsy_page():
-    listings, footer = _etsy_listings()
-    resp = make_response(render_template_string(ETSY_PAGE_HTML, listings=listings, footer=footer))
+    listings, footer, shared = _etsy_listings()
+    resp = make_response(render_template_string(ETSY_PAGE_HTML, listings=listings,
+                                                footer=footer, shared=shared))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
@@ -6436,8 +6483,13 @@ def etsy_img(slug):
     from flask import send_file
     if not _re.fullmatch(r"[a-z0-9-]+", slug):
         return "not found", 404
+    variant = request.args.get("variant", "")
     if request.args.get("print"):
         path, mt = _os.path.join(ETSY_STICKER_DIR, slug + "@300dpi.png"), "image/png"
+    elif variant in ("scale", "laptop"):
+        path, mt = _os.path.join(ETSY_MOCKUP_DIR, slug + "-" + variant + ".jpg"), "image/jpeg"
+    elif slug in ("etsy-specs", "the-whole-harbor-grid"):
+        path, mt = _os.path.join(ETSY_MOCKUP_DIR, slug + ".jpg"), "image/jpeg"
     else:
         path, mt = _os.path.join(ETSY_MOCKUP_DIR, slug + "-mockup.jpg"), "image/jpeg"
     if not _os.path.exists(path):
