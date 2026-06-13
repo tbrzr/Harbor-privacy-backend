@@ -6324,12 +6324,17 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
 
 <div class="card shared">
   <h2>Every listing, same settings</h2>
-  <b>Price:</b> $4 single, $18 pack &middot; <b>Qty:</b> your batch count<br>
-  <b>Who made it:</b> I did &middot; <b>What:</b> A finished product &middot; <b>When:</b> Made to order<br>
-  <b>Materials:</b> Vinyl, Laminate &middot; <b>Category:</b> Stickers &amp; Labels &gt; Stickers<br>
+  <b>Price:</b> $4.50 single, $18 pack &middot; <b>Qty:</b> your batch count<br>
+  <b>Who made it:</b> I did &middot; <b>What:</b> A finished product &middot; <b>When:</b> 2020-2026, made to order<br>
+  <b>Category:</b> Stickers &amp; Labels &gt; Stickers &middot; <b>Type:</b> Physical &middot; <b>Renewal:</b> Automatic<br>
+  <b>Materials:</b> Vinyl, Laminate &middot; <b>Personalization:</b> off &middot; <b>SKU:</b> HARBOR-&lt;slug&gt;<br>
   <b>Production partner:</b> add Sticker Mule once in Settings &gt; Production partners, tick it on each listing<br>
   <b>Photos:</b> image 1 = that design's mockup, image 2 = the pack mockup, image 3 later = real phone photo<br>
-  <b>Tags:</b> paste the whole comma list into the tag box, Etsy splits it
+  <b>Tags:</b> paste the whole comma list into the tag box, Etsy splits it<br>
+  <b>Weight:</b> enter 1 oz (sticker is ~3 g; round up) &middot; <b>Pkg singles:</b> 6&times;4&times;0.1 in flat envelope, one stamp<br>
+  <b>Pkg pack:</b> 7&times;5&times;0.25 in &middot; never a thick rigid mailer on singles (nonmachinable surcharge)<br>
+  <b>Shipping:</b> two flat-rate profiles, free shipping &middot; <b>Processing:</b> 3-5 business days &middot; <b>Origin:</b> 02359<br>
+  <b>Returns:</b> no returns/exchanges (made to order) &middot; cancellations ok within 2h &middot; replace damaged/lost by message
 </div>
 
 {% for l in listings %}
