@@ -6251,6 +6251,194 @@ def admin_scan_profile(profile_id):
     return render_template_string(STYLE + NAV_ADMIN + _HS_PROFILE_TMPL,
                                   data=data, pid=profile_id, active="scan")
 
+# ════════════════════════════════════════════════════════════
+# /etsy — listing staging page (mockup image + title/tags/description
+# with copy and save buttons, same mechanics as /social).
+# Copy source of truth: harbor-design-system/assets/stickers/etsy-listings.md
+# ════════════════════════════════════════════════════════════
+
+ETSY_LISTINGS_MD = "/home/ubuntu/harbor-design-system/assets/stickers/etsy-listings.md"
+ETSY_MOCKUP_DIR  = "/home/ubuntu/harbor-design-system/assets/stickers/mockups"
+ETSY_STICKER_DIR = "/home/ubuntu/harbor-design-system/assets/stickers"
+
+def _etsy_listings():
+    # Parses etsy-listings.md: blockquote = shared description footer;
+    # each "### N. Name" section needs Slug/Title/Description (top)/Tags lines.
+    import re as _re, os as _os
+    try:
+        with open(ETSY_LISTINGS_MD) as _f:
+            md = _f.read()
+    except Exception:
+        return [], ""
+    footer = " ".join(l.lstrip(">").strip() for l in md.splitlines() if l.startswith(">"))
+    out = []
+    for sec in _re.split(r"\n### ", md)[1:]:
+        name = sec.split("\n", 1)[0].strip()
+        name = _re.sub(r"^\d+\.\s*", "", name)
+        def grab(field):
+            m = _re.search(r"\*\*" + field + r":\*\*\s*(.+)", sec)
+            return m.group(1).strip() if m else ""
+        slug = grab("Slug")
+        if not slug:
+            continue
+        out.append({
+            "name": name, "slug": slug, "title": grab("Title"),
+            "desc": grab(r"Description \(top\)"), "tags": grab("Tags"),
+            "has_img": _os.path.exists(_os.path.join(ETSY_MOCKUP_DIR, slug + "-mockup.jpg")),
+            "has_print": _os.path.exists(_os.path.join(ETSY_STICKER_DIR, slug + "@300dpi.png")),
+        })
+    return out, footer
+
+
+ETSY_PAGE_HTML = """<!doctype html><html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Etsy listings</title>
+<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+<style>
+:root{--bg:#fbf7f1;--ink:#1a2420;--mute:#6b7a72;--teal:#1f5d6b;--line:#e5dfd3;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,system-ui,"DM Sans",sans-serif;padding:20px;padding-top:max(20px,calc(env(safe-area-inset-top) + 14px));max-width:680px;margin:0 auto;}
+.eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:3px;color:var(--teal);text-transform:uppercase;}
+h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;margin:6px 0 18px;}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px;}
+.card h2{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:20px;margin:0 0 10px;}
+.shared{font-size:14px;line-height:1.6;color:var(--ink);}
+.shared b{color:var(--teal);}
+textarea,input.field{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;font:14px/1.5 -apple-system,system-ui,sans-serif;color:var(--ink);background:#fcfaf6;resize:vertical;}
+textarea.desc{min-height:120px;}
+img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:block;background:#f3eee6;}
+.btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:600;cursor:pointer;margin-top:10px;background:var(--teal);color:#fff;text-decoration:none;}
+.btn.alt{background:#fff;color:var(--teal);border:1.5px solid var(--teal);}
+.btn:active{opacity:.8;}
+.btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;}
+.row{display:flex;gap:10px;}.row .btn{margin-top:10px;}
+.fldlbl{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:2px;color:var(--mute);text-transform:uppercase;margin:14px 0 6px;}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#2d2d2d;color:#fff;padding:12px 20px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:9;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style></head><body>
+""" + NAV_LIGHT + """
+<div class="eyebrow">Harbor stickers</div>
+<h1>Etsy listings</h1>
+
+<div class="card shared">
+  <h2>Every listing, same settings</h2>
+  <b>Price:</b> $4 single, $18 pack &middot; <b>Qty:</b> your batch count<br>
+  <b>Who made it:</b> I did &middot; <b>What:</b> A finished product &middot; <b>When:</b> Made to order<br>
+  <b>Materials:</b> Vinyl, Laminate &middot; <b>Category:</b> Stickers &amp; Labels &gt; Stickers<br>
+  <b>Production partner:</b> add Sticker Mule once in Settings &gt; Production partners, tick it on each listing<br>
+  <b>Photos:</b> image 1 = that design's mockup, image 2 = the pack mockup, image 3 later = real phone photo<br>
+  <b>Tags:</b> paste the whole comma list into the tag box, Etsy splits it
+</div>
+
+{% for l in listings %}
+<div class="card">
+  <h2>{{ l.name }}</h2>
+  {% if l.has_img %}
+  <img class="preview" id="img-{{ l.slug }}" src="/etsy/img/{{ l.slug }}" data-name="{{ l.slug }}-mockup.jpg" loading="lazy" alt="">
+  <div class="row">
+    <button class="btn alt" onclick="copyImgEl('img-{{ l.slug }}')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      Copy image
+    </button>
+    <button class="btn" onclick="dlImgEl('img-{{ l.slug }}')">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+      Save image
+    </button>
+  </div>
+  {% endif %}
+  {% if l.has_print %}
+  <button class="btn alt" onclick="dlPrint('{{ l.slug }}')">
+    <svg viewBox="0 0 24 24"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+    Save print file (Sticker Mule upload)
+  </button>
+  {% endif %}
+
+  <div class="fldlbl">Title</div>
+  <textarea id="t-{{ l.slug }}" rows="3" readonly>{{ l.title }}</textarea>
+  <button class="btn alt" onclick="copyVal('t-{{ l.slug }}','Title copied')">
+    <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    Copy title
+  </button>
+
+  <div class="fldlbl">Tags</div>
+  <textarea id="g-{{ l.slug }}" rows="3" readonly>{{ l.tags }}</textarea>
+  <button class="btn alt" onclick="copyVal('g-{{ l.slug }}','Tags copied')">
+    <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    Copy tags
+  </button>
+
+  <div class="fldlbl">Description</div>
+  <textarea class="desc" id="d-{{ l.slug }}" readonly>{{ l.desc }}
+
+{{ footer }}</textarea>
+  <button class="btn" onclick="copyVal('d-{{ l.slug }}','Description copied')">
+    <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+    Copy description
+  </button>
+</div>
+{% endfor %}
+
+<a class="btn alt" href="https://www.etsy.com/your/shops/me/tools/listings" target="_blank" rel="noopener">
+  <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
+  Open Etsy listing manager
+</a>
+
+<div class="toast" id="toast"></div>
+<script>
+function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},1600);}
+function copyVal(id,msg){var b=document.getElementById(id);b.select();navigator.clipboard.writeText(b.value).then(function(){toast(msg);},function(){document.execCommand('copy');toast(msg);});}
+(function(){
+  // Preload previews into per-element blob/File so Save can use
+  // navigator.share within the click gesture (clean "Save Image" on iOS).
+  document.querySelectorAll('img.preview').forEach(function(el){
+    fetch(el.src).then(function(r){return r.blob();}).then(function(b){
+      el._blob=b; el._file=new File([b], el.dataset.name||'harbor-sticker.jpg', {type:b.type||'image/jpeg'});
+    }).catch(function(){});
+  });
+})();
+async function copyImgEl(id){try{var el=document.getElementById(id);var bl=el._blob||await (await fetch(el.src)).blob();await navigator.clipboard.write([new ClipboardItem({[bl.type]:bl})]);toast('Image copied');}catch(e){toast('Long-press the image to copy');}}
+async function dlImgEl(id){var el=document.getElementById(id);var name=el.dataset.name||'harbor-sticker.jpg';
+  try{
+    if(el._file && navigator.canShare && navigator.canShare({files:[el._file]})){await navigator.share({files:[el._file]});return;}
+    var bl=el._blob||await (await fetch(el.src)).blob();
+    var u=URL.createObjectURL(bl);var a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);toast('Saved');
+  }catch(e){if(e&&e.name==='AbortError')return;window.open(el.src,'_blank');}}
+async function dlPrint(slug){var name=slug+'-300dpi.png';
+  try{
+    var bl=await (await fetch('/etsy/img/'+slug+'?print=1')).blob();
+    var f=new File([bl],name,{type:bl.type||'image/png'});
+    if(navigator.canShare && navigator.canShare({files:[f]})){await navigator.share({files:[f]});return;}
+    var u=URL.createObjectURL(bl);var a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);toast('Saved');
+  }catch(e){if(e&&e.name==='AbortError')return;toast('Could not fetch print file');}}
+</script></body></html>"""
+
+
+@app.route("/etsy")
+@admin_required
+def etsy_page():
+    listings, footer = _etsy_listings()
+    resp = make_response(render_template_string(ETSY_PAGE_HTML, listings=listings, footer=footer))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
+@app.route("/etsy/img/<slug>")
+@admin_required
+def etsy_img(slug):
+    import re as _re, os as _os
+    from flask import send_file
+    if not _re.fullmatch(r"[a-z0-9-]+", slug):
+        return "not found", 404
+    if request.args.get("print"):
+        path, mt = _os.path.join(ETSY_STICKER_DIR, slug + "@300dpi.png"), "image/png"
+    else:
+        path, mt = _os.path.join(ETSY_MOCKUP_DIR, slug + "-mockup.jpg"), "image/jpeg"
+    if not _os.path.exists(path):
+        return "not found", 404
+    return send_file(path, mimetype=mt)
+
+
 # harbor-help SSO + alias routes (loaded from snippet file so dashboard.py
 # stays slim; routes register at import time via decorators inside the snippet).
 __HARBOR_HELP_SNIPPET = "/home/ubuntu/harbor-backend/snippets/account_emails_routes.py"
