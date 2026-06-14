@@ -4420,6 +4420,7 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:24px;l
 .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:16px;}
 textarea{width:100%;border:1px solid var(--line);border-radius:12px;padding:14px;font:15px/1.5 -apple-system,system-ui,sans-serif;color:var(--ink);background:#fcfaf6;resize:vertical;min-height:200px;}
 img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:block;}
+  video.preview{display:block;width:auto;max-width:100%;max-height:78vh;margin:0 auto;border-radius:12px;border:1px solid var(--line);background:#000;}
 .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;border-radius:12px;padding:14px;font-size:16px;font-weight:600;cursor:pointer;margin-top:10px;background:var(--teal);color:#fff;text-decoration:none;}
 .btn.alt{background:#fff;color:var(--teal);border:1.5px solid var(--teal);}
 .btn:active{opacity:.8;}
