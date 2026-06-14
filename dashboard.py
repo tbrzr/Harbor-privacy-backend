@@ -3571,7 +3571,7 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
 .sub{color:var(--mute);font-size:14px;margin:0 0 16px;}
 .bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
 .genwrap{position:relative;}
-.genlist{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:50;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px;min-width:220px;flex-direction:column;gap:8px;box-shadow:0 12px 32px rgba(26,36,32,0.14);}
+.genlist{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:50;background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px;min-width:220px;flex-direction:column;gap:8px;box-shadow:0 12px 32px rgba(26,36,32,0.14);}
 .genwrap.open .genlist{display:flex;}
 .genlist .btn{justify-content:flex-start;width:100%;}
 .genlist select{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:10px;font:14px/1.4 -apple-system,system-ui,sans-serif;color:var(--ink);background:var(--surface-2,#f6f1e7);}
