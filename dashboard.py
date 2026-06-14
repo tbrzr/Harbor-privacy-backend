@@ -44,7 +44,7 @@ Harbor Privacy Customer Dashboard
 dashboard.harborprivacy.com
 """
 
-import os, json, secrets, logging
+import os, json, secrets, logging, re
 from datetime import datetime, timedelta
 from functools import wraps
 from io import BytesIO
@@ -3581,6 +3581,15 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
 .btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
 .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;}
 .chip{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--mute);background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;}
+.schedq{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:16px;}
+.schedq .qh{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--teal);margin-bottom:10px;}
+.schedrow{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line);}
+.schedrow:first-of-type{border-top:none;}
+.schedrow img{width:44px;height:44px;border-radius:8px;object-fit:cover;background:#f3eee6;flex:0 0 auto;}
+.schedrow .si{flex:1;min-width:0;}
+.schedrow .st{display:block;font-size:14px;font-weight:600;color:inherit;text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.schedrow .sm{font-size:12px;color:var(--mute);margin-top:2px;}
+.schedrow .scancel{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--mute);background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 12px;cursor:pointer;flex:0 0 auto;}
 .chip.active{color:#fff;background:var(--teal);border-color:var(--teal);}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;}
 .card{display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;}
@@ -3640,6 +3649,20 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
   <a class="btn alt" href="/social/sent">Sent log</a>
   <span class="count"><b id="visCount">0</b> posts</span>
 </div>
+<div class="schedq" id="schedq" style="{{ '' if scheduled else 'display:none' }}">
+  <div class="qh">Scheduled (<span id="schedCount">{{ scheduled|length }}</span>)</div>
+  {% for s in scheduled %}
+  <div class="schedrow" id="schedrow-{{ s.id }}">
+    <a href="/social/post/{{ s.id }}"><img src="/social/img/{{ s.id }}" alt="" loading="lazy"></a>
+    <div class="si">
+      <a class="st" href="/social/post/{{ s.id }}">{{ s.title }}</a>
+      <div class="sm"><span data-when="{{ s.scheduled_for }}">…</span> · {{ s.plat_label }}</div>
+    </div>
+    <button class="scancel" onclick="cancelSched('{{ s.id }}')">Cancel</button>
+  </div>
+  {% endfor %}
+</div>
+
 <div class="chips" id="chips">
   <span class="chip active" data-cat="__all" onclick="filt(this)">All</span>
   {% for c in cats %}<span class="chip" data-cat="{{ c }}" onclick="filt(this)">{{ c }}</span>{% endfor %}
@@ -3664,6 +3687,23 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
 <script>
 var CSRF="{{ csrf_token }}";
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},1800);}
+// render scheduled times in the viewer's local timezone
+document.querySelectorAll('#schedq [data-when]').forEach(function(el){
+  var ep=parseInt(el.dataset.when,10);
+  if(ep) el.textContent=new Date(ep*1000).toLocaleString([],{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+});
+async function cancelSched(id){
+  try{
+    var r=await fetch('/api/social/schedule',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:id,when:null})});
+    var j=await r.json();
+    if(!j.ok){toast(j.error||'Could not cancel');return;}
+    var row=document.getElementById('schedrow-'+id); if(row) row.remove();
+    var left=document.querySelectorAll('#schedq .schedrow').length;
+    document.getElementById('schedCount').textContent=left;
+    if(!left) document.getElementById('schedq').style.display='none';
+    toast('Schedule cancelled');
+  }catch(e){toast('Could not cancel');}
+}
 function recount(){document.getElementById('visCount').textContent=document.querySelectorAll('.card:not([style*="display: none"])').length;}
 function filt(el){
   document.querySelectorAll('.chip').forEach(function(c){c.classList.remove('active');});
@@ -3729,13 +3769,19 @@ def social():
     for e in entries:
         hdr = e.get("hdr", "")
         title = hdr.split(" -> ")[0].split(" / ", 1)[-1] if hdr else e.get("id", "")
+        plats = e.get("scheduled_platforms") or []
         out.append({"id": e.get("id"), "title": title,
                     "category": e.get("category", "Other"),
-                    "posted": bool(posted.get(e.get("id")))})
+                    "posted": bool(posted.get(e.get("id"))),
+                    "scheduled_for": e.get("scheduled_for"),
+                    "plat_label": " + ".join({"fb": "Facebook", "ig": "Instagram"}.get(p, p) for p in plats)})
     # newest entries first so freshly generated sets show on top
     out.reverse()
     cats = sorted({o["category"] for o in out})
-    resp = make_response(render_template_string(SOCIAL_LIBRARY_HTML, entries=out, cats=cats, nav_active="social"))
+    # upcoming scheduled posts, soonest first, for the queue at the top
+    scheduled = sorted((o for o in out if o.get("scheduled_for")), key=lambda o: o["scheduled_for"])
+    resp = make_response(render_template_string(SOCIAL_LIBRARY_HTML, entries=out, cats=cats,
+                                                scheduled=scheduled, nav_active="social"))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
@@ -3758,37 +3804,40 @@ def social_mark_posted():
     return jsonify({"ok": True, "posted": want})
 
 
+def _publish_fb(pid, entry):
+    """Publish an entry's image + caption to the FB Page. Returns (ok, msg) where
+    msg is the post id on success or an error string. Marks posted on success.
+    Shared by the one-tap route and the scheduler runner."""
+    import time as _time, requests as _req, pathlib
+    if not (META_PAGE_ID and META_PAGE_TOKEN):
+        return False, "Facebook Page not configured"
+    if not (pathlib.Path("/home/ubuntu/harbor-design-system/assets/social") / f"{pid}.png").exists():
+        return False, "no local image for this post"
+    img = f"{SOCIAL_PUBLIC_BASE}/{pid}.png"
+    try:
+        r = _req.post(f"https://graph.facebook.com/v21.0/{META_PAGE_ID}/photos",
+                      data={"url": img, "caption": entry.get("body", ""), "access_token": META_PAGE_TOKEN},
+                      timeout=40)
+        j = r.json()
+    except Exception as e:
+        return False, f"request failed: {e}"
+    if r.status_code != 200 or "error" in j:
+        return False, (j.get("error", {}) or {}).get("message", f"HTTP {r.status_code}")
+    posted = _load_posted()
+    posted[pid] = int(_time.time())
+    _save_posted(posted)
+    return True, (j.get("post_id") or j.get("id", ""))
+
+
 @app.route("/api/social/post-fb", methods=["POST"])
 @admin_required
 def social_post_fb():
-    # One-tap publish of an entry's image + caption to the Harbor Facebook Page
-    # via the Graph API. Requires META_PAGE_ID + META_PAGE_TOKEN in the env.
-    import time as _time, requests as _req
-    if not (META_PAGE_ID and META_PAGE_TOKEN):
-        return jsonify({"ok": False, "error": "Facebook Page not configured (set META_PAGE_ID + META_PAGE_TOKEN)"}), 400
     pid = (request.json or {}).get("id", "")
     entry = _social_entry(pid)
     if not entry:
         return jsonify({"ok": False, "error": "post not found"}), 404
-    import pathlib
-    if not (pathlib.Path("/home/ubuntu/harbor-design-system/assets/social") / f"{pid}.png").exists():
-        return jsonify({"ok": False, "error": "no local image for this post"}), 400
-    img = f"{SOCIAL_PUBLIC_BASE}/{pid}.png"
-    caption = entry.get("body", "")
-    try:
-        r = _req.post(f"https://graph.facebook.com/v21.0/{META_PAGE_ID}/photos",
-                      data={"url": img, "caption": caption, "access_token": META_PAGE_TOKEN},
-                      timeout=40)
-        j = r.json()
-    except Exception as e:
-        return jsonify({"ok": False, "error": f"request failed: {e}"}), 502
-    if r.status_code != 200 or "error" in j:
-        msg = (j.get("error", {}) or {}).get("message", f"HTTP {r.status_code}")
-        return jsonify({"ok": False, "error": msg}), 502
-    posted = _load_posted()
-    posted[pid] = int(_time.time())
-    _save_posted(posted)
-    return jsonify({"ok": True, "fb_post_id": j.get("post_id") or j.get("id", "")})
+    ok, msg = _publish_fb(pid, entry)
+    return (jsonify({"ok": True, "fb_post_id": msg}), 200) if ok else (jsonify({"ok": False, "error": msg}), 502)
 
 
 @app.route("/social/public/<fname>")
@@ -3837,42 +3886,178 @@ def _ensure_jpeg(pid, png_url=""):
     return f"{SOCIAL_PUBLIC_BASE}/{pid}.jpg"
 
 
-@app.route("/api/social/post-ig", methods=["POST"])
-@admin_required
-def social_post_ig():
-    # Publish an entry to the linked Instagram Business account: render a JPEG,
-    # create a media container, then publish it. Two-step per the IG API.
+# Instagram captions render links as plain text (not clickable), so swap any
+# Harbor URL for a "Link in bio" pointer. Hashtags and the rest are untouched.
+# Mirrored in JS as igCaption() on the post detail page for the manual copy path.
+_IG_URL_RE = re.compile(r"(?:https?://)?[A-Za-z0-9.\-]*harborprivacy\.(?:com|app)\S*")
+def _ig_caption(body):
+    if not body:
+        return body
+    return _IG_URL_RE.sub("Link in bio \U0001F517", body).strip()
+
+
+def _publish_ig(pid, entry):
+    """Publish an entry to the linked Instagram Business account. Returns (ok, msg)
+    where msg is the IG post id on success or an error string. Marks posted on
+    success. Shared by the one-tap route and the scheduler runner."""
     import time as _time, requests as _req
     if not (META_IG_ID and META_PAGE_TOKEN):
-        return jsonify({"ok": False, "error": "Instagram not configured (set META_IG_ID + META_PAGE_TOKEN)"}), 400
-    pid = (request.json or {}).get("id", "")
-    entry = _social_entry(pid)
-    if not entry:
-        return jsonify({"ok": False, "error": "post not found"}), 404
+        return False, "Instagram not configured"
     jpg = _ensure_jpeg(pid, entry.get("img", ""))
     if not jpg:
-        return jsonify({"ok": False, "error": "could not render a JPEG for this post"}), 400
+        return False, "could not render a JPEG for this post"
     base = f"https://graph.facebook.com/v21.0/{META_IG_ID}"
     try:
         c = _req.post(f"{base}/media",
-                      data={"image_url": jpg, "caption": entry.get("body", ""), "access_token": META_PAGE_TOKEN},
+                      data={"image_url": jpg, "caption": _ig_caption(entry.get("body", "")), "access_token": META_PAGE_TOKEN},
                       timeout=60).json()
         cid = c.get("id")
         if not cid:
-            msg = (c.get("error", {}) or {}).get("message", "container failed")
-            return jsonify({"ok": False, "error": msg}), 502
+            return False, (c.get("error", {}) or {}).get("message", "container failed")
+        # IG ingests the image asynchronously. Publishing while the container is
+        # still IN_PROGRESS fails with "Media ID is not available", so poll the
+        # container status until FINISHED before publishing.
+        status = ""
+        for _ in range(15):  # up to ~30s
+            s = _req.get(f"https://graph.facebook.com/v21.0/{cid}",
+                         params={"fields": "status_code", "access_token": META_PAGE_TOKEN},
+                         timeout=30).json()
+            status = s.get("status_code", "")
+            if status in ("FINISHED", "ERROR", "EXPIRED"):
+                break
+            _time.sleep(2)
+        if status != "FINISHED":
+            return False, f"image not ready (status {status or 'unknown'})"
         p = _req.post(f"{base}/media_publish",
                       data={"creation_id": cid, "access_token": META_PAGE_TOKEN},
                       timeout=60).json()
     except Exception as e:
-        return jsonify({"ok": False, "error": f"request failed: {e}"}), 502
+        return False, f"request failed: {e}"
     if not p.get("id"):
-        msg = (p.get("error", {}) or {}).get("message", "publish failed")
-        return jsonify({"ok": False, "error": msg}), 502
+        return False, (p.get("error", {}) or {}).get("message", "publish failed")
     posted = _load_posted()
     posted[pid] = int(_time.time())
     _save_posted(posted)
-    return jsonify({"ok": True, "ig_post_id": p.get("id")})
+    return True, p.get("id")
+
+
+@app.route("/api/social/post-ig", methods=["POST"])
+@admin_required
+def social_post_ig():
+    pid = (request.json or {}).get("id", "")
+    entry = _social_entry(pid)
+    if not entry:
+        return jsonify({"ok": False, "error": "post not found"}), 404
+    ok, msg = _publish_ig(pid, entry)
+    return (jsonify({"ok": True, "ig_post_id": msg}), 200) if ok else (jsonify({"ok": False, "error": msg}), 502)
+
+
+def _social_update_entry(pid, **fields):
+    """Patch fields onto one manifest entry, atomic write. A value of None deletes
+    that key. Returns the updated entry, or None if the id was not found."""
+    import json as _json, tempfile as _tf, os as _os
+    try:
+        with open(SOCIAL_MANIFEST) as _f:
+            man = _json.load(_f)
+    except Exception:
+        return None
+    hit = None
+    for e in man.get("entries", []):
+        if e.get("id") == pid:
+            hit = e
+            for k, v in fields.items():
+                if v is None:
+                    e.pop(k, None)
+                else:
+                    e[k] = v
+            break
+    if hit is None:
+        return None
+    fd, tmp = _tf.mkstemp(dir=_os.path.dirname(SOCIAL_MANIFEST), prefix=".manifest-", suffix=".tmp")
+    with _os.fdopen(fd, "w") as _f:
+        _json.dump(man, _f, indent=2)
+    _os.replace(tmp, SOCIAL_MANIFEST)
+    return hit
+
+
+@app.route("/api/social/schedule", methods=["POST"])
+@admin_required
+def social_schedule():
+    """Set or clear a post's scheduled publish time. Body: {id, when (epoch secs or
+    null to cancel), platforms: ['fb','ig']}. The minute cron fires due posts."""
+    import time as _time
+    d = request.json or {}
+    pid = d.get("id", "")
+    if not _social_entry(pid):
+        return jsonify({"ok": False, "error": "post not found"}), 404
+    when = d.get("when")
+    if not when:  # cancel
+        _social_update_entry(pid, scheduled_for=None, scheduled_platforms=None)
+        return jsonify({"ok": True, "scheduled_for": None})
+    try:
+        when = int(when)
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "bad time"}), 400
+    if when < int(_time.time()) + 60:
+        return jsonify({"ok": False, "error": "pick a time at least a minute from now"}), 400
+    platforms = [p for p in (d.get("platforms") or []) if p in ("fb", "ig")]
+    if not platforms:
+        return jsonify({"ok": False, "error": "choose Facebook and/or Instagram"}), 400
+    _social_update_entry(pid, scheduled_for=when, scheduled_platforms=platforms)
+    return jsonify({"ok": True, "scheduled_for": when, "platforms": platforms})
+
+
+def _ntfy(title, body, tags="warning", priority="default"):
+    """Best-effort push to the harbor-alerts ntfy topic. No-op without NTFY_AUTH."""
+    import requests as _req
+    auth = os.environ.get("NTFY_AUTH", "")
+    try:
+        _req.post("https://ntfy.harborprivacy.com/harbor-alerts",
+                  data=body.encode(),
+                  headers={"Title": title, "Tags": tags, "Priority": priority,
+                           **({"Authorization": f"Basic {auth}"} if auth else {})},
+                  timeout=5)
+    except Exception:
+        pass
+
+
+@app.route("/api/social/run-due", methods=["POST"])
+def social_run_due():
+    """Cron-fired every minute. Publishes any post whose scheduled_for has passed,
+    via the same helpers the one-tap buttons use. Protected by AUTOPOST_SECRET."""
+    import json as _json, time as _time
+    expected = os.environ.get("AUTOPOST_SECRET", "")
+    if not expected:
+        return jsonify({"error": "AUTOPOST_SECRET not set"}), 503
+    if not secrets.compare_digest(request.headers.get("X-Autopost-Secret", ""), expected):
+        return jsonify({"error": "unauthorized"}), 401
+    now = int(_time.time())
+    try:
+        with open(SOCIAL_MANIFEST) as _f:
+            entries = _json.load(_f).get("entries", [])
+    except Exception:
+        entries = []
+    due = [e for e in entries if e.get("scheduled_for") and int(e["scheduled_for"]) <= now]
+    fired = []
+    for e in due:
+        pid = e["id"]
+        plats = e.get("scheduled_platforms") or ["fb", "ig"]
+        out = {}
+        if "fb" in plats:
+            ok, msg = _publish_fb(pid, e); out["fb"] = "ok" if ok else msg
+        if "ig" in plats:
+            ok, msg = _publish_ig(pid, e); out["ig"] = "ok" if ok else msg
+        # Clear the schedule after the attempt so a hard failure cannot re-fire
+        # every minute. Record the outcome on the entry for the dashboard to show.
+        _social_update_entry(pid, scheduled_for=None, scheduled_platforms=None,
+                             last_publish={"at": now, "result": out})
+        if any(v != "ok" for v in out.values()):
+            log.error("scheduled publish had failures for %s: %s", pid, out)
+            fails = "; ".join(f"{k.upper()}: {v}" for k, v in out.items() if v != "ok")
+            _ntfy("Scheduled post failed", f"{pid}\n{fails}\nReschedule from the dashboard.",
+                  tags="warning,calendar", priority="high")
+        fired.append({"id": pid, "result": out})
+    return jsonify({"ok": True, "count": len(fired), "fired": fired})
 
 
 @app.route("/api/social/generate-set", methods=["POST"])
@@ -4004,18 +4189,30 @@ def social_generate_set():
             body = ""
         if not body:
             body = f"{topic[0].upper()+topic[1:]}.\n\nHarbor Privacy can help.\n\nhttps://harborprivacy.com"
-        # Guarantee a hashtag line on tips even when the model omits it.
-        if brand == "tips" and "#" not in body:
-            tl = topic.lower()
-            dev = next((tag for needles, tag in [
-                (("windows",), "#Windows"), (("android",), "#Android"),
-                (("iphone", "ios"), "#iPhone"),
-                (("smart tv", "content recognition"), "#SmartTV"),
-                (("echo", "alexa"), "#Alexa"),
-                (("roku", "fire tv"), "#StreamingTV"),
-                (("google",), "#Google"),
-            ] if any(n in tl for n in needles)), "#Privacy")
-            body = body.rstrip() + f"\n\n#PrivacyTips {dev} #StopTracking #DataPrivacy"
+        # Guarantee a hashtag line on every generated post when the model omits it.
+        if "#" not in body:
+            if brand == "tips":
+                tl = topic.lower()
+                dev = next((tag for needles, tag in [
+                    (("windows",), "#Windows"), (("android",), "#Android"),
+                    (("iphone", "ios"), "#iPhone"),
+                    (("smart tv", "content recognition"), "#SmartTV"),
+                    (("echo", "alexa"), "#Alexa"),
+                    (("roku", "fire tv"), "#StreamingTV"),
+                    (("google",), "#Google"),
+                ] if any(n in tl for n in needles)), "#Privacy")
+                tags = f"#PrivacyTips {dev} #StopTracking #DataPrivacy"
+            else:
+                tags = {
+                    "fax":      "#SecureFax #HIPAA #Privacy #DataPrivacy",
+                    "booking":  "#SmallBusiness #Scheduling #Privacy #BookingApp",
+                    "money":    "#Budgeting #PersonalFinance #Privacy #MoneyTips",
+                    "scan":     "#DataPrivacy #DataBrokers #OptOut #PrivacyMatters",
+                    "neighbor": "#HomeNetwork #WiFi #Privacy #SmartHome",
+                    "career":   "#JobSearch #Resume #Privacy #CareerTips",
+                    "stickers": "#Privacy #Homelab #Stickers #DataPrivacy",
+                }.get(brand, "#Privacy #DataPrivacy #DigitalPrivacy #HarborPrivacy")
+            body = body.rstrip() + f"\n\n{tags}"
 
         pid = f"gen-{brand}-{ts}-{idx}"
         cat = SOCIAL_BRAND_CAT.get(brand, "Harbor")
@@ -4445,11 +4642,15 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
       <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
       Copy caption
     </button>
+    <button class="btn alt" onclick="copyIG()">
+      <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      Copy for Instagram
+    </button>
     <a class="btn alt" href="https://www.facebook.com/sharer/sharer.php?u={{ e.link|urlencode }}" target="_blank" rel="noopener" onclick="copyForShare()">
       <svg viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
       Facebook
     </a>
-    <a class="btn alt" href="https://www.instagram.com/" target="_blank" rel="noopener" onclick="copyForShare()">
+    <a class="btn alt" href="https://www.instagram.com/" target="_blank" rel="noopener" onclick="copyIG()">
       <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
       Instagram
     </a>
@@ -4523,6 +4724,30 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
 </button>
 {% endif %}
 
+{% if fb_ready or ig_ready %}
+<div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
+  <div class="eyebrow" style="margin-bottom:8px;">Schedule for later</div>
+  <div id="schedNow" style="display:none;font-size:14px;">
+    Scheduled for <b id="schedWhenTxt"></b> <span id="schedPlatsTxt" style="color:var(--mute);"></span>
+    <button class="btn alt" onclick="cancelSchedule()" style="margin-top:10px;">
+      <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      Cancel schedule
+    </button>
+  </div>
+  <div id="schedForm">
+    <input type="datetime-local" id="schedWhen" style="width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;font:15px -apple-system,system-ui,sans-serif;color:var(--ink);background:#fcfaf6;">
+    <div style="display:flex;gap:18px;margin:12px 2px;font-size:14px;">
+      {% if fb_ready %}<label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="schedFB" checked> Facebook</label>{% endif %}
+      {% if ig_ready %}<label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" id="schedIG" checked> Instagram</label>{% endif %}
+    </div>
+    <button class="btn" onclick="saveSchedule()" style="margin-top:0;">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      Schedule post
+    </button>
+  </div>
+</div>
+{% endif %}
+
 <a class="btn alt" href="{{ e.link }}" target="_blank" rel="noopener">
   <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14L21 3"/></svg>
   Open {{ e.link.split('//')[-1] }}
@@ -4536,6 +4761,38 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
 <div class="toast" id="toast"></div>
 <script>
 var CSRF="{{ csrf_token }}", PID="{{ e.id }}", POSTED={{ 'true' if posted else 'false' }};
+var SCHED={% if e.scheduled_for %}{{ e.scheduled_for|int }}{% else %}null{% endif %};
+var SCHED_PLATS={% if e.scheduled_platforms %}{{ e.scheduled_platforms|tojson }}{% else %}[]{% endif %};
+function fmtLocal(epoch){return new Date(epoch*1000).toLocaleString([],{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});}
+function renderSched(){
+  var nowEl=document.getElementById('schedNow'),formEl=document.getElementById('schedForm');
+  if(!nowEl||!formEl)return;
+  if(SCHED){nowEl.style.display='block';formEl.style.display='none';
+    document.getElementById('schedWhenTxt').textContent=fmtLocal(SCHED);
+    document.getElementById('schedPlatsTxt').textContent=SCHED_PLATS.length?'('+SCHED_PLATS.map(function(p){return p=='fb'?'Facebook':'Instagram';}).join(' + ')+')':'';
+  }else{nowEl.style.display='none';formEl.style.display='block';}
+}
+async function saveSchedule(){
+  var v=document.getElementById('schedWhen').value;
+  if(!v){toast('Pick a date and time');return;}
+  var epoch=Math.floor(new Date(v).getTime()/1000), plats=[];
+  var fb=document.getElementById('schedFB'); if(fb&&fb.checked)plats.push('fb');
+  var ig=document.getElementById('schedIG'); if(ig&&ig.checked)plats.push('ig');
+  if(!plats.length){toast('Choose Facebook and/or Instagram');return;}
+  try{var r=await fetch('/api/social/schedule',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:PID,when:epoch,platforms:plats})});
+    var j=await r.json();
+    if(j.ok){SCHED=j.scheduled_for;SCHED_PLATS=plats;renderSched();toast('Scheduled for '+fmtLocal(epoch));}
+    else toast(j.error||'Could not schedule');
+  }catch(e){toast('Could not schedule');}
+}
+async function cancelSchedule(){
+  try{var r=await fetch('/api/social/schedule',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:PID,when:null})});
+    var j=await r.json();
+    if(j.ok){SCHED=null;SCHED_PLATS=[];renderSched();toast('Schedule cancelled');}
+    else toast(j.error||'Could not cancel');
+  }catch(e){toast('Could not cancel');}
+}
+renderSched();
 async function markPosted(){
   try{
     var r=await fetch('/api/social/posted',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:PID,posted:!POSTED})});
@@ -4549,6 +4806,8 @@ async function markPosted(){
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},1600);}
 function copyText(){var b=document.getElementById('body');b.select();navigator.clipboard.writeText(b.value).then(function(){toast('Caption copied');},function(){document.execCommand('copy');toast('Caption copied');});}
 function copyForShare(){var v=document.getElementById('body').value;try{navigator.clipboard.writeText(v);}catch(e){var b=document.getElementById('body');b.select();document.execCommand('copy');}toast('Caption copied. Paste it into the post');}
+function igCaption(t){return t.replace(/(?:https?:\/\/)?[A-Za-z0-9.\-]*harborprivacy\.(?:com|app)\S*/g,'Link in bio 🔗').trim();}
+function copyIG(){var v=igCaption(document.getElementById('body').value);try{navigator.clipboard.writeText(v);}catch(e){}toast('Instagram caption copied. Link swapped for Link in bio');}
 async function postFB(){var b=document.getElementById('fbPostBtn'),t=document.getElementById('fbTxt');b.disabled=true;t.textContent='Posting...';
   try{var r=await fetch('/api/social/post-fb',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:PID})});var j=await r.json();
     if(j.ok){t.textContent='Posted to Page';toast('Posted to Facebook Page');}
