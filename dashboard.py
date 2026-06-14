@@ -4006,22 +4006,30 @@ def _publish_ig(pid, entry):
     import time as _time, requests as _req
     if not (META_IG_ID and META_PAGE_TOKEN):
         return False, "Instagram not configured"
-    jpg = _ensure_jpeg(pid, entry.get("img", ""))
-    if not jpg:
-        return False, "could not render a JPEG for this post"
     base = f"https://graph.facebook.com/v21.0/{META_IG_ID}"
+    is_reel = entry.get("source") == "reel"
+    caption = _ig_caption(entry.get("body", ""))
     try:
-        c = _req.post(f"{base}/media",
-                      data={"image_url": jpg, "caption": _ig_caption(entry.get("body", "")), "access_token": META_PAGE_TOKEN},
-                      timeout=60).json()
+        if is_reel:
+            # Post the actual reel video as an IG Reel (media_type=REELS), not the
+            # static poster. share_to_feed also drops it in the main feed.
+            container = {"media_type": "REELS", "video_url": f"{SOCIAL_PUBLIC_BASE}/{pid}.mp4",
+                         "caption": caption, "share_to_feed": "true", "access_token": META_PAGE_TOKEN}
+            poll_n = 45  # video transcoding is slower than image ingest
+        else:
+            jpg = _ensure_jpeg(pid, entry.get("img", ""))
+            if not jpg:
+                return False, "could not render a JPEG for this post"
+            container = {"image_url": jpg, "caption": caption, "access_token": META_PAGE_TOKEN}
+            poll_n = 15
+        c = _req.post(f"{base}/media", data=container, timeout=60).json()
         cid = c.get("id")
         if not cid:
             return False, (c.get("error", {}) or {}).get("message", "container failed")
-        # IG ingests the image asynchronously. Publishing while the container is
-        # still IN_PROGRESS fails with "Media ID is not available", so poll the
-        # container status until FINISHED before publishing.
+        # IG ingests/transcodes asynchronously. Publishing before the container is
+        # FINISHED fails with "Media ID is not available", so poll status_code.
         status = ""
-        for _ in range(15):  # up to ~30s
+        for _ in range(poll_n):
             s = _req.get(f"https://graph.facebook.com/v21.0/{cid}",
                          params={"fields": "status_code", "access_token": META_PAGE_TOKEN},
                          timeout=30).json()
@@ -4030,7 +4038,7 @@ def _publish_ig(pid, entry):
                 break
             _time.sleep(2)
         if status != "FINISHED":
-            return False, f"image not ready (status {status or 'unknown'})"
+            return False, f"media not ready (status {status or 'unknown'})"
         p = _req.post(f"{base}/media_publish",
                       data={"creation_id": cid, "access_token": META_PAGE_TOKEN},
                       timeout=60).json()
