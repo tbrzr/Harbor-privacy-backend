@@ -46,7 +46,7 @@ BRANDS = {
                 "verifiable removal receipts not vague status pages, cheaper than DeleteMe and Incogni, "
                 "masked email burner addresses that forward to your real inbox so you stop handing the real one to stores and forms, "
                 "kill a masked address the day it starts getting spam and you know exactly who leaked it"),
-    "stickers":("HARBOR / STICKERS","STICKER DROP", "harborprivacy.com/stickers",
+    "stickers":("HARBOR / STICKERS","STICKER DROP", "harborprivacy.etsy.com",
                 "die-cut vinyl laptop stickers with privacy slogans like My DNS is mine, I read the privacy policy, and Cookies declined, "
                 "weatherproof and matte, now open for preorder shipping in 2 to 3 weeks, 4 dollars each or 18 for the pack of nine, for homelab and privacy people"),
 }
@@ -157,14 +157,21 @@ def ai_post(brand, seed, data):
     else:
         basis = f"\nThemes to draw from: {themes}."
     prompt = f"""You write social posts for Harbor {brand}, a privacy-first product.
-Voice: plain, direct, no hype, no em dashes, no emoji.{basis}
+A scrolling stranger gives this post about one second. The headline and the first line have to make
+them stop. Voice: plain, direct, no hype, no em dashes, no emoji.{basis}
 
 Return ONLY a JSON object with these keys:
-  "head": a 2-5 word punchy headline for an image card (max 28 chars, sentence case)
-  "sub": array of exactly 2 short supporting lines for the card (each max 52 chars)
-  "caption": the full social caption, 2-4 short paragraphs, ending with the line {url} and then 3-4 hashtags
+  "head": a headline for the image card that opens a curiosity gap or names a specific surprising
+          threat the reader feels instantly (max 28 chars, sentence case). Good: "Your TV is watching",
+          "Delete this hidden ID". Bad: vague slogans like "Stay private" or "Protect your data".
+  "sub": array of exactly 2 short supporting lines for the card that raise the stakes or hint the fix
+         without giving it all away (each max 52 chars)
+  "caption": the full social caption. The FIRST line must be a scroll-stopping hook (a surprising fact
+             or a pointed question), then deliver the concrete tip with exact names/settings/numbers,
+             ending with the line {url} and then 3-4 hashtags. 2-4 short paragraphs.
 
-The caption must be genuinely useful and specific (a real tip people would screenshot), not generic marketing.{avoid_txt}"""
+The caption must be genuinely useful and specific, a real tip people would screenshot, never generic
+marketing. Lead with the problem and the surprise, not the product.{avoid_txt}"""
     body = json.dumps({
         "model": "claude-haiku-4-5-20251001", "max_tokens": 700,
         "messages": [{"role": "user", "content": prompt}],

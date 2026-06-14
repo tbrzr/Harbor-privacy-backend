@@ -5550,6 +5550,7 @@ Both tools delete your data within 2 hours. No account needed."""
 Context: {context}
 
 Rules:
+- The first line has to stop a scrolling stranger: a surprising fact, a pointed question, or a real stake they feel instantly. Never open with the product name or a slogan.
 - Lead with a real problem people face, not a product feature
 - Sound like a real person, not a company
 - No corporate speak, no buzzwords, no em dashes

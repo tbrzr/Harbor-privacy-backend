@@ -42,14 +42,23 @@ def reel_post(brand, seed, data):
     basis = (f"Base it on THIS tip and keep the concrete settings, names, and numbers: {seed['idea']}"
              if seed else f"Themes to draw from: {themes}.")
     prompt = f"""You script a SHORT vertical phone reel for Harbor {brand}, a privacy-first product.
-Voice: plain, direct, no hype, no em dashes, no emoji. {basis}
+The job of the first frame is to make a scrolling stranger STOP and need the answer, then hold them
+to the end. Voice: plain, direct, no hype, no em dashes, no emoji. {basis}
+
+Build an open loop: the hook raises a question or a stake, the steps walk toward it, and the answer is
+withheld until the payoff. Do not give away the payoff in the hook.
 
 Return ONLY a JSON object with these keys:
-  "hook": a 2-5 word scroll-stopping opener (max 24 chars, sentence case)
-  "steps": array of 3 to 5 ultra-short lines that walk through the tip in order (each max 38 chars, imperative, no numbering)
+  "hook": a scroll-stopping opener that opens a curiosity gap or names a specific stakes/threat the
+          viewer feels instantly (max 30 chars, sentence case). Good: "Your TV is watching back",
+          "This setting leaks your home". Bad: vague slogans like "Stay private".
+  "steps": array of 3 to 5 ultra-short lines that move the viewer through the tip in order and keep
+           tension building toward the payoff (each max 38 chars, concrete, no numbering)
+  "payoff": the single satisfying result line revealed at the end, the reason staying was worth it
+            (max 38 chars, sentence case). Example: "Now nobody is logging it"
   "caption": the post caption, 2-3 short paragraphs, ending with the line {url} then 3-4 hashtags
 
-Steps must be concrete and screenshot-worthy, not vague marketing.{avoid_txt}"""
+Every line must be concrete and screenshot-worthy, never vague marketing.{avoid_txt}"""
     body = json.dumps({
         "model": "claude-haiku-4-5-20251001", "max_tokens": 700,
         "messages": [{"role": "user", "content": prompt}],
@@ -67,14 +76,16 @@ def reel_ok(brand, p):
     url = BRANDS[brand][2]
     hook  = (p.get("hook") or "").strip()
     steps = p.get("steps") or []
+    payoff= (p.get("payoff") or "").strip()
     cap   = (p.get("caption") or "").strip()
-    if not hook or len(hook) > 32:                          return "bad hook"
+    if not hook or len(hook) > 34:                          return "bad hook"
     if not isinstance(steps, list) or not (3 <= len(steps) <= 5): return "bad steps count"
     steps = [(s or "").strip() for s in steps]
     if any(not s or len(s) > 46 for s in steps):            return "step len"
+    if not payoff or len(payoff) > 44:                      return "bad payoff"
     if not (120 <= len(cap) <= 800):                        return f"caption len {len(cap)}"
     if url not in cap:                                      return "missing link"
-    blob = hook + cap + "".join(steps)
+    blob = hook + cap + payoff + "".join(steps)
     if DASH in blob or ENDASH in blob:                      return "em dash"
     low = cap.lower()
     if brand in ACCOUNT_REQUIRED and ("no account" in low or "no sign" in low or "no signup" in low):
@@ -88,11 +99,24 @@ def _wrap(s, w):
     return textwrap.wrap(s, width=w) or [s]
 
 
-def scene_svg(brand, hook, steps, n_steps, cta=False):
+def _progress_pips(total, filled, cx0, cy, accent, dim):
+    """A row of pips that fills scene by scene, a visible 'wait for it' open loop:
+    empty on the hook frame, full on the payoff frame. Gives a reason to stay."""
+    gap = 46
+    out = []
+    for i in range(total):
+        on = i < filled
+        out.append(f'<rect x="{cx0 + i*gap}" y="{cy}" width="30" height="8" rx="4" '
+                   f'fill="{accent if on else dim}" opacity="{1 if on else 0.5}"/>')
+    return "".join(out)
+
+
+def scene_svg(brand, hook, steps, n_steps, cta=False, payoff=""):
     """One full-frame 1080x1920 scene. n_steps controls how many steps are shown
-    (they accumulate scene by scene); cta swaps the body for the closing call."""
+    (they accumulate scene by scene); cta reveals the withheld payoff + closing call."""
     mark, eyebrow, url, _ = BRANDS[brand]
     ew = 22 + len(eyebrow) * 12
+    total_pips = len(steps) + 1  # one per step, plus the payoff reveal
     p = [f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}">
   <defs><pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse"><path d="M 60 0 L 0 0 0 60" fill="none" stroke="{GRID}" stroke-width="1"/></pattern>
   <radialGradient id="glow" cx="50%" cy="-2%" r="55%"><stop offset="0%" stop-color="rgba(31,93,107,0.12)"/><stop offset="100%" stop-color="rgba(31,93,107,0)"/></radialGradient></defs>
@@ -101,6 +125,9 @@ def scene_svg(brand, hook, steps, n_steps, cta=False):
   <text x="90" y="170" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="28" fill="{TEAL}" letter-spacing="7" font-weight="500">{html.escape(mark)}</text>
   <g transform="translate(90, 210)"><rect x="0" y="0" width="{ew}" height="40" rx="20" ry="20" fill="none" stroke="{TEAL}" stroke-width="1.5"/>
   <text x="{ew/2}" y="27" text-anchor="middle" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="14" fill="{TEAL}" letter-spacing="3" font-weight="500">{html.escape(eyebrow)}</text></g>''']
+
+    filled = total_pips if cta else n_steps
+    p.append(_progress_pips(total_pips, filled, 90, 300, TERRA, GRID))
 
     hook = hook.strip(); hook = hook[0].upper() + hook[1:]
     hlines = _wrap(hook, 15)[:3]
@@ -112,10 +139,16 @@ def scene_svg(brand, hook, steps, n_steps, cta=False):
                  f'font-size="{fs}" fill="{INK}">{html.escape(l)}</text>')
 
     if cta:
+        # The payoff reveal: the withheld answer the open loop was building to.
+        if payoff:
+            payoff = payoff.strip(); payoff = payoff[0].upper() + payoff[1:]
+            for i, l in enumerate(_wrap(payoff, 18)[:3]):
+                p.append(f'<text x="90" y="{1010+i*86}" font-family="DM Serif Display, Georgia, serif" '
+                         f'font-size="76" fill="{TEAL}">{html.escape(l)}</text>')
         lead = "Preorder now:" if brand == "stickers" else "Free to start. Try it:"
-        p.append(f'<text x="90" y="1140" font-family="DM Sans, system-ui, sans-serif" '
+        p.append(f'<text x="90" y="1430" font-family="DM Sans, system-ui, sans-serif" '
                  f'font-size="48" fill="{MUTE}">{html.escape(lead)}</text>')
-        p.append(f'<text x="90" y="1240" font-family="DM Mono, ui-monospace, Menlo, monospace" '
+        p.append(f'<text x="90" y="1530" font-family="DM Mono, ui-monospace, Menlo, monospace" '
                  f'font-size="46" fill="{TEAL}" letter-spacing="1">{html.escape(url)}</text>')
     else:
         sy = y0 + len(hlines) * lh + 120
@@ -284,6 +317,8 @@ def pet_scene_svg(eyebrow, url, hook, steps, n_steps, cta=False):
   <g transform="translate(90, 210)"><rect x="0" y="0" width="{ew}" height="40" rx="20" ry="20" fill="none" stroke="{PACC}" stroke-width="1.5"/>
   <text x="{ew/2}" y="27" text-anchor="middle" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="14" fill="{PACC}" letter-spacing="3" font-weight="500">{html.escape(eyebrow)}</text></g>''']
     p.append(_paw(W-150, 175, 16, PACC))
+    total_pips = len(steps) + 1
+    p.append(_progress_pips(total_pips, total_pips if cta else n_steps, 90, 300, PACC, PLINE))
 
     hook = hook.strip(); hook = hook[0].upper() + hook[1:]
     hlines = _wrap(hook, 15)[:3]
@@ -376,12 +411,12 @@ def main_pets(data, niche=""):
 
     scenes, durs = [], []
     s0 = SOCIAL_DIR / f"{stem}.s0.png"
-    render_png(pet_scene_svg(eyebrow, url, post["hook"], steps, 0), s0); scenes.append(s0); durs.append(2.4)
+    render_png(pet_scene_svg(eyebrow, url, post["hook"], steps, 0), s0); scenes.append(s0); durs.append(2.8)
     for i in range(1, len(steps) + 1):
         sp = SOCIAL_DIR / f"{stem}.s{i}.png"
-        render_png(pet_scene_svg(eyebrow, url, post["hook"], steps, i), sp); scenes.append(sp); durs.append(1.9)
+        render_png(pet_scene_svg(eyebrow, url, post["hook"], steps, i), sp); scenes.append(sp); durs.append(2.0)
     sc = SOCIAL_DIR / f"{stem}.cta.png"
-    render_png(pet_scene_svg(eyebrow, url, post["hook"], steps, len(steps), cta=True), sc); scenes.append(sc); durs.append(2.6)
+    render_png(pet_scene_svg(eyebrow, url, post["hook"], steps, len(steps), cta=True), sc); scenes.append(sc); durs.append(3.0)
 
     build_reel(scenes, durs, SOCIAL_DIR / f"{stem}.mp4")
     render_square(pet_poster_svg(eyebrow, post["hook"], steps), SOCIAL_DIR / f"{stem}.png")
@@ -442,14 +477,17 @@ def main():
     ts = int(time.time()); stem = f"reel-{brand}-{ts}"
     steps = [s.strip() for s in post["steps"]]
 
+    payoff = post.get("payoff", "")
     scenes, durs = [], []
     s0 = SOCIAL_DIR / f"{stem}.s0.png"
-    render_png(scene_svg(brand, post["hook"], steps, 0), s0); scenes.append(s0); durs.append(2.4)
+    # Hold the hook a beat longer so the curiosity gap lands before the first step.
+    render_png(scene_svg(brand, post["hook"], steps, 0), s0); scenes.append(s0); durs.append(2.8)
     for i in range(1, len(steps) + 1):
         sp = SOCIAL_DIR / f"{stem}.s{i}.png"
-        render_png(scene_svg(brand, post["hook"], steps, i), sp); scenes.append(sp); durs.append(1.9)
+        render_png(scene_svg(brand, post["hook"], steps, i), sp); scenes.append(sp); durs.append(2.0)
     sc = SOCIAL_DIR / f"{stem}.cta.png"
-    render_png(scene_svg(brand, post["hook"], steps, len(steps), cta=True), sc); scenes.append(sc); durs.append(2.6)
+    render_png(scene_svg(brand, post["hook"], steps, len(steps), cta=True, payoff=payoff), sc)
+    scenes.append(sc); durs.append(3.2)
 
     build_reel(scenes, durs, SOCIAL_DIR / f"{stem}.mp4")
     # Square poster for the dashboard grid (reuse the card renderer).
