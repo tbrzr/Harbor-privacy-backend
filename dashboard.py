@@ -3826,6 +3826,11 @@ def _publish_fb(pid, entry):
     posted = _load_posted()
     posted[pid] = int(_time.time())
     _save_posted(posted)
+    # NOTE: FB Page Story auto-share is intentionally NOT called. Meta gates the
+    # /photo_stories endpoint behind granular app-review permissions this app does
+    # not have (returns "(#3) Application does not have the granular permission").
+    # _publish_fb_story() is kept for if the app ever clears review. IG stories,
+    # which need no such review, are auto-shared in _publish_ig.
     return True, (j.get("post_id") or j.get("id", ""))
 
 
@@ -3886,6 +3891,104 @@ def _ensure_jpeg(pid, png_url=""):
     return f"{SOCIAL_PUBLIC_BASE}/{pid}.jpg"
 
 
+def _ensure_story_jpeg(pid):
+    """9:16 (1080x1920) Story version: the post image centered on the brand cream
+    background, so a square feed image is not cropped when shared to a Story
+    (mirrors what Business Suite does when it reposts a feed image as a story)."""
+    import pathlib, io, requests as _req
+    from PIL import Image
+    base = pathlib.Path("/home/ubuntu/harbor-design-system/assets/social")
+    out = base / (pid + "-story.jpg")
+    if out.exists():
+        return f"{SOCIAL_PUBLIC_BASE}/{pid}-story.jpg"
+    src = base / (pid + ".jpg")
+    if not src.exists():
+        src = base / (pid + ".png")
+    if not src.exists():
+        return None
+    CREAM = (251, 247, 241)
+    try:
+        im = Image.open(src)
+        if im.mode in ("RGBA", "P", "LA"):
+            bg0 = Image.new("RGB", im.size, CREAM)
+            bg0.paste(im.convert("RGBA"), mask=im.convert("RGBA").split()[-1])
+            im = bg0
+        elif im.mode != "RGB":
+            im = im.convert("RGB")
+        W, H, margin = 1080, 1920, 70
+        canvas = Image.new("RGB", (W, H), CREAM)
+        tw = W - 2 * margin
+        nw, nh = tw, int(im.height * (tw / im.width))
+        if nh > H - 2 * margin:
+            nh = H - 2 * margin
+            nw = int(im.width * (nh / im.height))
+        canvas.paste(im.resize((nw, nh), Image.LANCZOS), ((W - nw) // 2, (H - nh) // 2))
+        canvas.save(out, "JPEG", quality=90)
+    except Exception as e:
+        print(f"story jpeg failed {pid}: {e!r}", flush=True)
+        return None
+    return f"{SOCIAL_PUBLIC_BASE}/{pid}-story.jpg"
+
+
+def _publish_ig_story(pid):
+    """Post the Story version to Instagram (media_type=STORIES). Returns (ok, msg)."""
+    import time as _time, requests as _req
+    if not (META_IG_ID and META_PAGE_TOKEN):
+        return False, "IG not configured"
+    img = _ensure_story_jpeg(pid)
+    if not img:
+        return False, "no story image"
+    base = f"https://graph.facebook.com/v21.0/{META_IG_ID}"
+    try:
+        c = _req.post(f"{base}/media",
+                      data={"image_url": img, "media_type": "STORIES", "access_token": META_PAGE_TOKEN},
+                      timeout=60).json()
+        cid = c.get("id")
+        if not cid:
+            return False, (c.get("error", {}) or {}).get("message", "container failed")
+        status = ""
+        for _ in range(15):
+            s = _req.get(f"https://graph.facebook.com/v21.0/{cid}",
+                         params={"fields": "status_code", "access_token": META_PAGE_TOKEN}, timeout=30).json()
+            status = s.get("status_code", "")
+            if status in ("FINISHED", "ERROR", "EXPIRED"):
+                break
+            _time.sleep(2)
+        if status != "FINISHED":
+            return False, f"image not ready (status {status or 'unknown'})"
+        p = _req.post(f"{base}/media_publish",
+                      data={"creation_id": cid, "access_token": META_PAGE_TOKEN}, timeout=60).json()
+    except Exception as e:
+        return False, f"request failed: {e}"
+    if not p.get("id"):
+        return False, (p.get("error", {}) or {}).get("message", "publish failed")
+    return True, p.get("id")
+
+
+def _publish_fb_story(pid):
+    """Post the Story version to the FB Page (two-step: unpublished photo -> photo_stories)."""
+    import requests as _req
+    if not (META_PAGE_ID and META_PAGE_TOKEN):
+        return False, "FB not configured"
+    img = _ensure_story_jpeg(pid)
+    if not img:
+        return False, "no story image"
+    base = f"https://graph.facebook.com/v21.0/{META_PAGE_ID}"
+    try:
+        up = _req.post(f"{base}/photos",
+                       data={"url": img, "published": "false", "access_token": META_PAGE_TOKEN}, timeout=40).json()
+        photo_id = up.get("id")
+        if not photo_id:
+            return False, (up.get("error", {}) or {}).get("message", "photo upload failed")
+        r = _req.post(f"{base}/photo_stories",
+                      data={"photo_id": photo_id, "access_token": META_PAGE_TOKEN}, timeout=40).json()
+    except Exception as e:
+        return False, f"request failed: {e}"
+    if not (r.get("success") or r.get("post_id") or r.get("id")):
+        return False, (r.get("error", {}) or {}).get("message", "story publish failed")
+    return True, (r.get("post_id") or r.get("id") or "ok")
+
+
 # Instagram captions render links as plain text (not clickable), so swap any
 # Harbor URL for a "Link in bio" pointer. Hashtags and the rest are untouched.
 # Mirrored in JS as igCaption() on the post detail page for the manual copy path.
@@ -3938,6 +4041,11 @@ def _publish_ig(pid, entry):
     posted = _load_posted()
     posted[pid] = int(_time.time())
     _save_posted(posted)
+    # Auto-share to the IG Story too, like Business Suite. Best effort.
+    sok, smsg = _publish_ig_story(pid)
+    if not sok:
+        log.error("IG story failed for %s: %s", pid, smsg)
+        _ntfy("IG story did not post", f"{pid}\n{smsg}\n(feed post went out fine)", tags="warning")
     return True, p.get("id")
 
 
