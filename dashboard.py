@@ -3689,6 +3689,14 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
         <svg viewBox="0 0 24 24"><circle cx="11" cy="4" r="2"/><circle cx="18" cy="8" r="2"/><circle cx="20" cy="16" r="2"/><circle cx="4" cy="8" r="2"/><path d="M14.7 16.8a4 4 0 0 0-5.4 0c-1.5 1.4-3.3 2.2-3.3 4 0 1.6 1.4 2.4 3 2.4 1.2 0 1.8-.5 3-.5s1.8.5 3 .5c1.6 0 3-.8 3-2.4 0-1.8-1.8-2.6-3.3-4z"/></svg>
         Pet reel
       </button>
+      <button class="btn alt" onclick="genStickerReel(this)" title="Randomized Etsy sticker product reel">
+        <svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2.5" transform="rotate(-6 12 12)"/><path d="M16 6.5l3 3"/></svg>
+        Sticker reel
+      </button>
+      <button class="btn alt" onclick="genStickerReel(this,'tiktok')" title="Sticker reel with TikTok-safe layout (CTA lifted above the caption bar, link-in-bio)">
+        <svg viewBox="0 0 24 24"><path d="M9 3v12.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M9 6a5 5 0 0 0 5 5V8a2.2 2.2 0 0 1-2.2-2.2V3H9z"/></svg>
+        TikTok reel
+      </button>
     </div>
   </div>
   <a class="btn alt" href="/social/pages">Apex pages</a>
@@ -3820,6 +3828,15 @@ async function genReel(b,mode){
     var r=await fetch('/api/social/generate-reel',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify(payload)});
     var j=await r.json();
     if(j.ok){toast(mode==='pets'?'Pet reel built':'Reel built'); setTimeout(function(){location.reload();},900);}
+    else{toast(j.error||'Reel build failed'); b.disabled=false; b.textContent=label;}
+  }catch(e){toast('Reel build failed (timeout?)'); b.disabled=false; b.textContent=label;}
+}
+async function genStickerReel(b,mode){
+  var label=b.textContent.trim(); b.disabled=true; b.textContent='Building reel...';
+  try{
+    var r=await fetch('/api/social/generate-sticker-reel',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({mode:mode||''})});
+    var j=await r.json();
+    if(j.ok){toast(mode==='tiktok'?'TikTok reel built':'Sticker reel built'); setTimeout(function(){location.reload();},900);}
     else{toast(j.error||'Reel build failed'); b.disabled=false; b.textContent=label;}
   }catch(e){toast('Reel build failed (timeout?)'); b.disabled=false; b.textContent=label;}
 }
@@ -4560,6 +4577,31 @@ def social_generate_reel():
         return jsonify({"ok": False, "error": tail[-1] if tail else "reel generation failed"}), 500
     parts = added.split()
     return jsonify({"ok": True, "id": parts[1] if len(parts) > 1 else "", "pet": mode == "pets"})
+
+
+@app.route("/api/social/generate-sticker-reel", methods=["POST"])
+@admin_required
+def social_generate_sticker_reel():
+    """On-demand randomized Etsy sticker product reel. make-sticker-reel.py in
+    'random' mode assembles a fresh reel (design subset+order, hook/CTA copy,
+    accent, montage style, timing all varied), renders the mp4 + poster, appends
+    the manifest, and prunes the sticker-reel pool. Synchronous (~10-25s). Needs no
+    API key; runs as the service user so the manifest stays ubuntu-owned."""
+    import subprocess as _sp
+    body = request.get_json(silent=True) or {}
+    arg = "tiktok" if (body.get("mode") or "").strip().lower() == "tiktok" else "random"
+    cmd = ["/usr/bin/python3", "/home/ubuntu/make-sticker-reel.py", arg]
+    try:
+        r = _sp.run(cmd, capture_output=True, text=True, timeout=240,
+                    cwd="/home/ubuntu", env=os.environ.copy())
+    except _sp.TimeoutExpired:
+        return jsonify({"ok": False, "error": "reel build timed out"}), 504
+    added = next((l for l in (r.stdout or "").splitlines() if l.startswith("added ")), "")
+    if r.returncode != 0 or not added:
+        tail = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
+        return jsonify({"ok": False, "error": tail[-1] if tail else "reel generation failed"}), 500
+    parts = added.split()
+    return jsonify({"ok": True, "id": parts[1] if len(parts) > 1 else ""})
 
 
 # ════════════════════════════════════════════════════════════

@@ -161,6 +161,29 @@ def pick_illo(text):
             return key
     return None
 
+# topic -> clay CHARACTER (people figures) for the character-first layouts. First
+# keyword hit wins; only fires on human/benefit themes so most posts still use the
+# object illustrations. STANDING figures can run off the bottom edge (bleed),
+# seated ones cannot. Assets: char-shield/char-phone (standing), char-laptop/char-calm (seated).
+CHAR_MAP = [
+    (("family","families","kids","parental","household","loved ones","whole family",
+      "your family","for your family"), "char-shield"),
+    (("resume","career","job search","cover letter","budget","freelanc","side hustle",
+      "your money","financial"), "char-laptop"),
+    (("people search","data broker","masked email","for sale online","robocall",
+      "spam call","caller id","reverse phone"), "char-phone"),
+    (("calm","peace of mind","relax","breathe","mindful","stress","less stress","at ease",
+      "slow down","unplug"), "char-calm"),
+]
+CHAR_STANDING = {"char-phone", "char-shield"}
+
+def pick_char(text):
+    t = (text or "").lower()
+    for keys, key in CHAR_MAP:
+        if any(k in t for k in keys):
+            return key
+    return None
+
 # AI-rendered clay illustrations (transparent PNGs) composited into the cards.
 import base64 as _b64
 ILLO_DIR = Path("/home/ubuntu/harbor-design-system/assets/card-engine-illos")
@@ -181,6 +204,15 @@ def place_illo(key, cx, cy, side):
         return ""
     return (f'<image xlink:href="{uri}" x="{cx-side/2}" y="{cy-side/2}" '
             f'width="{side}" height="{side}" preserveAspectRatio="xMidYMid meet"/>')
+
+# A character theme may have several pose variants on disk (char-shield.png,
+# char-shield-2.png, ...). Resolve the set so the engine can rotate them for variety.
+_char_variants_cache = {}
+def char_variants(base):
+    if base not in _char_variants_cache:
+        files = sorted(ILLO_DIR.glob(f"{base}.png")) + sorted(ILLO_DIR.glob(f"{base}-*.png"))
+        _char_variants_cache[base] = [p.stem for p in files] or [base]
+    return _char_variants_cache[base]
 
 
 # ── base + layouts ───────────────────────────────────────────────────────────
@@ -261,13 +293,93 @@ def layout_object(head,sub,eyebrow,url,key):
       <text x="80" y="{H-70}" font-family="DM Mono, monospace" font-size="24" fill="{TEAL}" letter-spacing="2">{html.escape(url)}</text>''')+"</svg>"
 
 
+# ── character-first layouts (clay PEOPLE figures, not objects) ────────────────
+def _eyebrow(x, y, text, fill=TEAL, anchor="start"):
+    return (f'<text x="{x}" y="{y}" font-family="DM Mono, monospace" font-size="25" '
+            f'fill="{fill}" letter-spacing="6" text-anchor="{anchor}">{html.escape((text or "").upper())}</text>')
+
+def layout_bleed(head, sub, eyebrow, url, key):
+    # large standing figure anchored to the bottom-right, running off the edge;
+    # headline + subhead top-left, url stays clear in the bottom-left
+    deco = (papergrid() + dotgrid(80, 96, 3, 3, color=SAGE, op=0.3)
+            + plusmark(W - 120, 250, 15) + blob(120, 360, 1.1, SAGE, 0.30))
+    hsvg, n = _serif_lines(head, 80, 300, 92, 100)
+    sub_y = 300 + (n - 1) * 100 + 64
+    art = place_illo(key, int(W * 0.58), H - 120, 1060)
+    return _base(f'''{deco}
+      {_eyebrow(80, 200, eyebrow)}
+      {hsvg}
+      {_para(sub, 80, sub_y, 38, anchor="start")}
+      {art}
+      <text x="80" y="{H-60}" font-family="DM Mono, monospace" font-size="22" fill="{TEAL}"
+            letter-spacing="2">{html.escape(url)}</text>''') + "</svg>"
+
+def layout_sidekick(head, sub, eyebrow, url, key):
+    # magazine split: serif headline + subhead in the left column, figure on a
+    # soft sage panel on the right. Subhead is wrapped narrow so it never runs
+    # under the figure.
+    deco = dotgrid(W - 120, H - 150, 3, 3, color=SAGE, op=0.3) + plusmark(96, 150, 14)
+    panel = (f'<path d="M620 0 H{W} V{H} H760 C 640 {H}, 560 {int(H*0.62)}, 600 {int(H*0.42)} '
+             f'C 632 {int(H*0.26)}, 600 110, 620 0 Z" fill="{SAGE}" opacity="0.35"/>')
+    lines = textwrap.wrap(head, width=14)[:4] or [head]
+    hsvg = "".join(f'<text x="80" y="{300+i*92}" font-family="DM Serif Display, Georgia, serif" '
+                   f'font-size="84" fill="{INK}">{html.escape(l)}</text>' for i, l in enumerate(lines))
+    sub_y = 300 + len(lines) * 92 + 30
+    art = place_illo(key, W - 290, H // 2 + 150, 760)
+    sublines = textwrap.wrap(sub or "", width=22)[:3]
+    subsvg = "".join(f'<text x="80" y="{sub_y+i*46}" font-family="DM Sans, sans-serif" '
+                     f'font-size="36" fill="{GREEN}" font-weight="600">{html.escape(l)}</text>'
+                     for i, l in enumerate(sublines))
+    return _base(f'''{panel}{deco}{art}
+      {_eyebrow(82, 200, eyebrow)}
+      {hsvg}
+      {subsvg}
+      <text x="80" y="{H-70}" font-family="DM Mono, monospace" font-size="22" fill="{TEAL}"
+            letter-spacing="2">{html.escape(url)}</text>''') + "</svg>"
+
+def layout_spotlight(head, sub, eyebrow, url, key):
+    # figure on a rounded sage "stage" + floor ellipse, centered headline above.
+    # The stage is placed ADAPTIVELY below the headline so tall headlines never
+    # collide with it, and the figure scales to the stage height.
+    deco = dotgrid(80, 96, 3, 3, color=SAGE, op=0.3) + dotgrid(W - 140, 96, 3, 3, color=SAGE, op=0.3)
+    hsvg, n = _serif_lines(head, W // 2, 300, 88, 94, anchor="middle")
+    stage_top = max(458, 300 + (n - 1) * 94 + 64)
+    stage_bottom = H - 210
+    stage_h = max(360, stage_bottom - stage_top)
+    stage_cy = stage_top + stage_h // 2
+    stage = (f'<rect x="150" y="{stage_top}" width="{W-300}" height="{stage_h}" rx="60" '
+             f'fill="{SAGE}" opacity="0.45"/>'
+             f'<ellipse cx="{W//2}" cy="{stage_bottom-70}" rx="250" ry="46" fill="{DARK}" opacity="0.12"/>')
+    art = place_illo(key, W // 2, stage_cy, min(560, stage_h - 80))
+    return _base(f'''{deco}
+      {_eyebrow(W//2, 200, eyebrow, anchor="middle")}
+      {hsvg}{stage}{art}
+      {_para(sub, W//2, H-150, 38, anchor="middle")}
+      <text x="{W//2}" y="{H-60}" font-family="DM Mono, monospace" font-size="22" fill="{TEAL}"
+            letter-spacing="2" text-anchor="middle">{html.escape(url)}</text>''') + "</svg>"
+
+
 def build_svg(headline, subhead, eyebrow, url, seed=""):
     """Pick layout + illustration deterministically and return the SVG string."""
     headline = (headline or "").strip()
+    n = int(hashlib.md5((seed or headline).encode()).hexdigest(), 16)
+
+    # Character-first layouts: when a focused human/benefit theme matches and the
+    # clay figure exists, use a character card for ~half of those posts (n%2 gate
+    # keeps objects dominant), rotating through the 3 new formats. The other half
+    # fall through to the object/big-type path below.
+    char = pick_char(f"{eyebrow} {headline} {subhead}")
+    if char and _illo_uri(char) and n % 2 == 0:
+        layouts = [layout_spotlight, layout_sidekick]
+        if char in CHAR_STANDING:
+            layouts = [layout_bleed, layout_sidekick, layout_spotlight]
+        variants = char_variants(char)            # rotate pose variants for variety
+        art_key = variants[(n // 100) % len(variants)]
+        return layouts[(n // 2) % len(layouts)](headline, subhead, eyebrow, url, art_key)
+
     key = pick_illo(f"{eyebrow} {headline} {subhead}")
     if key and not _illo_uri(key):   # mapped but asset missing -> fall back cleanly
         key = None
-    n = int(hashlib.md5((seed or headline).encode()).hexdigest(), 16)
     if key is None:
         return layout_bigtype(headline, subhead, eyebrow, url)
     if n % 2 == 0 and len(headline) <= 38:
