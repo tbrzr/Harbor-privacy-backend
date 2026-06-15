@@ -3475,6 +3475,46 @@ def _save_posted(d):
     with open(SOCIAL_POSTED, "w") as _f:
         _json.dump(d, _f, indent=2)
 
+
+def _entry_status(e):
+    """A manifest entry's review status. Legacy entries have no 'status' key, so
+    they are treated as already approved -> the existing 219-post pool stays live
+    with zero migration. Only AI drafts are stamped 'pending' at creation, so only
+    they ever need approval before they can be scheduled or auto-published."""
+    return e.get("status") or "approved"
+
+
+def _review_decision(action, entry):
+    """DECISION POINT — yours to write (learning-mode contribution).
+
+    Called by POST /api/social/review when you tap Approve or Reject on a pending
+    draft. It must return what to do with the entry:
+
+        return "approved"  -> draft becomes schedulable / auto-publishable
+        return "rejected"  -> draft stays in the manifest but is hidden + never
+                              fires (an audit trail of what you killed)
+        return None        -> the entry is DELETED from the manifest entirely
+                              (clean pool, but no record it ever existed)
+
+    Args:
+        action: "approve" or "reject" (the button the user tapped)
+        entry:  the manifest entry dict (read-only; for gating on its fields)
+
+    Trade-offs worth weighing:
+      - Reject == "rejected" keeps a paper trail but the pool grows forever; the
+        social-refresh prune only trims old AI posts, not rejected ones.
+      - Reject == None (delete) keeps the library clean but you lose the record,
+        and the image file on disk is orphaned until the 14-day junk sweep.
+      - You can also REFUSE an approve here (e.g. return "pending" / None if the
+        entry has no image, or a sticker post with an empty body) so a malformed
+        draft can never reach the live pool just because you fat-fingered Approve.
+
+    This is the one piece that defines how strict your gate is, which is exactly
+    the brand-risk call native.no makes for you. Everything else is wired.
+    """
+    # TODO(Tim): implement your approval policy and delete this raise.
+    raise NotImplementedError("define your social review policy in _review_decision()")
+
 # brand -> filter category for generated sets
 SOCIAL_BRAND_CAT = {"harbor":"Harbor","career":"Career","fax":"Fax",
                     "booking":"Booking","money":"Money","scan":"Scan",
@@ -3649,6 +3689,20 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
   <a class="btn alt" href="/social/sent">Sent log</a>
   <span class="count"><b id="visCount">0</b> posts</span>
 </div>
+<div class="schedq" id="reviewq" style="{{ '' if pending else 'display:none' }};border-left:3px solid #c98a52;">
+  <div class="qh" style="color:#c98a52;">Pending review (<span id="reviewCount">{{ pending|length }}</span>)</div>
+  {% for p in pending %}
+  <div class="schedrow" id="reviewrow-{{ p.id }}">
+    <a href="/social/post/{{ p.id }}"><img src="/social/img/{{ p.id }}" alt="" loading="lazy"></a>
+    <div class="si">
+      <a class="st" href="/social/post/{{ p.id }}">{{ p.title }}</a>
+      <div class="sm">{{ p.category }} · AI draft</div>
+    </div>
+    <button class="scancel" style="border-color:#2e7d32;color:#2e7d32;" onclick="review('{{ p.id }}','approve')">Approve</button>
+    <button class="scancel" onclick="review('{{ p.id }}','reject')">Reject</button>
+  </div>
+  {% endfor %}
+</div>
 <div class="schedq" id="schedq" style="{{ '' if scheduled else 'display:none' }}">
   <div class="qh">Scheduled (<span id="schedCount">{{ scheduled|length }}</span>)</div>
   {% for s in scheduled %}
@@ -3692,6 +3746,19 @@ document.querySelectorAll('#schedq [data-when]').forEach(function(el){
   var ep=parseInt(el.dataset.when,10);
   if(ep) el.textContent=new Date(ep*1000).toLocaleString([],{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
 });
+async function review(id,action){
+  try{
+    var r=await fetch('/api/social/review',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:id,action:action})});
+    var j=await r.json();
+    if(!j.ok){toast(j.error||'Review failed');return;}
+    var row=document.getElementById('reviewrow-'+id); if(row) row.remove();
+    var left=document.querySelectorAll('#reviewq .schedrow').length;
+    document.getElementById('reviewCount').textContent=left;
+    if(!left) document.getElementById('reviewq').style.display='none';
+    toast(action==='approve'?'Approved':'Rejected');
+    if(action==='approve') setTimeout(function(){location.reload();},700);
+  }catch(e){toast('Review failed');}
+}
 async function cancelSched(id){
   try{
     var r=await fetch('/api/social/schedule',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:id,when:null})});
@@ -3765,23 +3832,32 @@ def social():
     except Exception:
         entries = []
     posted = _load_posted()
-    out = []
+    out, pending = [], []
     for e in entries:
         hdr = e.get("hdr", "")
         title = hdr.split(" -> ")[0].split(" / ", 1)[-1] if hdr else e.get("id", "")
         plats = e.get("scheduled_platforms") or []
-        out.append({"id": e.get("id"), "title": title,
-                    "category": e.get("category", "Other"),
-                    "posted": bool(posted.get(e.get("id"))),
-                    "scheduled_for": e.get("scheduled_for"),
-                    "plat_label": " + ".join({"fb": "Facebook", "ig": "Instagram"}.get(p, p) for p in plats)})
+        st = _entry_status(e)
+        row = {"id": e.get("id"), "title": title,
+               "category": e.get("category", "Other"),
+               "posted": bool(posted.get(e.get("id"))),
+               "scheduled_for": e.get("scheduled_for"),
+               "status": st,
+               "plat_label": " + ".join({"fb": "Facebook", "ig": "Instagram"}.get(p, p) for p in plats)}
+        if st == "pending":
+            pending.append(row)
+        elif st == "rejected":
+            continue  # hidden from the live library
+        else:
+            out.append(row)
     # newest entries first so freshly generated sets show on top
     out.reverse()
+    pending.reverse()
     cats = sorted({o["category"] for o in out})
     # upcoming scheduled posts, soonest first, for the queue at the top
     scheduled = sorted((o for o in out if o.get("scheduled_for")), key=lambda o: o["scheduled_for"])
     resp = make_response(render_template_string(SOCIAL_LIBRARY_HTML, entries=out, cats=cats,
-                                                scheduled=scheduled, nav_active="social"))
+                                                scheduled=scheduled, pending=pending, nav_active="social"))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
@@ -3802,6 +3878,30 @@ def social_mark_posted():
         posted.pop(pid, None)
     _save_posted(posted)
     return jsonify({"ok": True, "posted": want})
+
+
+@app.route("/api/social/review", methods=["POST"])
+@admin_required
+def social_review():
+    """Approve or reject a pending AI draft. The actual policy (what reject does,
+    whether an approve can be refused) lives in _review_decision() — yours to own."""
+    d = request.json or {}
+    pid = d.get("id", "")
+    action = d.get("action", "")
+    if action not in ("approve", "reject"):
+        return jsonify({"ok": False, "error": "bad action"}), 400
+    entry = _social_entry(pid)
+    if not entry:
+        return jsonify({"ok": False, "error": "post not found"}), 404
+    try:
+        new_status = _review_decision(action, entry)
+    except NotImplementedError as e:
+        return jsonify({"ok": False, "error": str(e)}), 501
+    if new_status is None:
+        _social_delete_entry(pid)
+        return jsonify({"ok": True, "deleted": True})
+    _social_update_entry(pid, status=new_status)
+    return jsonify({"ok": True, "status": new_status})
 
 
 def _publish_fb(pid, entry):
@@ -4096,6 +4196,27 @@ def _social_update_entry(pid, **fields):
     return hit
 
 
+def _social_delete_entry(pid):
+    """Remove one entry from the manifest, atomic write. Returns True if removed.
+    Used by the review flow when _review_decision() returns None (hard delete)."""
+    import json as _json, tempfile as _tf, os as _os
+    try:
+        with open(SOCIAL_MANIFEST) as _f:
+            man = _json.load(_f)
+    except Exception:
+        return False
+    before = man.get("entries", [])
+    after = [e for e in before if e.get("id") != pid]
+    if len(after) == len(before):
+        return False
+    man["entries"] = after
+    fd, tmp = _tf.mkstemp(dir=_os.path.dirname(SOCIAL_MANIFEST), prefix=".manifest-", suffix=".tmp")
+    with _os.fdopen(fd, "w") as _f:
+        _json.dump(man, _f, indent=2)
+    _os.replace(tmp, SOCIAL_MANIFEST)
+    return True
+
+
 @app.route("/api/social/schedule", methods=["POST"])
 @admin_required
 def social_schedule():
@@ -4104,9 +4225,12 @@ def social_schedule():
     import time as _time
     d = request.json or {}
     pid = d.get("id", "")
-    if not _social_entry(pid):
+    _se = _social_entry(pid)
+    if not _se:
         return jsonify({"ok": False, "error": "post not found"}), 404
     when = d.get("when")
+    if when and _entry_status(_se) != "approved":
+        return jsonify({"ok": False, "error": "approve this draft before scheduling it"}), 409
     if not when:  # cancel
         _social_update_entry(pid, scheduled_for=None, scheduled_platforms=None)
         return jsonify({"ok": True, "scheduled_for": None})
@@ -4153,7 +4277,8 @@ def social_run_due():
             entries = _json.load(_f).get("entries", [])
     except Exception:
         entries = []
-    due = [e for e in entries if e.get("scheduled_for") and int(e["scheduled_for"]) <= now]
+    due = [e for e in entries if e.get("scheduled_for") and int(e["scheduled_for"]) <= now
+           and _entry_status(e) == "approved"]
     fired = []
     for e in due:
         pid = e["id"]
@@ -4365,6 +4490,7 @@ def social_generate_set():
             "link": "https://harborprivacy.com",
             "tags": "lightbulb,shield",
             "body": body,
+            "status": "pending",  # AI drafts land in the review queue, not the live pool
         }
         entry["topic"] = topic  # dedup key for future generate-set runs
         if img_square:

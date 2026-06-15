@@ -305,6 +305,7 @@ def main():
         "hdr": f"TIP / {post['head']} -> {url}",
         "img": f"{ASSET_BASE}/{stem}.png", "link": f"https://{link_to}",
         "tags": "lightbulb,shield", "body": post["caption"].strip(),
+        "status": "pending",  # nightly AI drafts wait for approval in /social
     }
     if seed:
         data.setdefault("used_seeds", []).append(seed["id"])
