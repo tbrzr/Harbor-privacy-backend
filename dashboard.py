@@ -3512,8 +3512,14 @@ def _review_decision(action, entry):
     This is the one piece that defines how strict your gate is, which is exactly
     the brand-risk call native.no makes for you. Everything else is wired.
     """
-    # TODO(Tim): implement your approval policy and delete this raise.
-    raise NotImplementedError("define your social review policy in _review_decision()")
+    # Default policy (change anytime): reject hard-deletes to keep the pool clean;
+    # approve goes live but is refused for an imageless draft so a broken card can
+    # never reach the feed by a fat-fingered Approve.
+    if action == "reject":
+        return None
+    if not entry.get("img"):
+        return None
+    return "approved"
 
 # brand -> filter category for generated sets
 SOCIAL_BRAND_CAT = {"harbor":"Harbor","career":"Career","fax":"Fax",
@@ -4349,6 +4355,15 @@ def social_generate_set():
                    "turn off ad tracking on a Roku or Fire TV stick",
                    "turn off location history and web activity in your Google account"],
     }
+    # Tips draw from the live, web-harvested tip bank (refresh-tips.py via Gemini
+    # search grounding) so the "Tips set" button stops repeating the static list.
+    try:
+        _tb = _json.load(open("/home/ubuntu/tip-bank.json")).get("tips", [])
+        _fresh = [t["idea"] for t in _tb if isinstance(t, dict) and t.get("idea")]
+        if _fresh:
+            pools["tips"] = _fresh
+    except Exception:
+        pass
     only = (request.json or {}).get("only")
     if only in pools:
         brands = [only]
@@ -4411,9 +4426,9 @@ def social_generate_set():
             r = _req.post("https://api.anthropic.com/v1/messages",
                 headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY", ""),
                          "anthropic-version": "2023-06-01", "content-type": "application/json"},
-                json={"model": "claude-haiku-4-5-20251001", "max_tokens": 600,
+                json={"model": "claude-sonnet-4-6", "max_tokens": 600,
                       "messages": [{"role": "user", "content": prompt}]},
-                timeout=30)
+                timeout=40)
             rj = r.json()
             raw = rj["content"][0]["text"]
             # Decode the first JSON object only. The model sometimes wraps it in
@@ -4476,13 +4491,9 @@ def social_generate_set():
             except Exception as e:
                 print(f"generate-set: image copy failed {pid}{suffix}: {e!r}", flush=True)
             return ""
-        img = ""
+        # All brands now render through the shared card engine (4:5 portrait).
+        img = _stash(_generate_engine_card(brand, topic), "")
         img_square = ""
-        if brand == "tips":
-            img = _stash(_generate_tip_card(topic, card, "story"), "")
-            img_square = _stash(_generate_tip_card(topic, card, "square"), "-sq")
-        else:
-            img = _stash(_generate_image_claude(brand, topic), "")
         entry = {
             "id": pid, "category": cat,
             "hdr": f"{cat} / {head} -> https://harborprivacy.com",
@@ -5687,6 +5698,34 @@ Return JSON only with keys: {", ".join(platform_keys + extra_keys)}"""
     return prompt, platform_keys
 
 SOCIAL_IMAGES_ENABLED = True  # local SVG brand-card renderer (no API quota)
+
+def _generate_engine_card(brand, topic):
+    """Render a card via the shared card_engine (native.no-style 4:5) into the
+    social-images dir and return its dashboard URL (basename used by _stash).
+    Replaces _generate_image_claude/_generate_tip_card as the card renderer."""
+    import card_engine, pathlib as _pl, time as _t
+    tbl = {
+        "harbor":  ("HARBOR / PRIVACY", "harborprivacy.com",        "Network-level privacy for every device."),
+        "career":  ("HARBOR / CAREER",  "harborprivacy.com/career", "Beat the filter. Keep your data."),
+        "fax":     ("HARBOR / FAX",     "harborprivacy.com/fax",    "Send private documents. No account."),
+        "booking": ("HARBOR / BOOKING", "harborprivacy.com/booking","Scheduling that never sells client data."),
+        "money":   ("HARBOR / MONEY",   "harborprivacy.com/money",  "Budget without your bank login."),
+        "scan":    ("HARBOR / SCAN",    "scan.harborprivacy.com",   "Find and delete your data for sale."),
+        "tips":    ("HARBOR / PRIVACY", "harborprivacy.com/learn",  "A 30-second privacy fix."),
+    }
+    mark, url, sub = tbl.get(brand, tbl["harbor"])
+    try:
+        out_dir = _pl.Path("/var/www/network/social-images"); out_dir.mkdir(exist_ok=True)
+        _generate_engine_card._n = getattr(_generate_engine_card, "_n", 0) + 1
+        stem = f"social-{brand}-{int(_t.time())}-{_generate_engine_card._n}"
+        head = topic[0].upper() + topic[1:]
+        card_engine.render(stem, brand=brand, headline=head, subhead=sub,
+                           eyebrow=mark, url=url, topic=topic, out_dir=str(out_dir))
+        return f"https://dashboard.harborprivacy.com/social-images/{stem}.png"
+    except Exception as e:
+        print(f"_generate_engine_card EXC {e!r}", flush=True)
+        return None
+
 
 def _generate_image_claude(brand, topic):
     if not SOCIAL_IMAGES_ENABLED:

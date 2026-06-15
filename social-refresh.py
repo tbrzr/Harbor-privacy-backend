@@ -10,6 +10,7 @@ and deletes orphaned image files.
 """
 import os, sys, json, time, html, textwrap, subprocess, urllib.request, random
 from pathlib import Path
+import card_engine
 
 SOCIAL_DIR = Path("/home/ubuntu/harbor-design-system/assets/social")
 MANIFEST   = SOCIAL_DIR / "manifest.json"
@@ -171,9 +172,15 @@ Return ONLY a JSON object with these keys:
              ending with the line {url} and then 3-4 hashtags. 2-4 short paragraphs.
 
 The caption must be genuinely useful and specific, a real tip people would screenshot, never generic
-marketing. Lead with the problem and the surprise, not the product.{avoid_txt}"""
+marketing. Lead with the problem and the surprise, not the product.
+
+BANNED (these read as boring AI filler): openers like "Did you know", "In today's world", "We all",
+"Your privacy matters", "Let's talk about", or restating the brand name. No abstractions like
+"stay safe" or "take control". Every head must name a CONCRETE thing the reader can picture: a
+specific device, app, setting, data type, company, or number. If the head could apply to any
+privacy company, it has failed: rewrite it.{avoid_txt}"""
     body = json.dumps({
-        "model": "claude-haiku-4-5-20251001", "max_tokens": 700,
+        "model": "claude-sonnet-4-6", "max_tokens": 700,
         "messages": [{"role": "user", "content": prompt}],
     }).encode()
     req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body, method="POST",
@@ -205,36 +212,16 @@ def quality_ok(brand, post):
 
 
 def render_card(stem, brand, head, sub):
+    # Delegates to the shared card engine (3 layouts + spot illustrations, 4:5).
+    # `sub` may be a list of lines or a string; the engine takes one subhead string.
     mark, eyebrow, url, _ = BRANDS[brand]
-    head = head.strip(); head = head[0].upper() + head[1:]
-    lines = textwrap.wrap(head, width=20)[:4] or [head]
-    longest = max(len(l) for l in lines)
-    fs = 92 if longest <= 14 else (76 if longest <= 18 else 62)
-    lh = int(fs * 1.12); y0 = 330 if len(lines) >= 3 else 410
-    headsvg = "".join(f'<text x="90" y="{y0+i*lh}" font-family="DM Serif Display, Georgia, serif" '
-                      f'font-size="{fs}" fill="{INK}">{html.escape(l)}</text>' for i, l in enumerate(lines))
-    sub_y = max(y0 + len(lines) * lh + 40, 600)
-    subsvg = "".join(f'<text x="90" y="{sub_y+i*52}" font-family="DM Sans, system-ui, sans-serif" '
-                     f'font-size="33" fill="{INK if i==0 else MUTE}" font-weight="400">{html.escape(s)}</text>'
-                     for i, s in enumerate(sub))
-    ew = 22 + len(eyebrow) * 12
-    svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080">
-  <defs><pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse"><path d="M 60 0 L 0 0 0 60" fill="none" stroke="{GRID}" stroke-width="1"/></pattern>
-  <radialGradient id="glow" cx="50%" cy="-5%" r="65%"><stop offset="0%" stop-color="rgba(31,93,107,0.10)"/><stop offset="100%" stop-color="rgba(31,93,107,0)"/></radialGradient></defs>
-  <rect width="1080" height="1080" fill="{BG}"/><rect width="1080" height="1080" fill="url(#grid)" opacity="0.55"/><rect width="1080" height="1080" fill="url(#glow)"/>
-  <rect x="36" y="36" width="1008" height="1008" rx="24" ry="24" fill="none" stroke="{GRID}" stroke-width="2"/>
-  <text x="90" y="148" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="26" fill="{TEAL}" letter-spacing="7" font-weight="500">{mark}</text>
-  <g transform="translate(90, 198)"><rect x="0" y="0" width="{ew}" height="38" rx="19" ry="19" fill="none" stroke="{TEAL}" stroke-width="1.5"/>
-  <text x="{ew/2}" y="25" text-anchor="middle" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="13" fill="{TEAL}" letter-spacing="3" font-weight="500">{eyebrow}</text></g>
-  {headsvg}
-  {subsvg}
-  <line x1="90" y1="900" x2="990" y2="900" stroke="{GRID}" stroke-width="1.5"/>
-  <circle cx="930" cy="150" r="44" fill="none" stroke="{TERRA}" stroke-width="6" opacity="0.9"/><line x1="930" y1="128" x2="930" y2="158" stroke="{TERRA}" stroke-width="8" stroke-linecap="round"/><circle cx="930" cy="176" r="5" fill="{TERRA}"/>
-  <text x="990" y="970" text-anchor="end" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="22" fill="{TEAL}" letter-spacing="3" font-weight="500">{url}</text></svg>'''
-    svgp = SOCIAL_DIR / (stem + ".svg"); pngp = SOCIAL_DIR / (stem + ".png")
-    svgp.write_text(svg)
-    subprocess.run(["rsvg-convert", "-w", "1080", "-h", "1080", str(svgp), "-o", str(pngp)],
-                   check=True, timeout=30)
+    if isinstance(sub, (list, tuple)):
+        # join the 2 sub lines into one sentence flow with proper punctuation
+        subtext = ". ".join(s.strip().rstrip(".") for s in sub if s and s.strip())
+    else:
+        subtext = str(sub)
+    card_engine.render(stem, brand=brand, headline=head, subhead=subtext,
+                       eyebrow=mark, url=url, topic=head, out_dir=str(SOCIAL_DIR))
 
 
 def prune(data):
