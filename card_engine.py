@@ -231,6 +231,17 @@ def _base(extra=""):
     return (f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 {W} {H}">{DEFS}'
             f'<rect width="{W}" height="{H}" fill="{BG}"/><g opacity="0.08">{verts}</g>{extra}')
 
+def _base_color(bg, extra="", grid=None, grid_op=0.10):
+    """Same canvas as _base but with an arbitrary background fill (dark teal,
+    color block, etc.). The all-cream _base is why cards read as same-y, so the
+    new layouts use this for real background variety."""
+    g = ""
+    if grid:
+        verts = "".join(f'<line x1="{x}" y1="0" x2="{x}" y2="{H}" stroke="{grid}" stroke-width="2"/>' for x in range(120,W,120))
+        g = f'<g opacity="{grid_op}">{verts}</g>'
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 {W} {H}">{DEFS}'
+            f'<rect width="{W}" height="{H}" fill="{bg}"/>{g}{extra}')
+
 def _serif_lines(text,x,y,fs,lh,fill=INK,anchor="start"):
     width=max(8,int(20*(62/fs)))
     lines=textwrap.wrap(text,width=width)[:4] or [text]
@@ -359,6 +370,229 @@ def layout_spotlight(head, sub, eyebrow, url, key):
             letter-spacing="2" text-anchor="middle">{html.escape(url)}</text>''') + "</svg>"
 
 
+# ── added template library (different backgrounds + compositions) ─────────────
+def layout_quote(head, sub, eyebrow, url):
+    """DARK editorial card: deep-teal field, oversized cream serif, no illo."""
+    deco = dotgrid(78, H-150, 4, 2, color=SAGE, op=0.25) + plusmark(W-130, 230, 15, color=SAGE)
+    quote = (f'<text x="68" y="430" font-family="DM Serif Display, Georgia, serif" '
+             f'font-size="240" fill="{TEAL}" opacity="0.55">“</text>')
+    hsvg, n = _serif_lines(head, 80, 560, 116, 124, fill=BG)
+    sub_y = 560 + n*124 + 30
+    inner = (f'<text x="80" y="200" font-family="DM Mono, monospace" font-size="26" fill="{SAGE}" '
+             f'letter-spacing="6">{html.escape(eyebrow)}</text>{quote}{hsvg}'
+             + _para(sub, 80, sub_y, 40, fill=SAGE, anchor="start")
+             + f'<text x="80" y="{H-70}" font-family="DM Mono, monospace" font-size="24" fill="{SAGE}" '
+               f'letter-spacing="2">{html.escape(url)}</text>')
+    return _base_color(DARK, deco + inner, grid=SAGE, grid_op=0.06) + "</svg>"
+
+def layout_split(head, sub, eyebrow, url):
+    """Two-tone color block: green top band + cream bottom with the serif headline."""
+    split_y = 540
+    top = (f'<rect width="{W}" height="{split_y}" fill="{GREEN}"/>'
+           + blob(W-120, 170, 1.5, BG, 0.12)
+           + f'<text x="80" y="120" font-family="DM Mono, monospace" font-size="26" fill="{BG}" '
+             f'letter-spacing="6">{html.escape(eyebrow)}</text>'
+           + f'<text x="80" y="{split_y-110}" font-family="DM Serif Display, Georgia, serif" '
+             f'font-size="120" fill="{BG}">¶</text>')
+    hsvg, n = _serif_lines(head, 80, split_y+150, 104, 112, fill=INK)
+    sub_y = split_y + 150 + n*112 + 16
+    bottom = (hsvg + _para(sub, 80, sub_y, 40, anchor="start")
+              + f'<text x="80" y="{H-70}" font-family="DM Mono, monospace" font-size="24" fill="{TEAL}" '
+                f'letter-spacing="2">{html.escape(url)}</text>')
+    return _base_color(BG, top + bottom) + "</svg>"
+
+def layout_label(head, sub, eyebrow, url):
+    """The slogan ON a sticker-shaped card (meta: the product IS a sticker)."""
+    cw, ch = 900, 600; x, y = (W-cw)//2, 290
+    sticker = (f'<rect x="{x-16}" y="{y-16}" width="{cw+32}" height="{ch+32}" rx="60" fill="#ffffff"/>'
+               f'<rect x="{x}" y="{y}" width="{cw}" height="{ch}" rx="48" fill="{TEAL}"/>'
+               f'<rect x="{x}" y="{y}" width="{cw}" height="{ch}" rx="48" fill="none" stroke="{DARK}" '
+               f'stroke-width="3" opacity="0.4"/>')
+    hsvg, n = _serif_lines(head, W//2, y+210, 90, 100, fill=BG, anchor="middle")
+    tag = (f'<text x="{W//2}" y="{y+ch-54}" font-family="DM Mono, monospace" font-size="24" '
+           f'fill="{SAGE}" letter-spacing="4" text-anchor="middle">HARBORPRIVACY.COM</text>')
+    foot = (_para(sub, W//2, H-180, 40, anchor="middle")
+            + plusmark(120, H-150, 15)
+            + f'<text x="{W//2}" y="{H-86}" font-family="DM Mono, monospace" font-size="24" fill="{TEAL}" '
+              f'letter-spacing="2" text-anchor="middle">{html.escape(url)}</text>')
+    return _base(sticker + hsvg + tag + foot) + "</svg>"
+
+def layout_postage(head, sub, eyebrow, url, key):
+    """Philatelic: the clay illustration inside a perforated stamp, headline below."""
+    ss = 540; cx, cy = W//2, 440; half = ss//2
+    stamp = (f'<rect x="{cx-half}" y="{cy-half}" width="{ss}" height="{ss}" fill="{TAN}"/>'
+             f'<rect x="{cx-half+18}" y="{cy-half+18}" width="{ss-36}" height="{ss-36}" fill="none" '
+             f'stroke="{TEAL}" stroke-width="2" opacity="0.5"/>'
+             + place_illo(key, cx, cy-24, ss-130)
+             + f'<text x="{cx}" y="{cy+half-32}" font-family="DM Mono, monospace" font-size="22" '
+               f'fill="{TEAL}" letter-spacing="4" text-anchor="middle">HARBOR · PRIVACY</text>')
+    perf = "".join(f'<circle cx="{px}" cy="{py}" r="11" fill="{BG}"/>'
+                   for i in range(-half, half+1, 38)
+                   for (px, py) in [(cx+i, cy-half), (cx+i, cy+half), (cx-half, cy+i), (cx+half, cy+i)])
+    hsvg, n = _serif_lines(head, W//2, cy+half+130, 90, 98, anchor="middle")
+    sub_y = cy+half+130 + n*98 + 20
+    foot = (_para(sub, W//2, sub_y, 38, anchor="middle")
+            + f'<text x="{W//2}" y="{H-70}" font-family="DM Mono, monospace" font-size="24" fill="{TEAL}" '
+              f'letter-spacing="2" text-anchor="middle">{html.escape(url)}</text>')
+    return _base(_eyebrow(W//2, 190, eyebrow, anchor="middle") + stamp + perf + hsvg + foot) + "</svg>"
+
+
+def layout_index(head, sub, eyebrow, url):
+    """Editorial catalog: a big serial number + 'the sticker series' + serif headline."""
+    nidx = (int(hashlib.md5(head.encode()).hexdigest(), 16) % 9) + 1
+    top = (f'<text x="80" y="180" font-family="DM Mono, monospace" font-size="26" fill="{TEAL}" '
+           f'letter-spacing="6">{html.escape(eyebrow)}</text>'
+           f'<text x="{W-80}" y="300" text-anchor="end" font-family="DM Serif Display, Georgia, serif" '
+           f'font-size="150" fill="{SAGE}">Nº{nidx:02d}</text>'
+           f'<text x="80" y="280" font-family="DM Mono, monospace" font-size="26" fill="{MUTE}" '
+           f'letter-spacing="4">THE STICKER SERIES</text>'
+           f'<line x1="80" y1="332" x2="{W-80}" y2="332" stroke="{LINE}" stroke-width="3"/>')
+    hsvg, n = _serif_lines(head, 80, 510, 116, 124, fill=INK)
+    sub_y = 510 + n*124 + 30
+    foot = (_para(sub, 80, sub_y, 42, anchor="start")
+            + f'<text x="80" y="{H-70}" font-family="DM Mono, monospace" font-size="24" fill="{TEAL}" '
+              f'letter-spacing="2">{html.escape(url)}</text>')
+    return _base(top + hsvg + foot) + "</svg>"
+
+def layout_diagonal(head, sub, eyebrow, url):
+    """Teal field with a slanted bottom edge over cream; headline in the cream half."""
+    tri = f'<path d="M0 0 H{W} V560 L0 760 Z" fill="{TEAL}"/>'
+    top = (blob(W-150, 210, 1.2, BG, 0.12)
+           + f'<text x="80" y="130" font-family="DM Mono, monospace" font-size="26" fill="{BG}" '
+             f'letter-spacing="6">{html.escape(eyebrow)}</text>')
+    hsvg, n = _serif_lines(head, 80, 880, 112, 120, fill=INK)
+    sub_y = 880 + n*120 + 26
+    foot = (_para(sub, 80, sub_y, 40, anchor="start")
+            + f'<text x="80" y="{H-70}" font-family="DM Mono, monospace" font-size="24" fill="{TEAL}" '
+              f'letter-spacing="2">{html.escape(url)}</text>')
+    return _base_color(BG, tri + top + hsvg + foot) + "</svg>"
+
+def layout_band(head, sub, eyebrow, url):
+    """Cream card with a bold teal band across the middle holding the headline."""
+    by, bh = 400, 540
+    band = f'<rect x="0" y="{by}" width="{W}" height="{bh}" fill="{TEAL}"/>'
+    eb = (f'<text x="80" y="240" font-family="DM Mono, monospace" font-size="26" fill="{TEAL}" '
+          f'letter-spacing="6">{html.escape(eyebrow)}</text>')
+    hsvg, n = _serif_lines(head, W//2, by+160, 102, 110, fill=BG, anchor="middle")
+    foot = (_para(sub, W//2, by+bh+80, 40, anchor="middle")
+            + f'<text x="{W//2}" y="{H-90}" font-family="DM Mono, monospace" font-size="24" fill="{TEAL}" '
+              f'letter-spacing="2" text-anchor="middle">{html.escape(url)}</text>')
+    return _base(band + eb + dotgrid(80, 300, 4, 2, color=SAGE, op=0.4) + hsvg + foot) + "</svg>"
+
+
+def layout_emphasis(head, sub, eyebrow, url):
+    """Type-forward: lead words in medium serif, the LAST word oversized + teal."""
+    words = head.split()
+    lead = " ".join(words[:-1]) if len(words) >= 2 else ""
+    last = words[-1] if words else head
+    lead_svg, n = (_serif_lines(lead, 80, 430, 80, 90, fill=INK) if lead else ("", 0))
+    fs = 230 if len(last) <= 8 else (180 if len(last) <= 11 else 140)
+    last_y = 430 + n*90 + 200
+    big = (f'<text x="80" y="{last_y}" font-family="DM Serif Display, Georgia, serif" '
+           f'font-size="{fs}" fill="{TEAL}">{html.escape(last)}</text>')
+    foot = (_para(sub, 80, last_y + 124, 40, anchor="start")
+            + f'<text x="80" y="{H-70}" font-family="DM Mono, monospace" font-size="24" fill="{TEAL}" '
+              f'letter-spacing="2">{html.escape(url)}</text>')
+    deco = _eyebrow(80, 200, eyebrow) + plusmark(W-130, 250, 16) + dotgrid(80, H-200, 5, 3, color=SAGE, op=0.35)
+    return _base(deco + lead_svg + big + foot) + "</svg>"
+
+def layout_receipt(head, sub, eyebrow, url):
+    """A privacy-themed vinyl 'receipt': monospace rows + a dry zero-cost joke."""
+    M = "DM Mono, ui-monospace, monospace"
+    rw, rh = 720, 1010; x, y = (W-rw)//2, 170
+    def row(ty, left, right=None, fs=30, fill=INK, anchor_left=80):
+        t = f'<text x="{x+44}" y="{ty}" font-family="{M}" font-size="{fs}" fill="{fill}">{html.escape(left)}</text>'
+        if right is not None:
+            t += (f'<text x="{x+rw-44}" y="{ty}" text-anchor="end" font-family="{M}" font-size="{fs}" '
+                  f'fill="{fill}">{html.escape(right)}</text>')
+        return t
+    def dash(ty):
+        return (f'<text x="{x+44}" y="{ty}" font-family="{M}" font-size="26" fill="{MUTE}" '
+                f'letter-spacing="2">{"- "*30}</text>')
+    paper = (f'<rect x="{x}" y="{y}" width="{rw}" height="{rh}" rx="10" fill="#ffffff"/>'
+             f'<rect x="{x}" y="{y}" width="{rw}" height="{rh}" rx="10" fill="none" stroke="{LINE}" stroke-width="2"/>')
+    item_lines = textwrap.wrap(head, 24)[:2]
+    item = "".join(f'<text x="{x+44}" y="{y+330+i*58}" font-family="DM Serif Display, Georgia, serif" '
+                   f'font-size="50" fill="{INK}">{html.escape(l)}</text>' for i, l in enumerate(item_lines))
+    iy = y + 330 + (len(item_lines)-1)*58
+    bars = "".join(f'<rect x="{x+44+i*16}" y="{y+rh-150}" width="{6 if i%3 else 11}" height="64" fill="{INK}"/>'
+                   for i in range(38))
+    body = (paper
+            + row(y+95, "HARBOR PRIVACY", None, 40, TEAL)
+            + row(y+142, "die-cut vinyl  ·  made to order", None, 24, MUTE)
+            + dash(y+200)
+            + row(y+260, "ITEM", "QTY 1", 26, MUTE)
+            + item
+            + row(iy+70, "", "$4.00", 32, INK)
+            + dash(iy+120)
+            + row(iy+180, "SUBTOTAL", "$4.00", 30)
+            + row(iy+228, "YOUR DATA SOLD", "$0.00", 30, GREEN)
+            + row(iy+276, "TOTAL", "PEACE OF MIND", 32, INK)
+            + bars
+            + f'<text x="{W//2}" y="{y+rh-54}" text-anchor="middle" font-family="{M}" font-size="24" '
+              f'fill="{TEAL}" letter-spacing="2">{html.escape(url)}</text>')
+    return _base(body) + "</svg>"
+
+
+def layout_stat(head, sub, eyebrow, url):
+    """Big brand-stat number + label, with the slogan as the tagline beneath."""
+    stats = [("0", "logs kept"), ("0", "of your data sold"), ("100%", "yours"),
+             ("0", "trackers, by default"), ("$0", "for your data")]
+    big, label = stats[int(hashlib.md5(head.encode()).hexdigest(), 16) % len(stats)]
+    fs = 460 if len(big) <= 1 else (360 if len(big) <= 2 else 280)
+    inner = (_eyebrow(W//2, 200, eyebrow, anchor="middle")
+             + f'<text x="{W//2}" y="640" text-anchor="middle" font-family="DM Serif Display, Georgia, serif" '
+               f'font-size="{fs}" fill="{TEAL}">{html.escape(big)}</text>'
+             + f'<text x="{W//2}" y="740" text-anchor="middle" font-family="DM Mono, monospace" '
+               f'font-size="40" fill="{GREEN}" letter-spacing="3">{html.escape(label)}</text>')
+    hsvg, n = _serif_lines(head, W//2, 910, 74, 82, anchor="middle")
+    foot = (_para(sub, W//2, 910 + n*82 + 30, 36, anchor="middle")
+            + f'<text x="{W//2}" y="{H-70}" font-family="DM Mono, monospace" font-size="24" fill="{TEAL}" '
+              f'letter-spacing="2" text-anchor="middle">{html.escape(url)}</text>')
+    return _base(inner + hsvg + foot) + "</svg>"
+
+def layout_outline(head, sub, eyebrow, url):
+    """Giant OUTLINED serif (stroke, no fill) on a dark field. Pure typography."""
+    lines = textwrap.wrap(head, 11)[:3]
+    fs = 156 if max((len(l) for l in lines), default=0) <= 9 else 128
+    lh = int(fs * 1.02); y0 = 520
+    hsvg = "".join(f'<text x="80" y="{y0+i*lh}" font-family="DM Serif Display, Georgia, serif" '
+                   f'font-size="{fs}" fill="none" stroke="{BG}" stroke-width="2.5">{html.escape(l)}</text>'
+                   for i, l in enumerate(lines))
+    inner = (f'<text x="80" y="200" font-family="DM Mono, monospace" font-size="26" fill="{SAGE}" '
+             f'letter-spacing="6">{html.escape(eyebrow)}</text>{hsvg}'
+             + _para(sub, 80, y0 + len(lines)*lh + 40, 40, fill=SAGE, anchor="start")
+             + f'<text x="80" y="{H-70}" font-family="DM Mono, monospace" font-size="24" fill="{SAGE}" '
+               f'letter-spacing="2">{html.escape(url)}</text>')
+    return _base_color(DARK, inner, grid=SAGE, grid_op=0.06) + "</svg>"
+
+def layout_compare(head, sub, eyebrow, url):
+    """Two columns: a dark 'old way' list of cons vs the cream Harbor win."""
+    colw = 470
+    def xmark(cx, cy):
+        return (f'<path d="M{cx-13} {cy-13} L{cx+13} {cy+13} M{cx+13} {cy-13} L{cx-13} {cy+13}" '
+                f'stroke="{SAGE}" stroke-width="5" stroke-linecap="round" opacity="0.8"/>')
+    cons = ["Logged", "Sold", "Tracked", "Profiled"]
+    items = "".join(xmark(72, 432+i*92)
+                    + f'<text x="104" y="{446+i*92}" font-family="DM Sans, sans-serif" '
+                      f'font-size="46" fill="{SAGE}">{html.escape(c)}</text>'
+                    for i, c in enumerate(cons))
+    left = (f'<rect x="0" y="0" width="{colw}" height="{H}" fill="{DARK}"/>'
+            f'<text x="60" y="200" font-family="DM Mono, monospace" font-size="24" fill="{MUTE}" '
+            f'letter-spacing="4">THE OLD WAY</text>' + items)
+    hx = colw + 60
+    check = (f'<path d="M{hx} 300 l24 26 l46 -56" stroke="{GREEN}" stroke-width="10" fill="none" '
+             f'stroke-linecap="round" stroke-linejoin="round"/>')
+    hl = textwrap.wrap(head, 11)[:4]
+    hsvg = "".join(f'<text x="{hx}" y="{420+i*82}" font-family="DM Serif Display, Georgia, serif" '
+                   f'font-size="74" fill="{INK}">{html.escape(l)}</text>' for i, l in enumerate(hl))
+    right = (f'<text x="{hx}" y="210" font-family="DM Mono, monospace" font-size="24" fill="{TEAL}" '
+             f'letter-spacing="4">HARBOR</text>{check}{hsvg}'
+             + f'<text x="{hx}" y="{H-70}" font-family="DM Mono, monospace" font-size="22" fill="{TEAL}" '
+               f'letter-spacing="2">{html.escape(url)}</text>')
+    return _base_color(BG, left + right) + "</svg>"
+
+
 def build_svg(headline, subhead, eyebrow, url, seed=""):
     """Pick layout + illustration deterministically and return the SVG string."""
     headline = (headline or "").strip()
@@ -380,11 +614,22 @@ def build_svg(headline, subhead, eyebrow, url, seed=""):
     key = pick_illo(f"{eyebrow} {headline} {subhead}")
     if key and not _illo_uri(key):   # mapped but asset missing -> fall back cleanly
         key = None
-    if key is None:
-        return layout_bigtype(headline, subhead, eyebrow, url)
-    if n % 2 == 0 and len(headline) <= 38:
-        return layout_object(headline, subhead, eyebrow, url, key)
-    return layout_hero(headline, subhead, eyebrow, url, key)
+
+    # Rotate across the full template library for real variety. Type/color layouts
+    # (different backgrounds) work for any headline; illustration layouts need a
+    # matched clay asset. All entries are called as fn(headline, subhead, eyebrow, url).
+    type_pool = [layout_bigtype, layout_quote, layout_split, layout_label,
+                 layout_index, layout_diagonal, layout_band, layout_emphasis, layout_receipt,
+                 layout_stat, layout_outline, layout_compare]
+    if key:
+        illo_pool = [lambda h,s,e,u: layout_hero(h,s,e,u,key),
+                     lambda h,s,e,u: layout_postage(h,s,e,u,key)]
+        if len(headline) <= 40:
+            illo_pool.append(lambda h,s,e,u: layout_object(h,s,e,u,key))
+        pool = illo_pool + type_pool
+    else:
+        pool = type_pool
+    return pool[n % len(pool)](headline, subhead, eyebrow, url)
 
 
 def render(stem, *, brand="harbor", headline="", subhead="", eyebrow="", url="", topic="", out_dir):

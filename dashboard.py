@@ -3697,6 +3697,14 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
         <svg viewBox="0 0 24 24"><path d="M9 3v12.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M9 6a5 5 0 0 0 5 5V8a2.2 2.2 0 0 1-2.2-2.2V3H9z"/></svg>
         TikTok reel
       </button>
+      <button class="btn alt" onclick="genCardsSet(this)" title="Regenerate the full sticker-slogan card set (varied layouts) and push them live to /social">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="13" height="16" rx="2"/><path d="M8 9h6M8 13h4"/><path d="M19 7v11a2 2 0 0 1-2 2H8"/></svg>
+        Cards set
+      </button>
+      <button class="btn alt" onclick="genCardsReel(this)" title="Reel that animates the promo card layouts (dark quote, receipt, stat, outline, compare) with Ken Burns motion">
+        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="2.2"/><line x1="7" y1="3" x2="7" y2="21"/><line x1="17" y1="3" x2="17" y2="21"/><polygon points="11,9 15,12 11,15"/></svg>
+        Cards reel
+      </button>
     </div>
   </div>
   <a class="btn alt" href="/social/pages">Apex pages</a>
@@ -3837,6 +3845,24 @@ async function genStickerReel(b,mode){
     var r=await fetch('/api/social/generate-sticker-reel',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({mode:mode||''})});
     var j=await r.json();
     if(j.ok){toast(mode==='tiktok'?'TikTok reel built':'Sticker reel built'); setTimeout(function(){location.reload();},900);}
+    else{toast(j.error||'Reel build failed'); b.disabled=false; b.textContent=label;}
+  }catch(e){toast('Reel build failed (timeout?)'); b.disabled=false; b.textContent=label;}
+}
+async function genCardsSet(b){
+  var label=b.textContent.trim(); b.disabled=true; b.textContent='Building cards...';
+  try{
+    var r=await fetch('/api/social/generate-cards-set',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({})});
+    var j=await r.json();
+    if(j.ok){toast('Cards set pushed ('+(j.n||'')+')'); setTimeout(function(){location.reload();},900);}
+    else{toast(j.error||'Cards build failed'); b.disabled=false; b.textContent=label;}
+  }catch(e){toast('Cards build failed (timeout?)'); b.disabled=false; b.textContent=label;}
+}
+async function genCardsReel(b){
+  var label=b.textContent.trim(); b.disabled=true; b.textContent='Building reel...';
+  try{
+    var r=await fetch('/api/social/generate-cards-reel',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({})});
+    var j=await r.json();
+    if(j.ok){toast('Cards reel built'); setTimeout(function(){location.reload();},900);}
     else{toast(j.error||'Reel build failed'); b.disabled=false; b.textContent=label;}
   }catch(e){toast('Reel build failed (timeout?)'); b.disabled=false; b.textContent=label;}
 }
@@ -4591,6 +4617,50 @@ def social_generate_sticker_reel():
     body = request.get_json(silent=True) or {}
     arg = "tiktok" if (body.get("mode") or "").strip().lower() == "tiktok" else "random"
     cmd = ["/usr/bin/python3", "/home/ubuntu/make-sticker-reel.py", arg]
+    try:
+        r = _sp.run(cmd, capture_output=True, text=True, timeout=240,
+                    cwd="/home/ubuntu", env=os.environ.copy())
+    except _sp.TimeoutExpired:
+        return jsonify({"ok": False, "error": "reel build timed out"}), 504
+    added = next((l for l in (r.stdout or "").splitlines() if l.startswith("added ")), "")
+    if r.returncode != 0 or not added:
+        tail = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
+        return jsonify({"ok": False, "error": tail[-1] if tail else "reel generation failed"}), 500
+    parts = added.split()
+    return jsonify({"ok": True, "id": parts[1] if len(parts) > 1 else ""})
+
+
+@app.route("/api/social/generate-cards-set", methods=["POST"])
+@admin_required
+def social_generate_cards_set():
+    """Regenerate the curated card-engine slogan set (10 cards, varied layouts) and
+    push them LIVE into /social. push-cards-to-social.py renders each through the
+    card engine and replaces stable card-<slug> manifest entries (idempotent).
+    Synchronous (~10-15s); no API key; runs as the service user (ubuntu-owned manifest)."""
+    import subprocess as _sp
+    cmd = ["/usr/bin/python3", "/home/ubuntu/push-cards-to-social.py"]
+    try:
+        r = _sp.run(cmd, capture_output=True, text=True, timeout=120,
+                    cwd="/home/ubuntu", env=os.environ.copy())
+    except _sp.TimeoutExpired:
+        return jsonify({"ok": False, "error": "cards build timed out"}), 504
+    pushed = next((l for l in (r.stdout or "").splitlines() if l.startswith("pushed ")), "")
+    if r.returncode != 0 or not pushed:
+        tail = ((r.stdout or "") + (r.stderr or "")).strip().splitlines()
+        return jsonify({"ok": False, "error": tail[-1] if tail else "cards generation failed"}), 500
+    parts = pushed.split()
+    return jsonify({"ok": True, "n": parts[1] if len(parts) > 1 else ""})
+
+
+@app.route("/api/social/generate-cards-reel", methods=["POST"])
+@admin_required
+def social_generate_cards_reel():
+    """On-demand reel that animates the card_engine promo layouts (dark quote,
+    receipt, stat, outline, compare...) into a 9:16 mp4 with Ken Burns motion.
+    make-cards-reel.py renders the cards, frames them, builds the mp4 + poster,
+    appends the manifest and prunes. Synchronous (~15-25s); no API key."""
+    import subprocess as _sp
+    cmd = ["/usr/bin/python3", "/home/ubuntu/make-cards-reel.py"]
     try:
         r = _sp.run(cmd, capture_output=True, text=True, timeout=240,
                     cwd="/home/ubuntu", env=os.environ.copy())
