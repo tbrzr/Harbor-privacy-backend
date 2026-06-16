@@ -3904,7 +3904,8 @@ def social():
     pending.reverse()
     cats = sorted({o["category"] for o in out})
     # upcoming scheduled posts, soonest first, for the queue at the top
-    scheduled = sorted((o for o in out if o.get("scheduled_for")), key=lambda o: o["scheduled_for"])
+    _now = int(_time.time())
+    scheduled = sorted((o for o in out if o.get("scheduled_for") and int(o["scheduled_for"]) > _now), key=lambda o: o["scheduled_for"])
     resp = make_response(render_template_string(SOCIAL_LIBRARY_HTML, entries=out, cats=cats,
                                                 scheduled=scheduled, pending=pending, nav_active="social"))
     resp.headers["Cache-Control"] = "no-store"
@@ -4018,7 +4019,8 @@ def _ensure_jpeg(pid, png_url=""):
     from PIL import Image
     base = pathlib.Path("/home/ubuntu/harbor-design-system/assets/social")
     jpg = base / (pid + ".jpg")
-    if not jpg.exists():
+    # Regenerate if missing OR a prior render left a zero-byte/partial file.
+    if not (jpg.exists() and jpg.stat().st_size > 0):
         png = base / (pid + ".png")
         try:
             if png.exists():
@@ -4033,7 +4035,12 @@ def _ensure_jpeg(pid, png_url=""):
                 im = bg
             else:
                 im = im.convert("RGB")
-            im.save(jpg, "JPEG", quality=90)
+            # Write atomically: Meta fetches this URL the instant the container is
+            # created, and a non-atomic save lets it read a half-written JPEG, which
+            # IG rejects as "Only photo or video can be accepted as media type".
+            tmp = jpg.with_suffix(".jpg.tmp")
+            im.save(tmp, "JPEG", quality=90)
+            os.replace(tmp, jpg)
         except Exception as e:
             print(f"post-ig: jpeg render failed {pid}: {e!r}", flush=True)
             return None
@@ -4171,10 +4178,19 @@ def _publish_ig(pid, entry):
                 return False, "could not render a JPEG for this post"
             container = {"image_url": jpg, "caption": caption, "access_token": META_PAGE_TOKEN}
             poll_n = 15
-        c = _req.post(f"{base}/media", data=container, timeout=60).json()
-        cid = c.get("id")
-        if not cid:
-            return False, (c.get("error", {}) or {}).get("message", "container failed")
+        cid = None
+        for attempt in range(3):
+            c = _req.post(f"{base}/media", data=container, timeout=60).json()
+            cid = c.get("id")
+            if cid:
+                break
+            emsg = (c.get("error", {}) or {}).get("message", "container failed")
+            # A media-type/format/fetch error here is usually a transient race: Meta
+            # tried to pull the URL before it was fully servable. Wait and retry.
+            if attempt < 2 and any(k in emsg.lower() for k in ("media type", "format", "fetch", "download")):
+                _time.sleep(3)
+                continue
+            return False, emsg
         # IG ingests/transcodes asynchronously. Publishing before the container is
         # FINISHED fails with "Media ID is not available", so poll status_code.
         status = ""
