@@ -4366,6 +4366,62 @@ def social_run_due():
     return jsonify({"ok": True, "count": len(fired), "fired": fired})
 
 
+@app.route("/api/social/autopost-cards", methods=["POST"])
+def social_autopost_cards():
+    """Cron-fired (Mon/Wed/Fri). Fully autonomous: posts the next card from the
+    card-engine slogan set (source=sticker, the "new social generate") directly to
+    FB + IG via the same helpers the one-tap buttons use. No review queue.
+    Protected by AUTOPOST_SECRET. Honors the /var/log/harbor-social-paused flag.
+    Rotation is a shuffle-bag in ~/.social-autopost-bag.json so a card does not
+    repeat until the whole set has been posted."""
+    import json as _json, time as _time, random as _random, pathlib as _pl
+    expected = os.environ.get("AUTOPOST_SECRET", "")
+    if not expected:
+        return jsonify({"error": "AUTOPOST_SECRET not set"}), 503
+    if not secrets.compare_digest(request.headers.get("X-Autopost-Secret", ""), expected):
+        return jsonify({"error": "unauthorized"}), 401
+    if os.path.exists("/var/log/harbor-social-paused"):
+        return jsonify({"ok": True, "skipped": "paused"})
+    try:
+        with open(SOCIAL_MANIFEST) as _f:
+            entries = _json.load(_f).get("entries", [])
+    except Exception as e:
+        return jsonify({"error": f"manifest: {e}"}), 500
+    card_dir = _pl.Path("/home/ubuntu/harbor-design-system/assets/social")
+    cards = [e for e in entries if e.get("source") == "sticker"
+             and (card_dir / f"{e['id']}.png").exists()]
+    if not cards:
+        return jsonify({"error": "no card-engine cards to post"}), 500
+    ids = [e["id"] for e in cards]
+    idset = set(ids)
+    bag_path = _pl.Path("/home/ubuntu/.social-autopost-bag.json")
+    try:
+        bag = [i for i in _json.loads(bag_path.read_text()).get("bag", []) if i in idset]
+    except Exception:
+        bag = []
+    if not bag:
+        bag = list(ids)
+        _random.shuffle(bag)
+    pid = bag.pop(0)
+    bag_path.write_text(_json.dumps({"bag": bag}))
+    entry = next(e for e in cards if e["id"] == pid)
+    out = {}
+    okfb, mfb = _publish_fb(pid, entry); out["fb"] = "ok" if okfb else mfb
+    okig, mig = _publish_ig(pid, entry); out["ig"] = "ok" if okig else mig
+    try:
+        with open("/home/ubuntu/.social-post-history.jsonl", "a") as hf:
+            hf.write(_json.dumps({"ts": int(_time.time()), "id": pid,
+                "hdr": entry.get("hdr", ""), "result": out, "mode": "autopost-cards"}) + "\n")
+    except Exception:
+        pass
+    if any(v != "ok" for v in out.values()):
+        fails = "; ".join(f"{k.upper()}: {v}" for k, v in out.items() if v != "ok")
+        _ntfy("Auto-post failed", f"{pid}\n{fails}", tags="warning", priority="high")
+    else:
+        _ntfy("Auto-posted to FB + IG", entry.get("hdr", pid), tags="bullhorn")
+    return jsonify({"ok": True, "id": pid, "result": out})
+
+
 @app.route("/api/social/generate-set", methods=["POST"])
 @admin_required
 def social_generate_set():
