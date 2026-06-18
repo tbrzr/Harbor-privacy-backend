@@ -3460,6 +3460,17 @@ META_PAGE_TOKEN = os.environ.get("META_PAGE_TOKEN", "")
 META_IG_ID      = os.environ.get("META_IG_ID", "")
 # Meta's servers fetch the image by URL, so it must be public (the assets host is
 # login-walled). This unauthenticated dashboard route serves the rendered card.
+# ── Pinterest one-tap publish ───────────────────────────────
+# v5 API. Token values live in /etc/harbor-dashboard.env (same file as META_*).
+# Refresh-on-demand: refresh tokens last ~1yr, access tokens expire, so we mint a
+# fresh access token per publish from the refresh token, falling back to a static
+# PINTEREST_ACCESS_TOKEN if the refresh creds are not set.
+PINTEREST_APP_ID        = os.environ.get("PINTEREST_APP_ID", "")
+PINTEREST_APP_SECRET    = os.environ.get("PINTEREST_APP_SECRET", "")
+PINTEREST_ACCESS_TOKEN  = os.environ.get("PINTEREST_ACCESS_TOKEN", "")
+PINTEREST_REFRESH_TOKEN = os.environ.get("PINTEREST_REFRESH_TOKEN", "")
+PINTEREST_BOARD_ID      = os.environ.get("PINTEREST_BOARD_ID", "")
+
 SOCIAL_PUBLIC_BASE = "https://dashboard.harborprivacy.com/social/public"
 
 def _load_posted():
@@ -3993,6 +4004,71 @@ def social_post_fb():
         return jsonify({"ok": False, "error": "post not found"}), 404
     ok, msg = _publish_fb(pid, entry)
     return (jsonify({"ok": True, "fb_post_id": msg}), 200) if ok else (jsonify({"ok": False, "error": msg}), 502)
+
+
+def _pinterest_token():
+    """Return a usable Pinterest v5 access token. Prefer refreshing (refresh
+    tokens last ~1yr; access tokens expire), fall back to the static env token."""
+    import base64, requests as _req
+    if PINTEREST_APP_ID and PINTEREST_APP_SECRET and PINTEREST_REFRESH_TOKEN:
+        basic = base64.b64encode(f"{PINTEREST_APP_ID}:{PINTEREST_APP_SECRET}".encode()).decode()
+        try:
+            r = _req.post("https://api.pinterest.com/v5/oauth/token",
+                          headers={"Authorization": f"Basic {basic}",
+                                   "Content-Type": "application/x-www-form-urlencoded"},
+                          data={"grant_type": "refresh_token",
+                                "refresh_token": PINTEREST_REFRESH_TOKEN},
+                          timeout=30)
+            j = r.json()
+            if r.status_code == 200 and j.get("access_token"):
+                return j["access_token"]
+        except Exception as e:
+            print(f"pinterest: token refresh failed: {e!r}", flush=True)
+    return PINTEREST_ACCESS_TOKEN or ""
+
+
+def _publish_pinterest(pid, entry):
+    """Create a Pin from an entry's image + caption. Returns (ok, msg) where msg
+    is the pin id on success or an error string. Mirrors _publish_fb's contract,
+    but intentionally does NOT touch shared posted-state (Pinterest is additive)."""
+    import requests as _req
+    if not PINTEREST_BOARD_ID:
+        return False, "Pinterest board not configured"
+    tok = _pinterest_token()
+    if not tok:
+        return False, "no Pinterest access token (check refresh creds)"
+    # Pinterest fetches the image by URL; reuse the public JPEG renderer (IG path).
+    img = _ensure_jpeg(pid, png_url=f"{SOCIAL_PUBLIC_BASE}/{pid}.png")
+    if not img:
+        return False, "no image for this post"
+    hdr = entry.get("hdr", "")
+    title = (hdr.split(" -> ")[0].split(" / ", 1)[-1] if hdr else entry.get("id", ""))[:100]
+    desc = (entry.get("body", "") or title)[:800]
+    body = {"board_id": PINTEREST_BOARD_ID, "title": title, "description": desc,
+            "link": entry.get("link") or "https://harborprivacy.com",
+            "media_source": {"source_type": "image_url", "url": img}}
+    try:
+        r = _req.post("https://api.pinterest.com/v5/pins",
+                      headers={"Authorization": f"Bearer {tok}",
+                               "Content-Type": "application/json"},
+                      json=body, timeout=40)
+        j = r.json()
+    except Exception as e:
+        return False, f"request failed: {e}"
+    if r.status_code not in (200, 201) or "id" not in j:
+        return False, (j.get("message") or f"HTTP {r.status_code}")
+    return True, j["id"]
+
+
+@app.route("/api/social/post-pinterest", methods=["POST"])
+@admin_required
+def social_post_pinterest():
+    pid = (request.json or {}).get("id", "")
+    entry = _social_entry(pid)
+    if not entry:
+        return jsonify({"ok": False, "error": "post not found"}), 404
+    ok, msg = _publish_pinterest(pid, entry)
+    return (jsonify({"ok": True, "pin_id": msg}), 200) if ok else (jsonify({"ok": False, "error": msg}), 502)
 
 
 @app.route("/social/public/<fname>")
@@ -5160,6 +5236,12 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
   <span id="igTxt">Post to Instagram now</span>
 </button>
 {% endif %}
+{% if pin_ready %}
+<button class="btn" id="pinPostBtn" onclick="postPin()" style="margin-top:10px;">
+  <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-3.6 19.33c-.09-.78-.17-1.98.03-2.83.18-.78 1.18-4.97 1.18-4.97s-.3-.6-.3-1.49c0-1.4.81-2.44 1.82-2.44.86 0 1.27.64 1.27 1.42 0 .86-.55 2.15-.83 3.35-.24 1 .5 1.82 1.49 1.82 1.79 0 3.16-1.89 3.16-4.61 0-2.41-1.73-4.1-4.21-4.1-2.87 0-4.55 2.15-4.55 4.37 0 .87.33 1.8.75 2.31a.3.3 0 0 1 .07.29c-.08.32-.25 1-.28 1.14-.04.18-.15.22-.34.13-1.25-.58-2.03-2.4-2.03-3.87 0-3.15 2.29-6.04 6.6-6.04 3.47 0 6.16 2.47 6.16 5.77 0 3.45-2.17 6.22-5.19 6.22-1.01 0-1.97-.53-2.29-1.15l-.62 2.38c-.23.86-.83 1.94-1.24 2.6A10 10 0 1 0 12 2z"/></svg>
+  <span id="pinTxt">Pin to Pinterest now</span>
+</button>
+{% endif %}
 
 {% if fb_ready or ig_ready %}
 <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
@@ -5255,6 +5337,11 @@ async function postIG(){var b=document.getElementById('igPostBtn'),t=document.ge
     if(j.ok){t.textContent='Posted to Instagram';toast('Posted to Instagram');}
     else{t.textContent='Post to Instagram now';b.disabled=false;toast(j.error||'Post failed');}
   }catch(e){t.textContent='Post to Instagram now';b.disabled=false;toast('Post failed');}}
+async function postPin(){var b=document.getElementById('pinPostBtn'),t=document.getElementById('pinTxt');b.disabled=true;t.textContent='Pinning...';
+  try{var r=await fetch('/api/social/post-pinterest',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:PID})});var j=await r.json();
+    if(j.ok){t.textContent='Pinned to Pinterest';toast('Pinned to Pinterest');}
+    else{t.textContent='Pin to Pinterest now';b.disabled=false;toast(j.error||'Pin failed');}
+  }catch(e){t.textContent='Pin to Pinterest now';b.disabled=false;toast('Pin failed');}}
 var IMGBLOB=null, IMGFILE=null;
 (function(){
   // Preload every preview image into a per-element blob/File so Save can use
@@ -5309,8 +5396,10 @@ def social_post_page(post_id):
     posted = bool(_load_posted().get(post_id))
     fb_ready = bool(META_PAGE_ID and META_PAGE_TOKEN)
     ig_ready = bool(META_IG_ID and META_PAGE_TOKEN)
+    pin_ready = bool(PINTEREST_BOARD_ID and (PINTEREST_ACCESS_TOKEN or
+                     (PINTEREST_APP_ID and PINTEREST_APP_SECRET and PINTEREST_REFRESH_TOKEN)))
     resp = make_response(render_template_string(SOCIAL_POST_HTML, e=entry, posted=posted,
-                                                fb_ready=fb_ready, ig_ready=ig_ready))
+                                                fb_ready=fb_ready, ig_ready=ig_ready, pin_ready=pin_ready))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
