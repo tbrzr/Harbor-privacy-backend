@@ -3474,10 +3474,10 @@ PINTEREST_BOARD_ID      = os.environ.get("PINTEREST_BOARD_ID", "")
 # ── X (Twitter) one-tap publish ─────────────────────────────
 # OAuth 1.0a user context (stdlib-signed, no extra deps). All four values live in
 # /etc/harbor-dashboard.env. The app must have Read+Write permission.
-X_API_KEY       = os.environ.get("X_API_KEY", "")
-X_API_SECRET    = os.environ.get("X_API_SECRET", "")
-X_ACCESS_TOKEN  = os.environ.get("X_ACCESS_TOKEN", "")
-X_ACCESS_SECRET = os.environ.get("X_ACCESS_SECRET", "")
+X_API_KEY       = os.environ.get("X_API_KEY")       or os.environ.get("TWITTER_API_KEY", "")
+X_API_SECRET    = os.environ.get("X_API_SECRET")    or os.environ.get("TWITTER_API_SECRET", "")
+X_ACCESS_TOKEN  = os.environ.get("X_ACCESS_TOKEN")  or os.environ.get("TWITTER_ACCESS_TOKEN", "")
+X_ACCESS_SECRET = os.environ.get("X_ACCESS_SECRET") or os.environ.get("TWITTER_ACCESS_SECRET", "")
 
 SOCIAL_PUBLIC_BASE = "https://dashboard.harborprivacy.com/social/public"
 
@@ -5253,6 +5253,10 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
       <svg viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
       LinkedIn
     </a>
+    <a class="btn alt" href="https://twitter.com/intent/tweet?text={{ e.body|urlencode }}" target="_blank" rel="noopener" onclick="copyForShare()">
+      <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+      X
+    </a>
     <a class="btn alt" href="https://business.facebook.com/latest/composer" target="_blank" rel="noopener" onclick="copyForShare()">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
       Business Suite
@@ -5322,12 +5326,6 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
 <button class="btn" id="pinPostBtn" onclick="postPin()" style="margin-top:10px;">
   <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-3.6 19.33c-.09-.78-.17-1.98.03-2.83.18-.78 1.18-4.97 1.18-4.97s-.3-.6-.3-1.49c0-1.4.81-2.44 1.82-2.44.86 0 1.27.64 1.27 1.42 0 .86-.55 2.15-.83 3.35-.24 1 .5 1.82 1.49 1.82 1.79 0 3.16-1.89 3.16-4.61 0-2.41-1.73-4.1-4.21-4.1-2.87 0-4.55 2.15-4.55 4.37 0 .87.33 1.8.75 2.31a.3.3 0 0 1 .07.29c-.08.32-.25 1-.28 1.14-.04.18-.15.22-.34.13-1.25-.58-2.03-2.4-2.03-3.87 0-3.15 2.29-6.04 6.6-6.04 3.47 0 6.16 2.47 6.16 5.77 0 3.45-2.17 6.22-5.19 6.22-1.01 0-1.97-.53-2.29-1.15l-.62 2.38c-.23.86-.83 1.94-1.24 2.6A10 10 0 1 0 12 2z"/></svg>
   <span id="pinTxt">Pin to Pinterest now</span>
-</button>
-{% endif %}
-{% if x_ready %}
-<button class="btn" id="xPostBtn" onclick="postX()" style="margin-top:10px;">
-  <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-  <span id="xTxt">Post to X now</span>
 </button>
 {% endif %}
 
@@ -5430,11 +5428,6 @@ async function postPin(){var b=document.getElementById('pinPostBtn'),t=document.
     if(j.ok){t.textContent='Pinned to Pinterest';toast('Pinned to Pinterest');}
     else{t.textContent='Pin to Pinterest now';b.disabled=false;toast(j.error||'Pin failed');}
   }catch(e){t.textContent='Pin to Pinterest now';b.disabled=false;toast('Pin failed');}}
-async function postX(){var b=document.getElementById('xPostBtn'),t=document.getElementById('xTxt');b.disabled=true;t.textContent='Posting...';
-  try{var r=await fetch('/api/social/post-x',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:PID})});var j=await r.json();
-    if(j.ok){t.textContent='Posted to X';toast('Posted to X');}
-    else{t.textContent='Post to X now';b.disabled=false;toast(j.error||'Post failed');}
-  }catch(e){t.textContent='Post to X now';b.disabled=false;toast('Post failed');}}
 var IMGBLOB=null, IMGFILE=null;
 (function(){
   // Preload every preview image into a per-element blob/File so Save can use
