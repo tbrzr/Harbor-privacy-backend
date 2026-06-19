@@ -5253,7 +5253,7 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
       <svg viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
       LinkedIn
     </a>
-    <a class="btn alt" href="https://twitter.com/intent/tweet?text={{ e.body|urlencode }}" target="_blank" rel="noopener" onclick="copyForShare()">
+    <a class="btn alt" href="https://twitter.com/intent/tweet?text={{ x_caption|urlencode }}" target="_blank" rel="noopener">
       <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
       X
     </a>
@@ -5473,6 +5473,22 @@ def _social_entry(post_id):
     return next((e for e in entries if e.get("id") == post_id), None)
 
 
+def _x_caption(entry):
+    """X caps at 280 chars but our bodies are long FB/IG captions. Build a tight
+    X version: headline + hashtags (if they fit) + link, always <=280."""
+    import re
+    head = (entry.get("head") or entry.get("title") or "").strip()
+    link = (entry.get("link") or "").strip()
+    tags = " ".join(re.findall(r"#\w+", entry.get("body", "")))
+    cap = f"{head}\n{tags}\n{link}" if tags else f"{head}\n{link}"
+    if len(cap) > 280:                      # drop hashtags first
+        cap = f"{head}\n{link}"
+    if len(cap) > 280:                      # then trim the headline
+        keep = max(0, 280 - len(link) - 1)
+        cap = f"{head[:keep].rstrip()}\n{link}"
+    return cap
+
+
 @app.route("/social/post/<post_id>")
 @admin_required
 def social_post_page(post_id):
@@ -5485,8 +5501,10 @@ def social_post_page(post_id):
     pin_ready = bool(PINTEREST_BOARD_ID and (PINTEREST_ACCESS_TOKEN or
                      (PINTEREST_APP_ID and PINTEREST_APP_SECRET and PINTEREST_REFRESH_TOKEN)))
     x_ready = bool(X_API_KEY and X_API_SECRET and X_ACCESS_TOKEN and X_ACCESS_SECRET)
+    x_caption = _x_caption(entry)
     resp = make_response(render_template_string(SOCIAL_POST_HTML, e=entry, posted=posted,
-                                                fb_ready=fb_ready, ig_ready=ig_ready, pin_ready=pin_ready, x_ready=x_ready))
+                                                fb_ready=fb_ready, ig_ready=ig_ready, pin_ready=pin_ready,
+                                                x_ready=x_ready, x_caption=x_caption))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
