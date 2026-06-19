@@ -3471,6 +3471,14 @@ PINTEREST_ACCESS_TOKEN  = os.environ.get("PINTEREST_ACCESS_TOKEN", "")
 PINTEREST_REFRESH_TOKEN = os.environ.get("PINTEREST_REFRESH_TOKEN", "")
 PINTEREST_BOARD_ID      = os.environ.get("PINTEREST_BOARD_ID", "")
 
+# ── X (Twitter) one-tap publish ─────────────────────────────
+# OAuth 1.0a user context (stdlib-signed, no extra deps). All four values live in
+# /etc/harbor-dashboard.env. The app must have Read+Write permission.
+X_API_KEY       = os.environ.get("X_API_KEY", "")
+X_API_SECRET    = os.environ.get("X_API_SECRET", "")
+X_ACCESS_TOKEN  = os.environ.get("X_ACCESS_TOKEN", "")
+X_ACCESS_SECRET = os.environ.get("X_ACCESS_SECRET", "")
+
 SOCIAL_PUBLIC_BASE = "https://dashboard.harborprivacy.com/social/public"
 
 def _load_posted():
@@ -4069,6 +4077,80 @@ def social_post_pinterest():
         return jsonify({"ok": False, "error": "post not found"}), 404
     ok, msg = _publish_pinterest(pid, entry)
     return (jsonify({"ok": True, "pin_id": msg}), 200) if ok else (jsonify({"ok": False, "error": msg}), 502)
+
+
+def _oauth1_header(method, url):
+    """OAuth 1.0a Authorization header for X. Signs over oauth_* params only; we
+    send media as multipart and the tweet as JSON, neither of which contributes
+    to the signature base string."""
+    import time as _t, secrets as _secrets, hmac, hashlib, base64
+    from urllib.parse import quote
+    q = lambda s: quote(str(s), safe="")
+    oauth = {
+        "oauth_consumer_key": X_API_KEY,
+        "oauth_nonce": _secrets.token_hex(16),
+        "oauth_signature_method": "HMAC-SHA1",
+        "oauth_timestamp": str(int(_t.time())),
+        "oauth_token": X_ACCESS_TOKEN,
+        "oauth_version": "1.0",
+    }
+    base_params = "&".join(f"{q(k)}={q(oauth[k])}" for k in sorted(oauth))
+    base = "&".join([method.upper(), q(url), q(base_params)])
+    key = f"{q(X_API_SECRET)}&{q(X_ACCESS_SECRET)}"
+    oauth["oauth_signature"] = base64.b64encode(
+        hmac.new(key.encode(), base.encode(), hashlib.sha1).digest()).decode()
+    return "OAuth " + ", ".join(f'{q(k)}="{q(v)}"' for k, v in sorted(oauth.items()))
+
+
+def _publish_x(pid, entry):
+    """Upload the post image to X and create a tweet. Returns (ok, msg) with msg =
+    tweet id on success. Mirrors _publish_fb's contract; additive (no posted-state)."""
+    import requests as _req, pathlib
+    if not (X_API_KEY and X_API_SECRET and X_ACCESS_TOKEN and X_ACCESS_SECRET):
+        return False, "X not configured"
+    _ensure_jpeg(pid, png_url=f"{SOCIAL_PUBLIC_BASE}/{pid}.png")
+    base = pathlib.Path("/home/ubuntu/harbor-design-system/assets/social")
+    img = base / f"{pid}.jpg"
+    if not img.exists():
+        img = base / f"{pid}.png"
+    if not img.exists():
+        return False, "no image for this post"
+    # 1) media upload (v1.1, multipart)
+    up_url = "https://upload.twitter.com/1.1/media/upload.json"
+    try:
+        with open(img, "rb") as fh:
+            r = _req.post(up_url, headers={"Authorization": _oauth1_header("POST", up_url)},
+                          files={"media": fh}, timeout=60)
+    except Exception as e:
+        return False, f"media upload failed: {e}"
+    if r.status_code != 200:
+        return False, f"media upload HTTP {r.status_code}: {r.text[:120]}"
+    media_id = (r.json() or {}).get("media_id_string")
+    if not media_id:
+        return False, "no media_id from X"
+    # 2) create tweet (v2, JSON)
+    tw_url = "https://api.twitter.com/2/tweets"
+    text = (entry.get("body", "") or entry.get("hdr", ""))[:280]
+    try:
+        r = _req.post(tw_url, headers={"Authorization": _oauth1_header("POST", tw_url),
+                                       "Content-Type": "application/json"},
+                      json={"text": text, "media": {"media_ids": [media_id]}}, timeout=40)
+    except Exception as e:
+        return False, f"tweet failed: {e}"
+    if r.status_code not in (200, 201):
+        return False, f"tweet HTTP {r.status_code}: {r.text[:140]}"
+    return True, (r.json().get("data", {}) or {}).get("id", "ok")
+
+
+@app.route("/api/social/post-x", methods=["POST"])
+@admin_required
+def social_post_x():
+    pid = (request.json or {}).get("id", "")
+    entry = _social_entry(pid)
+    if not entry:
+        return jsonify({"ok": False, "error": "post not found"}), 404
+    ok, msg = _publish_x(pid, entry)
+    return (jsonify({"ok": True, "tweet_id": msg}), 200) if ok else (jsonify({"ok": False, "error": msg}), 502)
 
 
 @app.route("/social/public/<fname>")
@@ -5242,6 +5324,12 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
   <span id="pinTxt">Pin to Pinterest now</span>
 </button>
 {% endif %}
+{% if x_ready %}
+<button class="btn" id="xPostBtn" onclick="postX()" style="margin-top:10px;">
+  <svg viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+  <span id="xTxt">Post to X now</span>
+</button>
+{% endif %}
 
 {% if fb_ready or ig_ready %}
 <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:14px;">
@@ -5342,6 +5430,11 @@ async function postPin(){var b=document.getElementById('pinPostBtn'),t=document.
     if(j.ok){t.textContent='Pinned to Pinterest';toast('Pinned to Pinterest');}
     else{t.textContent='Pin to Pinterest now';b.disabled=false;toast(j.error||'Pin failed');}
   }catch(e){t.textContent='Pin to Pinterest now';b.disabled=false;toast('Pin failed');}}
+async function postX(){var b=document.getElementById('xPostBtn'),t=document.getElementById('xTxt');b.disabled=true;t.textContent='Posting...';
+  try{var r=await fetch('/api/social/post-x',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:PID})});var j=await r.json();
+    if(j.ok){t.textContent='Posted to X';toast('Posted to X');}
+    else{t.textContent='Post to X now';b.disabled=false;toast(j.error||'Post failed');}
+  }catch(e){t.textContent='Post to X now';b.disabled=false;toast('Post failed');}}
 var IMGBLOB=null, IMGFILE=null;
 (function(){
   // Preload every preview image into a per-element blob/File so Save can use
@@ -5398,8 +5491,9 @@ def social_post_page(post_id):
     ig_ready = bool(META_IG_ID and META_PAGE_TOKEN)
     pin_ready = bool(PINTEREST_BOARD_ID and (PINTEREST_ACCESS_TOKEN or
                      (PINTEREST_APP_ID and PINTEREST_APP_SECRET and PINTEREST_REFRESH_TOKEN)))
+    x_ready = bool(X_API_KEY and X_API_SECRET and X_ACCESS_TOKEN and X_ACCESS_SECRET)
     resp = make_response(render_template_string(SOCIAL_POST_HTML, e=entry, posted=posted,
-                                                fb_ready=fb_ready, ig_ready=ig_ready, pin_ready=pin_ready))
+                                                fb_ready=fb_ready, ig_ready=ig_ready, pin_ready=pin_ready, x_ready=x_ready))
     resp.headers["Cache-Control"] = "no-store"
     return resp
 
