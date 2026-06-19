@@ -49,7 +49,7 @@ BRANDS = {
                 "kill a masked address the day it starts getting spam and you know exactly who leaked it"),
     "stickers":("HARBOR / STICKERS","STICKER DROP", "harborprivacy.etsy.com",
                 "die-cut vinyl laptop stickers with privacy slogans like My DNS is mine, I read the privacy policy, and Cookies declined, "
-                "weatherproof and matte, now open for preorder shipping in 2 to 3 weeks, 4 dollars each or 18 for the pack of nine, for homelab and privacy people"),
+                "weatherproof and matte, now shipping, 4 dollars each or 18 for the pack of eleven, for homelab and privacy people"),
 }
 # brands where "no account / no signup" claims are FALSE -> reject if present
 ACCOUNT_REQUIRED = {"booking", "money", "neighbor", "scan"}
