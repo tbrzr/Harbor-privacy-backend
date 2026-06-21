@@ -1,0 +1,20 @@
+{
+  "portfolio_share": {
+    "label": "Share my portfolio site",
+    "default_link": "https://tim.brazer.us",
+    "voice": "First person, a credible operations leader who quietly also builds. Calm, confident, specific. Shows judgment and outcomes, never sounds like a plea or an ad.",
+    "positioning": "Tim Brazer, a healthcare operations leader with nearly 20 years at South Shore Health (multi-site supervision, revenue cycle, denial prevention, Epic implementation), finishing an MBA in Healthcare Management and open to an operations leadership role. He also builds privacy and HIPAA-aware software on the side, which is why his new personal site shows both the operator and the builder.",
+    "tie_back": "Tie the topic to an operations leadership lesson, then close with a dignified, low-key mention that he just put up a site bringing his healthcare operations background and his systems-building work together, and is open to the right role. The link lives in the first comment, never the body. Never sound desperate.",
+    "hashtags": ["healthcare", "operations", "leadership"],
+    "seeds": [
+      "why you finally built one place that shows both the operator and the builder in you",
+      "what 20 years in revenue cycle taught you that no job description captures",
+      "the operations lesson behind why you build your own tools instead of waiting on IT",
+      "what you look for in a team when you are the one being hired, not just hiring",
+      "how denial prevention is really just operations discipline with a dollar sign",
+      "why a healthcare operations leader should still know how the systems actually work",
+      "the case for hiring an operator who can also build the fix, not just file the ticket",
+      "what finishing an MBA at this stage of your career clarified about where you want to lead"
+    ]
+  }
+}

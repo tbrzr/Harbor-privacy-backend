@@ -5037,8 +5037,8 @@ select option{background:var(--surface);color:var(--ink);}
 <div class="card">
   <div class="field">
     <label for="persona">Post as</label>
-    <select id="persona">
-      {% for p in personas %}<option value="{{ p.key }}">{{ p.label }}</option>{% endfor %}
+    <select id="persona" onchange="syncLink()">
+      {% for p in personas %}<option value="{{ p.key }}" data-link="{{ p.link }}">{{ p.label }}</option>{% endfor %}
     </select>
   </div>
   <div class="field">
@@ -5118,6 +5118,16 @@ function surprise(){
 function cp(id,msg){var el=document.getElementById(id);el.select();el.setSelectionRange(0,99999);
   navigator.clipboard.writeText(el.value).then(function(){toast(msg);},function(){document.execCommand('copy');toast(msg);});}
 function toast(m){var x=document.getElementById('toast');x.textContent=m;x.classList.add('show');setTimeout(function(){x.classList.remove('show');},1600);}
+var lastDefault="";
+function syncLink(){
+  var sel=document.getElementById('persona');
+  var nd=sel.options[sel.selectedIndex].getAttribute('data-link')||"";
+  var lf=document.getElementById('link');
+  // only auto-fill if the field is empty or still holds a previous persona default
+  if(lf.value.trim()===""||lf.value.trim()===lastDefault){lf.value=nd;}
+  lastDefault=nd;
+}
+syncLink();
 </script>
 </body></html>"""
 
@@ -5126,7 +5136,7 @@ function toast(m){var x=document.getElementById('toast');x.textContent=m;x.class
 @admin_required
 def linkedin_page():
     P = _linkedin_personas()
-    personas = [{"key": k, "label": v.get("label", k)} for k, v in P.items()]
+    personas = [{"key": k, "label": v.get("label", k), "link": v.get("default_link", "")} for k, v in P.items()]
     resp = make_response(render_template_string(LINKEDIN_HTML, personas=personas, nav_active="linkedin"))
     resp.headers["Cache-Control"] = "no-store"
     return resp
