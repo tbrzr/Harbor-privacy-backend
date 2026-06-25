@@ -839,8 +839,10 @@ def stripe_webhook():
         return "Bad request", 400
 
     if event["type"] == "payment_intent.succeeded":
-        pi = event["data"]["object"]
-        order_token = pi.get("metadata", {}).get("order_token")
+        # stripe-python 15 dropped dict methods on StripeObject (.get raises
+        # AttributeError); convert to a plain dict before .get().
+        pi = event["data"]["object"].to_dict()
+        order_token = (pi.get("metadata") or {}).get("order_token")
         if order_token:
             db = get_db()
             db.execute(
