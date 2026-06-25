@@ -105,6 +105,39 @@ def _verify_turnstile(token):
         print(f"turnstile verify error (fail-open): {e}")
         return True
 
+# --- Brute-force protection for the 6-digit access codes ----------------------
+# Access codes are short (secrets.randbelow -> 6 digits, ~900k space) and gate
+# download/status/extend of a job whose payload is PII (resume text, cover letter,
+# email). They're typed on /success + sent as email links, so we keep them short
+# but block enumeration: lock an IP out after too many FAILED (404) code lookups.
+# Legit users hit a valid code (200) and never accrue failures. The job_id polling
+# endpoint (check_job_status) is intentionally NOT in this set.
+_CODE_FAILS: dict = {}
+_CODE_FAIL_WINDOW = 600     # 10 minutes
+_CODE_FAIL_MAX = 15
+_CODE_VIEWS = {'download_revised_resume', 'get_job_status', 'extend_job_access',
+               'update_header', 'download_cover_letter_by_code', 'adjust_cover_letter',
+               'resend_cover_letter', 'coverletter_status', 'download_cover_letter'}
+
+@app.before_request
+def _code_bruteforce_gate():
+    if request.endpoint in _CODE_VIEWS:
+        ip = _client_ip()
+        now = _time.time()
+        fails = [t for t in _CODE_FAILS.get(ip, []) if now - t < _CODE_FAIL_WINDOW]
+        _CODE_FAILS[ip] = fails
+        if len(fails) >= _CODE_FAIL_MAX:
+            return jsonify({'error': 'Too many attempts. Please wait a few minutes.'}), 429
+
+@app.after_request
+def _code_bruteforce_record(resp):
+    try:
+        if request.endpoint in _CODE_VIEWS and resp.status_code == 404:
+            _CODE_FAILS.setdefault(_client_ip(), []).append(_time.time())
+    except Exception:
+        pass
+    return resp
+
 # Upsell prices ($0.99 add-ons). These used to be static Stripe Payment Links
 # (buy.stripe.com/...) that a card-testing bot hit directly, bypassing the app
 # (2026-06-25). Now minted server-side per request, so there's no static charge
