@@ -84,6 +84,27 @@ def _create_guard():
     _CREATE_RATE[ip] = hits
     return None, None
 
+def _verify_turnstile(token):
+    """Cloudflare Turnstile check. Pass-through if not configured; fail-open on a
+    network/CF error (don't block real users if CF is down); block only on a
+    definitive invalid/missing token when configured."""
+    secret = os.getenv('TURNSTILE_SECRET_KEY', '')
+    if not secret:
+        return True
+    if not token:
+        return False
+    import urllib.request, urllib.parse, json as _json
+    try:
+        body = urllib.parse.urlencode({'secret': secret, 'response': token,
+                                       'remoteip': _client_ip()}).encode()
+        req = urllib.request.Request('https://challenges.cloudflare.com/turnstile/v0/siteverify',
+                                     data=body, method='POST')
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return bool(_json.load(r).get('success'))
+    except Exception as e:
+        print(f"turnstile verify error (fail-open): {e}")
+        return True
+
 # Upsell prices ($0.99 add-ons). These used to be static Stripe Payment Links
 # (buy.stripe.com/...) that a card-testing bot hit directly, bypassing the app
 # (2026-06-25). Now minted server-side per request, so there's no static charge
@@ -120,7 +141,9 @@ def create_cover_letter():
     _err, _code = _create_guard()
     if _err:
         return _err, _code
-    data = request.json
+    data = request.json or {}
+    if not _verify_turnstile(data.get('cf_turnstile_response', '')):
+        return jsonify({'error': 'Verification failed. Please refresh and try again.'}), 403
     job_posting = data.get('job_posting', '').strip()
     your_name = data.get('your_name', '').strip()
     your_background = data.get('your_background', '').strip()
