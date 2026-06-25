@@ -39,6 +39,34 @@ def save_jobs(jobs):
     with open(JOBS_FILE, 'w') as f:
         json.dump(jobs, f, indent=2)
 
+# --- Bot / card-testing protection for the checkout endpoints ---------------
+# The /api/checkout/* endpoints mint a payable Stripe session. Without gating,
+# a bot can spin up endless $0.99 sessions to test stolen cards (observed
+# 2026-06-25). Defense: per-IP rate limit + require the job_id to already exist
+# (a real user always creates the job before paying). _CHK_RATE: {ip:[ts...]}.
+import time as _time
+_CHK_RATE: dict = {}
+_CHK_WINDOW = 60      # seconds
+_CHK_MAX = 6          # checkout-session creates per IP per window
+
+def _client_ip():
+    fwd = request.headers.get("X-Forwarded-For", "")
+    return (fwd.split(",")[0].strip() if fwd else request.remote_addr) or "unknown"
+
+def _checkout_guard(job_id):
+    """Returns (error_response, status) to abort, or (None, None) to proceed."""
+    ip = _client_ip()
+    now = _time.time()
+    hits = [t for t in _CHK_RATE.get(ip, []) if now - t < _CHK_WINDOW]
+    if len(hits) >= _CHK_MAX:
+        return jsonify({'error': 'Too many requests. Please wait a moment.'}), 429
+    hits.append(now)
+    _CHK_RATE[ip] = hits
+    job_id = (job_id or "").strip()
+    if not job_id or job_id not in load_jobs():
+        return jsonify({'error': 'Order not found'}), 404
+    return None, None
+
 def generate_access_code():
     return str(secrets.randbelow(900000) + 100000)
 
@@ -877,6 +905,9 @@ def checkout_coverletter():
     data = request.get_json() or {}
     job_id = data.get('job_id', '')
     email = data.get('email', '')
+    _err, _code = _checkout_guard(job_id)
+    if _err:
+        return _err, _code
     try:
         session = stripe.checkout.Session.create(
             mode='payment',
@@ -898,6 +929,9 @@ def checkout_resume():
     data = request.get_json() or {}
     job_id = data.get('job_id', '')
     email = data.get('email', '')
+    _err, _code = _checkout_guard(job_id)
+    if _err:
+        return _err, _code
     try:
         session = stripe.checkout.Session.create(
             mode='payment',
@@ -920,6 +954,9 @@ def checkout_adjust():
     job_id = data.get('job_id', '')
     adj_count = data.get('adj_count', 1)
     email = data.get('email', '')
+    _err, _code = _checkout_guard(job_id)
+    if _err:
+        return _err, _code
     try:
         session = stripe.checkout.Session.create(
             mode='payment',
