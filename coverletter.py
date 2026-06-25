@@ -67,6 +67,34 @@ def _checkout_guard(job_id):
         return jsonify({'error': 'Order not found'}), 404
     return None, None
 
+# Upsell prices ($0.99 add-ons). These used to be static Stripe Payment Links
+# (buy.stripe.com/...) that a card-testing bot hit directly, bypassing the app
+# (2026-06-25). Now minted server-side per request, so there's no static charge
+# URL to hit -- a valid job access code is required to even create the session.
+PRICE_CL_EXTEND     = 'price_1TJci5COrGNrBgIf0CZ8TUVf'   # cover-letter 24h storage
+PRICE_RV_EXTEND     = 'price_1TJcjdCOrGNrBgIfPZkjm7XZ'   # resume 24h storage
+PRICE_ADJUST_UPSELL = 'price_1TJmbTCOrGNrBgIfi1sZQTuF'   # AI cover-letter modify
+
+def _upsell_checkout_url(price_id, client_ref, success_url, email=None):
+    """Mint a hosted Checkout Session for an upsell and return its URL, or None on
+    failure. client_ref carries the {job_id}_extend / {job_id}_adjust_N suffix the
+    webhook already fulfills."""
+    import stripe
+    stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+    try:
+        session = stripe.checkout.Session.create(
+            mode='payment',
+            line_items=[{'price': price_id, 'quantity': 1}],
+            client_reference_id=client_ref,
+            customer_email=email or None,
+            success_url=success_url,
+            cancel_url=success_url.split('/success')[0] + '/',
+        )
+        return session.url
+    except Exception as e:
+        print(f"upsell checkout session failed: {e}")
+        return None
+
 def generate_access_code():
     return str(secrets.randbelow(900000) + 100000)
 
@@ -547,10 +575,15 @@ def extend_job_access(access_code):
         return jsonify({'error': 'Already extended'}), 400
     
     if job['type'] == 'cover_letter':
-        checkout_url = f'https://buy.stripe.com/7sY00idMP6Xt7zv0yr6kg0j?client_reference_id={job_id}_extend&success_url=https://career.harborprivacy.com/success'
+        checkout_url = _upsell_checkout_url(PRICE_CL_EXTEND, f'{job_id}_extend',
+                                            'https://career.harborprivacy.com/success', job.get('email'))
     else:
-        checkout_url = f'https://buy.stripe.com/cNiaEWdMPbdJ6vrbd56kg0k?client_reference_id={job_id}_extend&success_url=https://resume.harborprivacy.com/success'
-    
+        checkout_url = _upsell_checkout_url(PRICE_RV_EXTEND, f'{job_id}_extend',
+                                            'https://resume.harborprivacy.com/success', job.get('email'))
+
+    if not checkout_url:
+        return jsonify({'error': 'Could not start checkout. Please try again.'}), 502
+
     return jsonify({
         'job_id': job_id,
         'checkout_url': checkout_url
@@ -637,7 +670,11 @@ def adjust_cover_letter(access_code):
     if adj_count > 0 and not free_used:
         job['free_adjustment_used'] = True
     elif adj_count > 0 and free_used:
-        return jsonify({'error': 'paid', 'checkout_url': f'https://buy.stripe.com/eVqbJ0cIL4Pl0730yr6kg0l?client_reference_id={job_id}_adjust_{adj_count}&success_url=https://career.harborprivacy.com/success'}), 402
+        url = _upsell_checkout_url(PRICE_ADJUST_UPSELL, f'{job_id}_adjust_{adj_count}',
+                                   'https://career.harborprivacy.com/success', job.get('email'))
+        if not url:
+            return jsonify({'error': 'Could not start checkout. Please try again.'}), 502
+        return jsonify({'error': 'paid', 'checkout_url': url}), 402
 
     try:
         prompt = f"""You are editing a cover letter. Apply ONLY this instruction: {instruction}
