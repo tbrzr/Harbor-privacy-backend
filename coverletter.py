@@ -193,7 +193,10 @@ def create_resume_review():
             return jsonify({'error': 'Invalid request data'}), 400
     except Exception as e:
         return jsonify({'error': 'Invalid JSON data'}), 400
-    
+
+    if not _verify_turnstile(data.get('cf_turnstile_response', '')):
+        return jsonify({'error': 'Verification failed. Please refresh and try again.'}), 403
+
     resume_text = data.get('resume_text', '').strip()
     email = data.get('email', '').strip()
     tone = data.get('tone', 'professional').strip()
