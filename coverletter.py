@@ -220,7 +220,7 @@ Be honest. Output only: MATCH_ANALYSIS: 4 (for example)"""
 
     try:
         response = anthropic_client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-6",
             max_tokens=2000,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -446,7 +446,7 @@ Be direct and specific. Use examples from their actual resume. No fluff."""
 
     try:
         response = anthropic_client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-6",
             max_tokens=4000,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -471,7 +471,7 @@ Original Resume:
 Keep the professional summary to 2-3 sentences maximum. Keep bullets to one concise line each. Preserve ALL contact info exactly as written including phone, email, LinkedIn, and location. Return ONLY the improved resume text, no commentary, no markdown fences, no extra blank lines."""
             
             resume_response = anthropic_client.messages.create(
-                model="claude-sonnet-4-20250514",
+                model="claude-sonnet-4-6",
                 max_tokens=3000,
                 messages=[{"role": "user", "content": resume_prompt}]
             )
@@ -648,7 +648,7 @@ Current cover letter:
 Return ONLY the revised cover letter text. No commentary. No markdown. Keep the same opening and closing format."""
 
         response = anthropic_client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-6",
             max_tokens=1500,
             messages=[{"role": "user", "content": prompt}]
         )
