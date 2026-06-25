@@ -67,6 +67,23 @@ def _checkout_guard(job_id):
         return jsonify({'error': 'Order not found'}), 404
     return None, None
 
+# Job creation is open + free (it only stores the form; the AI call is gated
+# behind payment). Rate-limit per IP so a bot can't flood coverletter-jobs.json
+# (loaded whole on every request, so bloat = slowdown).
+_CREATE_RATE: dict = {}
+_CREATE_WINDOW = 3600   # 1 hour
+_CREATE_MAX = 10        # job creations per IP per hour
+
+def _create_guard():
+    ip = _client_ip()
+    now = _time.time()
+    hits = [t for t in _CREATE_RATE.get(ip, []) if now - t < _CREATE_WINDOW]
+    if len(hits) >= _CREATE_MAX:
+        return jsonify({'error': 'Too many requests. Please try again later.'}), 429
+    hits.append(now)
+    _CREATE_RATE[ip] = hits
+    return None, None
+
 # Upsell prices ($0.99 add-ons). These used to be static Stripe Payment Links
 # (buy.stripe.com/...) that a card-testing bot hit directly, bypassing the app
 # (2026-06-25). Now minted server-side per request, so there's no static charge
@@ -100,6 +117,9 @@ def generate_access_code():
 
 @app.route('/api/coverletter/create', methods=['POST'])
 def create_cover_letter():
+    _err, _code = _create_guard()
+    if _err:
+        return _err, _code
     data = request.json
     job_posting = data.get('job_posting', '').strip()
     your_name = data.get('your_name', '').strip()
@@ -141,6 +161,9 @@ def create_cover_letter():
 
 @app.route('/api/resume/create', methods=['POST'])
 def create_resume_review():
+    _err, _code = _create_guard()
+    if _err:
+        return _err, _code
     try:
         data = request.get_json()
         if not data:
