@@ -63,6 +63,33 @@ DB_PATH    = "/home/ubuntu/harbor-fax.db"
 UPLOAD_DIR.mkdir(exist_ok=True)
 MEDIA_DIR.mkdir(exist_ok=True)
 
+def _verify_telnyx(raw_body, sig_b64, timestamp):
+    """Verify a Telnyx Ed25519 webhook signature over '<timestamp>|<raw body>'.
+    Returns True/False when TELNYX_PUBLIC_KEY is configured, or None if it's unset
+    (so the handler can process-but-warn instead of breaking until the key is set
+    from the Telnyx portal). Forged events otherwise trigger real Stripe refunds."""
+    pk_b64 = os.environ.get("TELNYX_PUBLIC_KEY", "")
+    if not pk_b64:
+        return None
+    try:
+        import base64
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+        pk = Ed25519PublicKey.from_public_bytes(base64.b64decode(pk_b64))
+        pk.verify(base64.b64decode(sig_b64), (str(timestamp) + "|").encode() + raw_body)
+        return True
+    except Exception:
+        return False
+
+def _safe_order_token(client_val):
+    """order_token becomes a filesystem path (MEDIA_DIR/<t>.pdf) AND a public
+    media URL, so never trust a client value that isn't a plain uuid4 hex —
+    otherwise '../../..' lets an attacker write arbitrary files into the nginx
+    docroot. Fall back to a fresh uuid for anything that isn't 32 hex chars."""
+    t = (client_val or "").strip().lower()
+    if len(t) == 32 and all(c in "0123456789abcdef" for c in t):
+        return t
+    return uuid.uuid4().hex
+
 stripe.api_key = STRIPE_SECRET
 telnyx_client = telnyx.Telnyx(api_key=TELNYX_API_KEY)
 
@@ -713,7 +740,7 @@ def create_payment_intent():
     if amount == 0:
         return jsonify({"error": "Use /fax/send-free for free orders"}), 400
 
-    order_token = body.get("file_token") or uuid.uuid4().hex
+    order_token = _safe_order_token(body.get("file_token"))
 
     meta = {
         "order_token": order_token,
@@ -779,7 +806,7 @@ def send_free():
     else:
         return jsonify({"error": "No valid promo code for free send"}), 400
 
-    order_token = body.get("file_token") or uuid.uuid4().hex
+    order_token = _safe_order_token(body.get("file_token"))
     email = (body.get("email") or "").strip()
 
     db = get_db()
@@ -830,10 +857,12 @@ def stripe_webhook():
     payload = request.get_data()
     sig = request.headers.get("Stripe-Signature", "")
     try:
-        if STRIPE_WEBHOOK_SECRET:
-            event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
-        else:
-            event = stripe.Event.construct_from(json.loads(payload), stripe.api_key)
+        if not STRIPE_WEBHOOK_SECRET:
+            # Fail closed: without the signing secret we cannot trust the event
+            # (a forged payment_intent.succeeded would send a fax for free).
+            log.error("STRIPE_WEBHOOK_SECRET unset; rejecting unsigned webhook")
+            return "Webhook secret not configured", 500
+        event = stripe.Webhook.construct_event(payload, sig, STRIPE_WEBHOOK_SECRET)
     except Exception as e:
         log.warning("Stripe webhook error: %s", e)
         return "Bad request", 400
@@ -858,8 +887,17 @@ def stripe_webhook():
 
 @app.route("/fax/telnyx-webhook", methods=["POST"])
 def telnyx_webhook():
+    raw = request.get_data()
+    _v = _verify_telnyx(raw,
+                        request.headers.get("telnyx-signature-ed25519", ""),
+                        request.headers.get("telnyx-timestamp", ""))
+    if _v is False:
+        log.warning("Telnyx webhook signature invalid; rejecting")
+        return "bad signature", 403
+    if _v is None:
+        log.warning("TELNYX_PUBLIC_KEY unset; processing Telnyx webhook UNVERIFIED")
     try:
-        body = request.get_json(force=True) or {}
+        body = json.loads(raw or b"{}") or {}
     except Exception:
         return "ok", 200
 
