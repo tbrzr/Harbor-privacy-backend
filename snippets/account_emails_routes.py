@@ -19,6 +19,7 @@ from itsdangerous import URLSafeTimedSerializer as _URLSafeSer
 from itsdangerous import BadSignature as _BadSig, SignatureExpired as _SigExp
 from hashlib import sha256 as _sha256
 import os as _os
+import secrets as _secrets
 from harbor_lib.data import (
     find_customer as _find_customer,
     find_customer_by_any_email as _find_by_any,
@@ -30,10 +31,10 @@ from harbor_lib.data import (
     email_in_use_elsewhere as _email_in_use,
 )
 
-_HELP_INTERNAL_KEY = _os.environ.get(
-    "HELP_INTERNAL_API_KEY",
-    "2z_TM3ypDMrnRogyfAXjbFLr3mQCNCZ5z08d_6MBHiE",
-)
+# No hardcoded fallback: the literal was committed to the repo, so anyone with
+# repo access could call /api/customer_lookup. Require the env var; fail closed
+# (reject all) if it's unset rather than fall back to a guessable key.
+_HELP_INTERNAL_KEY = _os.environ.get("HELP_INTERNAL_API_KEY", "")
 _EMAIL_VERIFY_SECRET = _os.environ.get(
     "EMAIL_VERIFY_SECRET", app.config.get("SECRET_KEY") or "harbor-email-verify-fallback"
 )
@@ -72,7 +73,8 @@ def api_whoami():
 
 @app.post("/api/customer_lookup")
 def api_customer_lookup():
-    if request.headers.get("X-Internal-Key") != _HELP_INTERNAL_KEY:
+    sent = request.headers.get("X-Internal-Key", "")
+    if not _HELP_INTERNAL_KEY or not _secrets.compare_digest(sent, _HELP_INTERNAL_KEY):
         return jsonify({}), 403
     body = request.get_json(silent=True) or {}
     email = (body.get("email") or "").strip().lower()
