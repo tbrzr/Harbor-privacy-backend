@@ -3543,7 +3543,7 @@ def _review_decision(action, entry):
 # brand -> filter category for generated sets
 SOCIAL_BRAND_CAT = {"harbor":"Harbor","career":"Career","fax":"Fax",
                     "booking":"Booking","money":"Money","scan":"Scan",
-                    "tips":"Tips"}
+                    "burn":"Burn","tips":"Tips"}
 
 SOCIAL_HISTORY_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
@@ -4610,6 +4610,10 @@ def social_generate_set():
         "money":  ["budgeting without your bank login",
                    "private budgeting that does not sell your spending",
                    "forward receipts and alerts to track spending privately"],
+        "burn":   ["send a password as a link that self-destructs after one open",
+                   "stop pasting passwords into email and chat where they live forever",
+                   "share a WiFi or door code with a guest using a one-time burn link",
+                   "end-to-end encrypted notes where even we cannot read the contents"],
         "tips":   ["turn off your Windows advertising ID so apps stop profiling you",
                    "disable Windows activity history and timeline tracking",
                    "stop Windows from sending diagnostic and typing data to Microsoft",

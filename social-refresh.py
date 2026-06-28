@@ -47,6 +47,10 @@ BRANDS = {
                 "verifiable removal receipts not vague status pages, cheaper than DeleteMe and Incogni, "
                 "masked email burner addresses that forward to your real inbox so you stop handing the real one to stores and forms, "
                 "kill a masked address the day it starts getting spam and you know exactly who leaked it"),
+    "burn":    ("HARBOR / BURN",    "PRIVACY TIP",  "burn.harborprivacy.com",
+                "sending a password or private message as a self-destructing link that can only be opened once then burns, "
+                "end-to-end encrypted in your browser so Harbor never sees the contents, the decryption key lives in the link not on the server, "
+                "no account needed, set an expiry, stop pasting passwords into email/Slack/text where they live forever"),
     "stickers":("HARBOR / STICKERS","STICKER DROP", "harborprivacy.etsy.com",
                 "die-cut vinyl laptop stickers with privacy slogans like My DNS is mine, I read the privacy policy, and Cookies declined, "
                 "weatherproof and matte, now shipping, 4 dollars each or 18 for the pack of eleven, for homelab and privacy people"),
