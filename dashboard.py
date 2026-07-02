@@ -1760,6 +1760,12 @@ def _adblock_cors(resp):
 def adblock_checkout():
     if request.method == "OPTIONS":
         return _adblock_cors(make_response("", 204))
+    # Live Stripe checkout session creation had no rate limit at all -- same
+    # class of gap as the 2026-06-25 card-testing incident.
+    _ckip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    if not _signup_rate_ok(f"adblock-checkout:{_ckip}", limit=6, window=60):
+        return _adblock_cors(make_response(jsonify({"error": "Too many requests. Try again later."}), 429))
+    _record_signup_attempt(f"adblock-checkout:{_ckip}")
     import requests as _req
     secret = os.environ.get("STRIPE_SECRET", "")
     if not secret:
@@ -1798,6 +1804,10 @@ def decal_request():
     if request.method == "OPTIONS":
         return _adblock_cors(make_response("", 204))
     import json as _j, time as _t, html as _html
+    _decal_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    if not _signup_rate_ok(f"decal:{_decal_ip}", limit=5, window=3600):
+        return _adblock_cors(make_response(jsonify({"error": "Too many requests. Try again later."}), 429))
+    _record_signup_attempt(f"decal:{_decal_ip}")
     data = request.get_json(silent=True) or {}
     biz   = (data.get("biz") or "").strip()[:120]
     email = (data.get("email") or "").strip()[:160]
@@ -1849,6 +1859,11 @@ STICKER_PRICES = {
 def sticker_checkout():
     if request.method == "OPTIONS":
         return _adblock_cors(make_response("", 204))
+    # Same gap as adblock-checkout: live Stripe session creation, no rate limit.
+    _ckip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    if not _signup_rate_ok(f"sticker-checkout:{_ckip}", limit=6, window=60):
+        return _adblock_cors(make_response(jsonify({"error": "Too many requests. Try again later."}), 429))
+    _record_signup_attempt(f"sticker-checkout:{_ckip}")
     import requests as _req
     secret = os.environ.get("STRIPE_SECRET", "")
     if not secret:
@@ -2807,13 +2822,30 @@ def data_request():
 # /forgot, /reset — public, token-based, CSRF-exempt
 # ════════════════════════════════════════════════════════════
 
+FORGOT_ATTEMPTS = {}  # {"ip"|email: [ts,...]} -- no rate limit existed at all before
+
+def _forgot_rate_ok(key, limit=3, window=3600):
+    now = _time.time()
+    rec = [t for t in FORGOT_ATTEMPTS.get(key, []) if (now - t) < window]
+    FORGOT_ATTEMPTS[key] = rec
+    if len(rec) >= limit:
+        return False
+    rec.append(now)
+    FORGOT_ATTEMPTS[key] = rec
+    return True
+
 @app.route("/forgot", methods=["GET", "POST"])
 def forgot():
     email = request.args.get("email", "")
     sent = False
     if request.method == "POST":
         email = request.form.get("email", "").lower().strip()
-        user = get_user(email)
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+        # Rate-limited requests still show the same "sent" response as a real
+        # send would -- silently dropping the email without changing the
+        # response keeps this from becoming an account-existence oracle.
+        allowed = _forgot_rate_ok(f"ip:{ip}") and _forgot_rate_ok(f"email:{email}")
+        user = get_user(email) if allowed else None
         if user:
             token = secrets.token_urlsafe(32)
             users = load_users()
@@ -2901,19 +2933,43 @@ def reset():
 
 import random as _random
 WINDOWS_APP_CODES = {}
+WINDOWS_SEND_ATTEMPTS = {}   # {ip: [ts,...]} -- throttle code-send emails
+WINDOWS_VERIFY_ATTEMPTS = {}  # {ip: {count, locked_until}} -- throttle code-guessing
+
+def _windows_send_rate_ok(ip, limit=3, window=3600):
+    now = _time.time()
+    rec = [t for t in WINDOWS_SEND_ATTEMPTS.get(ip, []) if (now - t) < window]
+    WINDOWS_SEND_ATTEMPTS[ip] = rec
+    return len(rec) < limit
+
+def _windows_verify_rate_ok(ip):
+    entry = WINDOWS_VERIFY_ATTEMPTS.get(ip, {})
+    return entry.get("locked_until", 0) <= _time.time()
+
+def _windows_verify_record_failure(ip):
+    entry = WINDOWS_VERIFY_ATTEMPTS.get(ip, {"count": 0, "locked_until": 0})
+    entry["count"] = entry.get("count", 0) + 1
+    if entry["count"] >= 10:
+        entry["locked_until"] = _time.time() + 900
+        entry["count"] = 0
+    WINDOWS_VERIFY_ATTEMPTS[ip] = entry
 
 @app.route("/api/windows/send-code", methods=["POST"])
 def windows_send_code():
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+    if not _windows_send_rate_ok(ip):
+        return jsonify({"ok": False, "error": "Too many requests. Try again later."}), 429
     data = request.json
     email = data.get("email", "").lower().strip()
     if not email:
         return jsonify({"ok": False, "error": "Email required"})
     customer = find_customer(email)
     if not customer:
+        WINDOWS_SEND_ATTEMPTS.setdefault(ip, []).append(_time.time())
         return jsonify({"ok": False, "error": "No account found for that email"})
-    import time as _time
     code = str(_random.randint(100000, 999999))
-    WINDOWS_APP_CODES[email] = {"code": code, "expires": _time.time() + 600}
+    WINDOWS_APP_CODES[email] = {"code": code, "expires": _time.time() + 600, "attempts": 0}
+    WINDOWS_SEND_ATTEMPTS.setdefault(ip, []).append(_time.time())
     html = f'<div style="font-family:sans-serif;max-width:560px;color:#1a2420;"><h2 style="font-family:Georgia,serif;font-weight:400;">Your Harbor Privacy Login Code</h2><p>Use this code to sign in to the Harbor Privacy Windows app:</p><p style="background:#f4eee2;border-left:3px solid #1f5d6b;padding:20px;font-family:monospace;font-size:36px;color:#1f5d6b;letter-spacing:0.4em;text-align:center;">{code}</p><p style="color:#6b7a72;font-size:13px;">Expires in 10 minutes.</p><p style="color:#6b7a72;font-size:13px;">- Tim | harborprivacy.com</p></div>'
     send_email(email, "Your Harbor Privacy Login Code", html)
     app.logger.info(f"Windows app code sent to {email}")
@@ -2921,12 +2977,24 @@ def windows_send_code():
 
 @app.route("/api/windows/verify", methods=["POST"])
 def windows_verify():
-    import time as _time
+    # Was a straight code == comparison with no attempt limit at all -- a 6-digit
+    # code (900k possibilities) with no throttling is brute-forceable well within
+    # its 10-minute expiry. Mirrors the existing verify_support_code() pattern:
+    # per-code attempt cap + a secondary per-IP lockout.
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+    if not _windows_verify_rate_ok(ip):
+        return jsonify({"ok": False, "error": "Too many attempts. Try again later."}), 429
     data = request.json
     email = data.get("email", "").lower().strip()
     code = data.get("code", "").strip()
     entry = WINDOWS_APP_CODES.get(email)
-    if not entry or entry["code"] != code or _time.time() > entry["expires"]:
+    if not entry or _time.time() > entry["expires"] or entry.get("attempts", 0) >= 5:
+        WINDOWS_APP_CODES.pop(email, None)
+        _windows_verify_record_failure(ip)
+        return jsonify({"ok": False, "error": "Invalid or expired code"})
+    if entry["code"] != code:
+        entry["attempts"] = entry.get("attempts", 0) + 1
+        _windows_verify_record_failure(ip)
         return jsonify({"ok": False, "error": "Invalid or expired code"})
     del WINDOWS_APP_CODES[email]
     customer = find_customer(email)
