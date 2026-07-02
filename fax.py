@@ -95,17 +95,33 @@ telnyx_client = telnyx.Telnyx(api_key=TELNYX_API_KEY)
 
 ALLOWED_EXTS = {"pdf", "jpg", "jpeg", "png", "docx"}
 
-_UPLOAD_RATE: dict = {}  # {ip: [timestamps]}
+# Rate limiting must be shared across gunicorn's worker *processes* -- an
+# in-memory dict is per-process, so under --workers 2 an attacker's requests
+# get split across workers and each one's counter only sees half the traffic,
+# roughly doubling the effective limit. SQLite (already used for everything
+# else here) is shared and gives correct cross-worker throttling.
+# Same class of gap as the 2026-06-25 card-testing incident that already hit
+# this Stripe account via career.harborprivacy.com.
+def _rate_ok(bucket: str, ip: str, limit: int, window: int) -> bool:
+    import time as _t, random as _r
+    now = _t.time()
+    db = get_db()
+    try:
+        if _r.random() < 0.01:  # opportunistic sweep so rows for IPs that never return don't accumulate forever
+            db.execute("DELETE FROM rate_hits WHERE ts<?", (now - 86400,))
+        db.execute("DELETE FROM rate_hits WHERE bucket=? AND ip=? AND ts<?", (bucket, ip, now - window))
+        count = db.execute("SELECT COUNT(*) FROM rate_hits WHERE bucket=? AND ip=?", (bucket, ip)).fetchone()[0]
+        if count >= limit:
+            db.commit()
+            return False
+        db.execute("INSERT INTO rate_hits (bucket, ip, ts) VALUES (?,?,?)", (bucket, ip, now))
+        db.commit()
+        return True
+    finally:
+        db.close()
 
 def _check_upload_rate(ip: str) -> bool:
-    import time as _t
-    now = _t.time()
-    hits = [t for t in _UPLOAD_RATE.get(ip, []) if now - t < 60]
-    _UPLOAD_RATE[ip] = hits
-    if len(hits) >= 5:
-        return False
-    _UPLOAD_RATE[ip].append(now)
-    return True
+    return _rate_ok("upload", ip, 5, 60)
 
 
 # ---------------------------------------------------------------------------
@@ -156,6 +172,14 @@ def init_db():
         ):
             try: db.execute(ddl)
             except sqlite3.OperationalError: pass
+        db.executescript("""
+            CREATE TABLE IF NOT EXISTS rate_hits (
+                bucket TEXT NOT NULL,
+                ip     TEXT NOT NULL,
+                ts     REAL NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_rate_hits_bucket_ip_ts ON rate_hits(bucket, ip, ts);
+        """)
 
 init_db()
 
@@ -670,6 +694,9 @@ def _get_coupon_discount(promo_id_or_code, amount, is_code=False):
 
 @app.route("/fax/validate-promo", methods=["POST"])
 def validate_promo():
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+    if not _rate_ok("validate-promo", ip, 10, 60):
+        return jsonify({"error": "Too many requests. Please wait a moment."}), 429
     body = request.get_json(silent=True) or {}
     code = (body.get("code") or "").strip().upper()
     if not code:
@@ -716,6 +743,9 @@ def _validate_order_payload(body):
 
 @app.route("/fax/create-payment-intent", methods=["POST"])
 def create_payment_intent():
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+    if not _rate_ok("create-payment-intent", ip, 6, 60):
+        return jsonify({"error": "Too many requests. Please wait a moment."}), 429
     body = request.get_json(silent=True) or {}
     ok, err = _validate_order_payload(body)
     if not ok:
@@ -783,6 +813,12 @@ def create_payment_intent():
 
 @app.route("/fax/send-free", methods=["POST"])
 def send_free():
+    # Tightest limit of the bunch: a successful call here actually transmits a
+    # real fax to a real number for free, so this is a fax-bombing/harassment
+    # vector, not just a card-testing one. Short burst cap + a daily ceiling.
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+    if not _rate_ok("send-free", ip, 3, 60) or not _rate_ok("send-free-day", ip, 10, 86400):
+        return jsonify({"error": "Too many requests. Please wait a moment."}), 429
     body = request.get_json(silent=True) or {}
     ok, err = _validate_order_payload(body)
     if not ok:
@@ -835,6 +871,9 @@ def send_free():
 
 @app.route("/fax/status/<token>")
 def fax_status(token):
+    ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+    if not _rate_ok("status", ip, 30, 600):
+        return jsonify({"error": "Too many requests. Please wait a moment."}), 429
     db = get_db()
     order = db.execute(
         "SELECT status, fax_number, to_name, created_at, updated_at, telnyx_fax_id FROM fax_orders WHERE token=?",
