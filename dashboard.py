@@ -3856,17 +3856,27 @@ document.querySelectorAll('#schedq [data-when]').forEach(function(el){
   if(ep) el.textContent=new Date(ep*1000).toLocaleString([],{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
 });
 async function review(id,action){
+  var btns=document.querySelectorAll('#reviewrow-'+id+' button');
+  if(action==='approve') btns.forEach(function(b){b.disabled=true;});
   try{
+    if(action==='approve') toast('Approved, posting...');
     var r=await fetch('/api/social/review',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:id,action:action})});
     var j=await r.json();
-    if(!j.ok){toast(j.error||'Review failed');return;}
+    if(!j.ok){toast(j.error||'Review failed');btns.forEach(function(b){b.disabled=false;});return;}
     var row=document.getElementById('reviewrow-'+id); if(row) row.remove();
     var left=document.querySelectorAll('#reviewq .schedrow').length;
     document.getElementById('reviewCount').textContent=left;
     if(!left) document.getElementById('reviewq').style.display='none';
-    toast(action==='approve'?'Approved':'Rejected');
-    if(action==='approve') setTimeout(function(){location.reload();},700);
-  }catch(e){toast('Review failed');}
+    if(action==='approve'){
+      var posted=j.posted||[],failed=j.failed||[];
+      var msg=posted.length?('Posted to '+posted.join(' + ')):'Approved';
+      if(failed.length) msg+=' (failed: '+failed.map(function(f){return f.platform;}).join(', ')+')';
+      toast(msg);
+      setTimeout(function(){location.reload();},900);
+    } else {
+      toast('Rejected');
+    }
+  }catch(e){toast('Review failed');btns.forEach(function(b){b.disabled=false;});}
 }
 async function cancelSched(id){
   try{
@@ -4021,7 +4031,9 @@ def social_mark_posted():
 @admin_required
 def social_review():
     """Approve or reject a pending AI draft. The actual policy (what reject does,
-    whether an approve can be refused) lives in _review_decision() — yours to own."""
+    whether an approve can be refused) lives in _review_decision() — yours to own.
+    An approve also fires the post to FB + IG immediately (no separate button tap),
+    reusing the same _publish_fb/_publish_ig the one-tap buttons and scheduler use."""
     d = request.json or {}
     pid = d.get("id", "")
     action = d.get("action", "")
@@ -4038,7 +4050,22 @@ def social_review():
         _social_delete_entry(pid)
         return jsonify({"ok": True, "deleted": True})
     _social_update_entry(pid, status=new_status)
-    return jsonify({"ok": True, "status": new_status})
+    result = {"ok": True, "status": new_status}
+    if new_status == "approved":
+        entry = _social_entry(pid) or entry
+        posted, failed = [], []
+        if entry.get("source") != "reel" and META_PAGE_ID and META_PAGE_TOKEN:
+            fb_ok, fb_msg = _publish_fb(pid, entry)
+            (posted if fb_ok else failed).append(("Facebook", fb_msg))
+        if META_IG_ID and META_PAGE_TOKEN:
+            ig_ok, ig_msg = _publish_ig(pid, entry)
+            (posted if ig_ok else failed).append(("Instagram", ig_msg))
+        result["posted"] = [p[0] for p in posted]
+        result["failed"] = [{"platform": p[0], "error": p[1]} for p in failed]
+        if failed:
+            _ntfy("Auto-post failed after approve", f"{pid}\n" +
+                  "\n".join(f"{p}: {m}" for p, m in failed), tags="warning")
+    return jsonify(result)
 
 
 def _publish_fb(pid, entry):
