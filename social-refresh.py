@@ -54,6 +54,11 @@ BRANDS = {
     "stickers":("HARBOR / STICKERS","STICKER DROP", "harborprivacy.etsy.com",
                 "die-cut vinyl laptop stickers with privacy slogans like My DNS is mine, I read the privacy policy, and Cookies declined, "
                 "weatherproof and matte, now shipping, 4 dollars each or 18 for the pack of eleven, for homelab and privacy people"),
+    "playpark":("HARBOR / PLAY PARK","GAME TIP", "harborplay.us",
+                "free family-friendly browser games like Word Guess, Word Groups, Trivia, Duck Shoot, Memory, and Spot the Difference, "
+                "no account and no ads, good for road trips, waiting rooms, and screen time that is not another ad-tracking app, "
+                "Pro is a one-time 4.99 dollar unlock for bonus themes and features, not a subscription, restorable across devices by email, "
+                "made by the same team as Harbor Privacy"),
 }
 # brands where "no account / no signup" claims are FALSE -> reject if present
 ACCOUNT_REQUIRED = {"booking", "money", "neighbor", "scan"}
