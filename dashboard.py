@@ -2003,9 +2003,15 @@ def home_status_post():
     return resp
 
 
-@app.route("/api/dns-analytics", methods=["POST"])
+@app.route("/api/dns-analytics", methods=["POST", "OPTIONS"])
 def log_dns_analytics():
     import json as _json, time
+    if request.method == "OPTIONS":
+        r = make_response("", 204)
+        r.headers["Access-Control-Allow-Origin"] = "*"
+        r.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        r.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return r
     ANALYTICS_FILE = "/var/log/harbor-dns-analytics.json"
     try:
         data = request.get_json(silent=True) or {}
@@ -2024,7 +2030,9 @@ def log_dns_analytics():
         open(ANALYTICS_FILE, "w").write(_json.dumps(records))
     except Exception as e:
         pass
-    return "", 204
+    resp = make_response("", 204)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
 
 @app.route("/admin/analytics")
 @admin_required
