@@ -32,7 +32,7 @@ _RATE = {}
 
 
 def _ip():
-    return request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    return request.headers.get("X-Real-IP", request.remote_addr or "")
 
 
 def _audit_file_default(app_name):

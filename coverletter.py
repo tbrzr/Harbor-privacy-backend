@@ -50,8 +50,7 @@ _CHK_WINDOW = 60      # seconds
 _CHK_MAX = 6          # checkout-session creates per IP per window
 
 def _client_ip():
-    fwd = request.headers.get("X-Forwarded-For", "")
-    return (fwd.split(",")[0].strip() if fwd else request.remote_addr) or "unknown"
+    return request.headers.get("X-Real-IP", request.remote_addr) or "unknown"
 
 def _checkout_guard(job_id):
     """Returns (error_response, status) to abort, or (None, None) to proceed."""

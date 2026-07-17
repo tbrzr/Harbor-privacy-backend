@@ -803,7 +803,7 @@ def login():
                         step = "1"
 
         elif action == "login":
-            ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+            ip = request.headers.get("X-Real-IP", request.remote_addr)
             if not check_rate_limit(ip):
                 error = "Too many failed attempts. Try again in 15 minutes."
                 step = "2"
@@ -1762,7 +1762,7 @@ def adblock_checkout():
         return _adblock_cors(make_response("", 204))
     # Live Stripe checkout session creation had no rate limit at all -- same
     # class of gap as the 2026-06-25 card-testing incident.
-    _ckip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    _ckip = request.headers.get("X-Real-IP", request.remote_addr or "")
     if not _signup_rate_ok(f"adblock-checkout:{_ckip}", limit=6, window=60):
         return _adblock_cors(make_response(jsonify({"error": "Too many requests. Try again later."}), 429))
     _record_signup_attempt(f"adblock-checkout:{_ckip}")
@@ -1804,7 +1804,7 @@ def decal_request():
     if request.method == "OPTIONS":
         return _adblock_cors(make_response("", 204))
     import json as _j, time as _t, html as _html
-    _decal_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    _decal_ip = request.headers.get("X-Real-IP", request.remote_addr or "")
     if not _signup_rate_ok(f"decal:{_decal_ip}", limit=5, window=3600):
         return _adblock_cors(make_response(jsonify({"error": "Too many requests. Try again later."}), 429))
     _record_signup_attempt(f"decal:{_decal_ip}")
@@ -1816,7 +1816,7 @@ def decal_request():
     if not biz or "@" not in email:
         return _adblock_cors(make_response(jsonify({"error": "business name and a valid email are required"}), 400))
     rec = {"ts": int(_t.time()), "biz": biz, "email": email, "link": link, "msg": msg,
-           "ip": request.headers.get("X-Forwarded-For", request.remote_addr or "")}
+           "ip": request.headers.get("X-Real-IP", request.remote_addr or "")}
     try:
         with open("/home/ubuntu/harbor-decal-requests.jsonl", "a") as f:
             f.write(_j.dumps(rec, ensure_ascii=False) + "\n")
@@ -1860,7 +1860,7 @@ def sticker_checkout():
     if request.method == "OPTIONS":
         return _adblock_cors(make_response("", 204))
     # Same gap as adblock-checkout: live Stripe session creation, no rate limit.
-    _ckip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    _ckip = request.headers.get("X-Real-IP", request.remote_addr or "")
     if not _signup_rate_ok(f"sticker-checkout:{_ckip}", limit=6, window=60):
         return _adblock_cors(make_response(jsonify({"error": "Too many requests. Try again later."}), 429))
     _record_signup_attempt(f"sticker-checkout:{_ckip}")
@@ -2575,7 +2575,7 @@ async function removeRule(rule){
     blocked_services = get_client_blocked_services(client_id)
     # Auto-grant access for internal/test accounts, require code for real customers
     customer_email = customer.get("email", "")
-    _ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+    _ip = request.headers.get("X-Real-IP", request.remote_addr)
     code_valid = customer_email.endswith("@harborprivacy.com") or verify_support_code(client_id, request.args.get("code", ""), ip=_ip)
     return render_template_string(html, customer=customer, client_id=client_id,
         rules=rules, family_safe=family_safe, harbor_kids=harbor_kids, kids_profiles=get_kids_profiles(client_id), cstats=cstats,
@@ -2848,7 +2848,7 @@ def forgot():
     sent = False
     if request.method == "POST":
         email = request.form.get("email", "").lower().strip()
-        ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+        ip = request.headers.get("X-Real-IP", request.remote_addr)
         # Rate-limited requests still show the same "sent" response as a real
         # send would -- silently dropping the email without changing the
         # response keeps this from becoming an account-existence oracle.
@@ -2964,7 +2964,7 @@ def _windows_verify_record_failure(ip):
 
 @app.route("/api/windows/send-code", methods=["POST"])
 def windows_send_code():
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+    ip = request.headers.get("X-Real-IP", request.remote_addr)
     if not _windows_send_rate_ok(ip):
         return jsonify({"ok": False, "error": "Too many requests. Try again later."}), 429
     data = request.json
@@ -2989,7 +2989,7 @@ def windows_verify():
     # code (900k possibilities) with no throttling is brute-forceable well within
     # its 10-minute expiry. Mirrors the existing verify_support_code() pattern:
     # per-code attempt cap + a secondary per-IP lockout.
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+    ip = request.headers.get("X-Real-IP", request.remote_addr)
     if not _windows_verify_rate_ok(ip):
         return jsonify({"ok": False, "error": "Too many attempts. Try again later."}), 429
     data = request.json
@@ -6492,7 +6492,7 @@ def begin_trial():
         if not email or not EMAIL_RE.match(email) or len(email) > 254:
             return jsonify({"error": "Valid email required"}), 400
 
-        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+        ip = request.headers.get("X-Real-IP", request.remote_addr or "")
 
         # Per-IP signup rate limit: max 3 attempts per hour
         if not _signup_rate_ok(ip, limit=1, window=3600):
@@ -6705,7 +6705,7 @@ def api_contact():
     email = (data.get("email") or "").strip().lower()[:254]
     phone = (data.get("phone") or "").strip()[:40]
     message = (data.get("message") or "").strip()[:5000]
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    ip = request.headers.get("X-Real-IP", request.remote_addr or "")
 
     EMAIL_RE = _re.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
     if not name or not email or not EMAIL_RE.match(email) or not message:

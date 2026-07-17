@@ -629,7 +629,7 @@ def send_delivery_email(email, order_token, fax_number, status, refunded=False):
 
 @app.route("/fax/upload", methods=["POST"])
 def fax_upload():
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+    ip = request.headers.get("X-Real-IP", request.remote_addr)
     if not _check_upload_rate(ip):
         return jsonify({"error": "Too many uploads. Please wait a moment."}), 429
     f = request.files.get("file")
@@ -694,7 +694,7 @@ def _get_coupon_discount(promo_id_or_code, amount, is_code=False):
 
 @app.route("/fax/validate-promo", methods=["POST"])
 def validate_promo():
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+    ip = request.headers.get("X-Real-IP", request.remote_addr)
     if not _rate_ok("validate-promo", ip, 10, 60):
         return jsonify({"error": "Too many requests. Please wait a moment."}), 429
     body = request.get_json(silent=True) or {}
@@ -743,7 +743,7 @@ def _validate_order_payload(body):
 
 @app.route("/fax/create-payment-intent", methods=["POST"])
 def create_payment_intent():
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+    ip = request.headers.get("X-Real-IP", request.remote_addr)
     if not _rate_ok("create-payment-intent", ip, 6, 60):
         return jsonify({"error": "Too many requests. Please wait a moment."}), 429
     body = request.get_json(silent=True) or {}
@@ -816,7 +816,7 @@ def send_free():
     # Tightest limit of the bunch: a successful call here actually transmits a
     # real fax to a real number for free, so this is a fax-bombing/harassment
     # vector, not just a card-testing one. Short burst cap + a daily ceiling.
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+    ip = request.headers.get("X-Real-IP", request.remote_addr)
     if not _rate_ok("send-free", ip, 3, 60) or not _rate_ok("send-free-day", ip, 10, 86400):
         return jsonify({"error": "Too many requests. Please wait a moment."}), 429
     body = request.get_json(silent=True) or {}
@@ -871,7 +871,7 @@ def send_free():
 
 @app.route("/fax/status/<token>")
 def fax_status(token):
-    ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+    ip = request.headers.get("X-Real-IP", request.remote_addr)
     if not _rate_ok("status", ip, 30, 600):
         return jsonify({"error": "Too many requests. Please wait a moment."}), 429
     db = get_db()
