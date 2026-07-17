@@ -45,6 +45,14 @@ dashboard.harborprivacy.com
 """
 
 import os, json, secrets, logging, re
+
+# Routes through Cloudflare AI Gateway (cost/latency visibility) when CF_ACCOUNT_ID
+# is set in the service env; falls back to calling Anthropic directly otherwise.
+ANTHROPIC_URL = (
+    f"https://gateway.ai.cloudflare.com/v1/{os.environ.get('CF_ACCOUNT_ID')}/"
+    f"{os.environ.get('CF_AI_GATEWAY', 'harbor')}/anthropic/v1/messages"
+    if os.environ.get("CF_ACCOUNT_ID") else "https://api.anthropic.com/v1/messages"
+)
 from datetime import datetime, timedelta
 from functools import wraps
 from io import BytesIO
@@ -4803,7 +4811,7 @@ def social_generate_set():
         body = ""
         card = {"headline": "", "path": "", "action": ""}
         try:
-            r = _req.post("https://api.anthropic.com/v1/messages",
+            r = _req.post(ANTHROPIC_URL,
                 headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY", ""),
                          "anthropic-version": "2023-06-01", "content-type": "application/json"},
                 json={"model": "claude-sonnet-4-6", "max_tokens": 600,
@@ -5294,7 +5302,7 @@ def linkedin_generate():
         '  "first_comment": a short first comment (this is where any link goes)'
     )
     try:
-        r = _rq.post("https://api.anthropic.com/v1/messages",
+        r = _rq.post(ANTHROPIC_URL,
             headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY", ""),
                      "anthropic-version": "2023-06-01", "content-type": "application/json"},
             json={"model": "claude-sonnet-4-6", "max_tokens": 900,
@@ -6026,7 +6034,7 @@ def leads_vet():
                 "- fit: 'yes' if a solo/private-pay practice with no full EHR or online scheduler we would "
                 "replace; 'no' if on a full EHR or clearly an insurance-billing group; 'maybe' if unclear.\n"
                 "- reason: one short sentence.\n\nHTML:\n" + text)
-            rr = _rq.post("https://api.anthropic.com/v1/messages",
+            rr = _rq.post(ANTHROPIC_URL,
                 headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY", ""),
                          "anthropic-version": "2023-06-01", "content-type": "application/json"},
                 json={"model": "claude-haiku-4-5-20251001", "max_tokens": 300,
@@ -6433,7 +6441,7 @@ def social_generate():
 
     gen_error = None
     try:
-        r = _req.post("https://api.anthropic.com/v1/messages",
+        r = _req.post(ANTHROPIC_URL,
             headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY",""), "anthropic-version": "2023-06-01", "content-type": "application/json"},
             json={"model": "claude-haiku-4-5-20251001", "max_tokens": 600, "messages": [{"role": "user", "content": prompt}]},
             timeout=30)
@@ -6958,7 +6966,7 @@ def social_autopost():
     platforms = {"facebook": True, "instagram": True, "linkedin": True}
     prompt, platform_keys = _build_post_prompt(brand, topic, platforms)
     try:
-        r = _req.post("https://api.anthropic.com/v1/messages",
+        r = _req.post(ANTHROPIC_URL,
             headers={"x-api-key": os.environ.get("ANTHROPIC_API_KEY",""), "anthropic-version": "2023-06-01", "content-type": "application/json"},
             json={"model": "claude-haiku-4-5-20251001", "max_tokens": 600, "messages": [{"role": "user", "content": prompt}]},
             timeout=30)

@@ -20,6 +20,14 @@ IMG_JUNK   = Path("/var/www/network/social-images")
 MAX_AI     = 24          # cap on AI-generated entries in the pool
 JUNK_AGE_D = 14          # delete social-images files older than this many days
 
+# Routes through Cloudflare AI Gateway (cost/latency visibility) when CF_ACCOUNT_ID
+# is set in the cron's env; falls back to calling Anthropic directly otherwise.
+ANTHROPIC_URL = (
+    f"https://gateway.ai.cloudflare.com/v1/{os.environ.get('CF_ACCOUNT_ID')}/"
+    f"{os.environ.get('CF_AI_GATEWAY', 'harbor')}/anthropic/v1/messages"
+    if os.environ.get("CF_ACCOUNT_ID") else "https://api.anthropic.com/v1/messages"
+)
+
 # Stickers are a real product with designed cards + hand-written captions, so the
 # rotation serves the pre-rendered posts (make-sticker-posts.py) instead of letting
 # the AI invent copy. posts.json is the shared source of truth.
@@ -192,7 +200,7 @@ privacy company, it has failed: rewrite it.{avoid_txt}"""
         "model": "claude-sonnet-4-6", "max_tokens": 700,
         "messages": [{"role": "user", "content": prompt}],
     }).encode()
-    req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body, method="POST",
+    req = urllib.request.Request(ANTHROPIC_URL, data=body, method="POST",
         headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
     with urllib.request.urlopen(req, timeout=40) as r:
         data = json.load(r)

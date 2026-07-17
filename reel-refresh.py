@@ -24,6 +24,7 @@ MANIFEST   = sr.MANIFEST
 ASSET_BASE = sr.ASSET_BASE
 BRANDS     = sr.BRANDS
 ACCOUNT_REQUIRED = sr.ACCOUNT_REQUIRED
+ANTHROPIC_URL = sr.ANTHROPIC_URL
 BG, GRID, INK, MUTE, TEAL, TERRA = sr.BG, sr.GRID, sr.INK, sr.MUTE, sr.TEAL, sr.TERRA
 
 W, H      = 1080, 1920
@@ -63,7 +64,7 @@ Every line must be concrete and screenshot-worthy, never vague marketing.{avoid_
         "model": "claude-haiku-4-5-20251001", "max_tokens": 700,
         "messages": [{"role": "user", "content": prompt}],
     }).encode()
-    req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body, method="POST",
+    req = urllib.request.Request(ANTHROPIC_URL, data=body, method="POST",
         headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
     with urllib.request.urlopen(req, timeout=40) as r:
         d = json.load(r)
@@ -270,7 +271,7 @@ Make it feel like a real day on the job, concrete, not marketing.{avoid_txt}"""
         "model": "claude-haiku-4-5-20251001", "max_tokens": 700,
         "messages": [{"role": "user", "content": prompt}],
     }).encode()
-    req = urllib.request.Request("https://api.anthropic.com/v1/messages", data=body, method="POST",
+    req = urllib.request.Request(ANTHROPIC_URL, data=body, method="POST",
         headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
     with urllib.request.urlopen(req, timeout=40) as r:
         d = json.load(r)

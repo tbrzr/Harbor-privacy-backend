@@ -26,7 +26,16 @@ JOBS_FILE = '/var/log/coverletter-jobs.json'
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 RESEND_API_KEY = os.getenv('RESEND_API_KEY')
 
-anthropic_client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+# Routes through Cloudflare AI Gateway (cost/latency visibility) when CF_ACCOUNT_ID
+# is set in the service env; falls back to the SDK's default (api.anthropic.com).
+_CF_ACCOUNT_ID = os.getenv('CF_ACCOUNT_ID')
+_anthropic_kwargs = {'api_key': ANTHROPIC_API_KEY}
+if _CF_ACCOUNT_ID:
+    _anthropic_kwargs['base_url'] = (
+        f"https://gateway.ai.cloudflare.com/v1/{_CF_ACCOUNT_ID}/"
+        f"{os.getenv('CF_AI_GATEWAY', 'harbor')}/anthropic"
+    )
+anthropic_client = anthropic.Anthropic(**_anthropic_kwargs)
 resend.api_key = RESEND_API_KEY
 
 def load_jobs():
