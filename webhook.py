@@ -921,16 +921,39 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 if is_processed(session_id):
                     log.info(f"Skipping duplicate session: {session_id}")
                 else:
-                    success_url = s.get("success_url") or ""
-                    if "resume.harborprivacy.com" in success_url or "coverletter.harborprivacy.com" in success_url:
-                        log.info(f"Skipping non-DNS checkout: {success_url}")
+                    meta = s.get("metadata", {}) or {}
+                    # Positive allowlist (adblock-checkout sets metadata; legacy payment links
+                    # are now tagged the same way), not a denylist by success_url substring.
+                    # This Stripe account is shared across many products (Play Park, fax, resume,
+                    # coverletter, booking, stickers...) and guessing "not Harbor DNS" from a URL
+                    # substring let unrelated products silently provision live AdGuard clients and
+                    # fire the customer welcome email - see 2026-07-18 incident (Play Park Pro/Pro+
+                    # checkouts got onboarded as real Harbor Remote DNS customers).
+                    HARBOR_DNS_PRICE_IDS = {
+                        "price_1TE36NCOrGNrBgIf2T8ApaAG",  # Harbor Light
+                        "price_1TCTlYCOrGNrBgIf4euUONmf",  # Harbor Remote (monthly)
+                        "price_1TenLxCOrGNrBgIfCi4l3lU3",  # Harbor Remote (annual)
+                        "price_1TFbbsCOrGNrBgIfURHUPNbw",  # Harbor Kids Add-on
+                        "price_1TAxm1COrGNrBgIfuNOEhSTk",  # Harbor Privacy Network Install
+                        "price_1TB7VeCOrGNrBgIfmGYCyBpx",  # Harbor Remote Monthly Service (legacy price)
+                    }
+                    is_harbor_dns = meta.get("harbor_product") == "adblock"
+                    if not is_harbor_dns:
+                        try:
+                            li = requests.get(f"https://api.stripe.com/v1/checkout/sessions/{session_id}/line_items",
+                                               auth=(STRIPE_SECRET, ""), timeout=10).json()
+                            is_harbor_dns = any((item.get("price") or {}).get("id") in HARBOR_DNS_PRICE_IDS
+                                                 for item in li.get("data", []))
+                        except Exception as le:
+                            log.error(f"line_items fetch failed for {session_id}: {le}")
+                    if not is_harbor_dns:
+                        log.info(f"Skipping non-Harbor-DNS checkout: {session_id}")
                         self.send_response(200); self.end_headers()
                         return
                     email = s.get("customer_details", {}).get("email", "")
                     name = (s.get("customer_details", {}).get("name") or "Customer").strip()
                     stripe_id = s.get("customer", "")
                     mode = s.get("mode", "")
-                    meta = s.get("metadata", {})
                     plan = "remote" if ("remote" in str(meta).lower() or mode == "subscription") else "install"
                     log.info(f"Plan={plan} mode={mode} email={email}")
                     if email:
