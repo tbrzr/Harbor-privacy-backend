@@ -844,6 +844,21 @@ def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url
 </div>'''
     send_email(email, "Welcome to Harbor Privacy - Your Setup Instructions", html)
 
+def send_account_deleted_email(email, name):
+    html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Account Deleted</h1>
+<p>Hi {name},</p>
+<p>Your Harbor Privacy account has been permanently deleted, as requested from your account settings. Your subscription is cancelled and you will not be billed again. DNS access has already been switched off.</p>
+<h2 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Remove Harbor Privacy from your devices</h2>
+<p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">iPhone/iPad:</strong> Settings > General > VPN and Device Management > Harbor Privacy DNS > Remove Profile</p>
+<p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">Android/Pixel:</strong> Settings > Network and Internet > Private DNS > set to Off or Automatic</p>
+<p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">Other Routers:</strong> Router admin panel > DNS settings > set to Automatic > save and reboot</p>
+<p style="margin-top:16px;color:#6b7a72;">Didn't mean to delete your account, or need a hand removing the profile from a device? Reply to this email and I will help.</p>
+<p>Change your mind later? Sign up again at <a href="https://harborprivacy.com/pricing" style="color:#1f5d6b;">harborprivacy.com/pricing</a></p>
+<p style="border-top:1px solid #e6dfd2;padding-top:24px;color:#6b7a72;">- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
+</div>'''
+    send_email(email, "Your Harbor Privacy account has been deleted", html)
+
 def send_cancellation_email(email, name):
     html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
 <h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Subscription Ended</h1>

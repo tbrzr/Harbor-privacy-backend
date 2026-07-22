@@ -2695,6 +2695,12 @@ def settings():
       <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank" class="btn btn-outline">Manage Subscription</a>
     </div>
   </div>
+
+  <div class="card" style="border-color:rgba(255,78,78,0.25);">
+    <div class="set-head" style="color:var(--danger);"><svg viewBox="0 0 24 24" stroke="var(--danger)"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Delete Account</div>
+    <p class="note" style="margin-bottom:16px;">Permanently delete your Harbor Privacy account. This cancels your subscription immediately (you will not be billed again), removes your DNS profile, and deletes your login. This cannot be undone. See <a href="https://harborprivacy.com/docs/account#delete-account" target="_blank" style="color:var(--accent);">deleting your account</a> in the help center for details.</p>
+    <button onclick="deleteMyAccount()" id="delete-account-btn" class="btn btn-danger" style="background:var(--danger);border-color:var(--danger);">Delete My Account</button>
+  </div>
   {% else %}
   <div class="card">
     <div class="set-head"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Admin Account</div>
@@ -2719,6 +2725,31 @@ async function toggleWeeklyEmail(enabled){
   const r = await fetch('/api/weekly-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled})});
   const d = await r.json();
   if(!d.ok) alert('Error updating preference');
+}
+async function deleteMyAccount(){
+  const myEmail = {{ email|tojson }};
+  const typed = prompt('This permanently deletes your Harbor Privacy account: your DNS profile, dashboard login, and account record, and cancels your subscription immediately. You will not be billed again. This cannot be undone.\\n\\nType your account email to confirm:');
+  if (typed === null) return;
+  if (typed.trim().toLowerCase() !== myEmail.toLowerCase()) { alert('Email did not match. Nothing was deleted.'); return; }
+  const btn = document.getElementById('delete-account-btn');
+  btn.textContent = '...';
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/account/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({confirm:typed.trim()})});
+    const d = await r.json();
+    if(d.ok){
+      alert('Your account has been deleted. A confirmation email is on its way.');
+      window.location.href = '/login';
+    } else {
+      btn.textContent = 'Delete My Account';
+      btn.disabled = false;
+      alert(d.error || 'Something went wrong. Contact support@harborprivacy.com');
+    }
+  } catch(e) {
+    btn.textContent = 'Delete My Account';
+    btn.disabled = false;
+    alert('Something went wrong. Contact support@harborprivacy.com');
+  }
 }
 </script>
 </html>"""
@@ -3236,6 +3267,66 @@ def admin_delete_customer():
     except Exception as e:
         log.error(f"Delete customer error: {e}")
         return jsonify({"ok": False, "error": str(e)})
+
+@app.route("/api/account/delete", methods=["POST"])
+@login_required
+def api_account_delete_self():
+    """Customer self-service account deletion from /settings. Never trusts a
+    client-supplied client_id — always derives it from the logged-in session,
+    so one customer can only ever delete their own account."""
+    if request.is_admin:
+        return jsonify({"ok": False, "error": "Admin accounts cannot be deleted here."})
+    email = request.user_email
+    PROTECTED_EMAILS = {"admin@harborprivacy.com", "tim@harborprivacy.com"}
+    if email in PROTECTED_EMAILS:
+        return jsonify({"ok": False, "error": "Cannot delete protected account"})
+    data = request.get_json() or {}
+    if (data.get("confirm", "") or "").strip().lower() != email.lower():
+        return jsonify({"ok": False, "error": "Confirmation did not match your account email. Nothing was deleted."})
+    customer = find_customer(email)
+    if not customer:
+        return jsonify({"ok": False, "error": "Account not found"})
+    client_id = customer.get("client_id", "")
+    if client_id in {"harbor7066", "admintim1003"}:
+        return jsonify({"ok": False, "error": "Cannot delete protected account"})
+    try:
+        import sys as _sys, requests as _req
+        _sys.path.insert(0, "/home/ubuntu/harbor-backend")
+        from webhook import wipe_customer, send_account_deleted_email, STRIPE_SECRET
+        name = customer.get("name", "Customer")
+        stripe_id = customer.get("stripe_customer_id", "")
+
+        # 1. Cancel Stripe subscription so there is no rebilling
+        if stripe_id and STRIPE_SECRET:
+            try:
+                subs = _req.get(
+                    "https://api.stripe.com/v1/subscriptions",
+                    params={"customer": stripe_id, "status": "active"},
+                    auth=(STRIPE_SECRET, "")
+                ).json()
+                for sub in subs.get("data", []):
+                    _req.delete(
+                        f"https://api.stripe.com/v1/subscriptions/{sub['id']}",
+                        auth=(STRIPE_SECRET, "")
+                    )
+                    log.info(f"Cancelled Stripe sub {sub['id']} for {client_id} (self-delete)")
+            except Exception as e:
+                log.error(f"Stripe cancel error (self-delete): {e}")
+
+        # 2. Full wipe — AdGuard, profile, customers.json, dashboard login
+        wipe_customer(client_id)
+        # 3. Confirmation email, sent directly rather than relying only on
+        #    the async Stripe webhook round trip
+        send_account_deleted_email(email, name)
+        log.info(f"Customer self-deleted account {client_id} {email}")
+    except Exception as e:
+        log.error(f"Self-delete error for {client_id} {email}: {e}")
+        return jsonify({"ok": False, "error": "Something went wrong. Contact support@harborprivacy.com"})
+
+    resp = make_response(jsonify({"ok": True}))
+    resp.set_cookie("hp_token", "", expires=0, path="/")
+    resp.set_cookie("hp_token", "", expires=0, path="/", domain=".harborprivacy.com")
+    return resp
 
 @app.route("/api/admin/resend-welcome", methods=["POST"])
 @admin_required
