@@ -439,16 +439,20 @@ STYLE = """<!DOCTYPE html>
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.7;min-height:100vh;}
   body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:0.3;pointer-events:none;z-index:0;}
-  nav{padding:16px 32px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:10;background:linear-gradient(180deg,#111618 0%,#0c1213 100%);backdrop-filter:saturate(140%) blur(4px);}
-  .logo{font-family:'DM Mono',monospace;font-size:14px;color:var(--accent);letter-spacing:0.1em;text-decoration:none;white-space:nowrap;}
+  nav{padding:14px 32px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:28px;position:sticky;top:0;z-index:10;background:linear-gradient(180deg,#111618 0%,#0c1213 100%);backdrop-filter:saturate(140%) blur(4px);}
+  .logo{font-family:'DM Mono',monospace;font-size:14px;color:var(--accent);letter-spacing:0.1em;text-decoration:none;white-space:nowrap;flex-shrink:0;}
   .logo span{color:var(--muted);}
-  .nav-links{display:flex;gap:8px;align-items:center;flex-wrap:wrap;row-gap:6px;}
-  .nav-links a{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;letter-spacing:0.06em;padding:6px 10px;border-radius:6px;transition:color 0.15s,background 0.15s;}
+  .nav-links{display:flex;gap:4px;align-items:center;flex-wrap:wrap;row-gap:6px;}
+  .nav-links a{font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);text-decoration:none;letter-spacing:0.05em;padding:8px 13px;border-radius:8px;transition:color 0.15s,background 0.15s;white-space:nowrap;}
   .nav-links a:hover,.nav-links a.active{color:var(--accent);background:rgba(0,229,192,0.06);}
   .nav-drop{position:relative;}
   .nav-drop-menu{display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px;min-width:170px;z-index:70;flex-direction:column;gap:2px;box-shadow:0 8px 24px rgba(0,0,0,0.35);}
   .nav-drop.open .nav-drop-menu{display:flex;}
   .nav-drop-menu a{display:block;padding:8px 10px;white-space:nowrap;}
+  .nav-utility{display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:auto;}
+  .nav-icon-btn{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;color:var(--muted);text-decoration:none;flex-shrink:0;transition:color 0.15s,background 0.15s;}
+  .nav-icon-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .nav-icon-btn:hover,.nav-icon-btn.active{color:var(--accent);background:rgba(0,229,192,0.06);}
   .wrap{max-width:960px;margin:0 auto;padding:48px 32px 80px;position:relative;z-index:1;}
   .wrap-sm{max-width:500px;margin:0 auto;padding:60px 32px;position:relative;z-index:1;}
   .card{background:linear-gradient(180deg,var(--surface),#0f1517);border:1px solid var(--border);border-radius:var(--radius);padding:32px;margin-bottom:20px;box-shadow:var(--shadow);}
@@ -525,7 +529,8 @@ STYLE = """<!DOCTYPE html>
   .customer-header{background:var(--bg) !important;border-bottom:1px solid var(--border);}
   @media(max-width:768px){
     nav{flex-wrap:wrap;gap:8px;padding:12px 16px;}
-    .nav-links{gap:6px;font-size:10px;}
+    .nav-links{gap:2px;font-size:10px;}
+    .nav-links a{padding:6px 9px;}
     .badge{font-size:8px;padding:2px 6px;}
     .stat-grid{grid-template-columns:1fr;}
     .wrap{padding:32px 20px 60px;}
@@ -650,17 +655,13 @@ NAV_CUSTOMER = """
 
 NAV_ADMIN = """
 <div id="timeout-warning" style="display:none;position:fixed;bottom:24px;right:24px;background:#f4eee2;border:1px solid #1f5d6b;padding:20px 24px;z-index:9999;font-family:monospace;font-size:12px;color:#1a2420;flex-direction:column;gap:12px;max-width:300px;"><span>You will be logged out in 5 minutes due to inactivity.</span><button onclick="resetTimer()" style="background:#1f5d6b;color:#ffffff;border:none;padding:8px 16px;cursor:pointer;font-family:monospace;font-size:11px;">Stay Logged In</button></div>
-<nav style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 24px;border-bottom:1px solid var(--border);">
-    <a href="/admin" class="logo">harbor<span>/</span>privacy</a>
-    <span class="badge badge-admin">ADMIN</span>
-  </div>
-  <div class="nav-links" style="padding:10px 24px;border-bottom:1px solid var(--border);justify-content:flex-start;gap:20px;">
-    <a href="https://harborprivacy.com" style="font-size:10px;">← Site</a>
+<nav>
+  <a href="/admin" class="logo">harbor<span>/</span>privacy</a>
+  <div class="nav-links">
     <a href="/admin" class="{{ 'active' if active == 'admin' else '' }}">Customers</a>
     <a href="/social" class="{{ 'active' if active == 'social' else '' }}">Social</a>
-    <a href="/linkedin" class="{{ 'active' if active == 'linkedin' else '' }}">LinkedIn</a>
     <a href="/leads" class="{{ 'active' if active == 'leads' else '' }}">Leads</a>
+    <a href="/linkedin" class="{{ 'active' if active == 'linkedin' else '' }}">LinkedIn</a>
     <div class="nav-drop">
       <a href="#" onclick="this.parentNode.classList.toggle('open');return false;" class="{% if active in ('links','analytics','logs','scan','etsy') %}active{% endif %}">Tools &#9662;</a>
       <div class="nav-drop-menu">
@@ -671,9 +672,13 @@ NAV_ADMIN = """
         <a href="/admin/scan" class="{{ 'active' if active == 'scan' else '' }}">Harbor Scan</a>
       </div>
     </div>
-    <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">Settings</a>
-    <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets ↗</a>
-    <a href="/logout" style="margin-left:auto;">Sign Out</a>
+  </div>
+  <div class="nav-utility">
+    <span class="badge badge-admin">ADMIN</span>
+    <a href="https://harborprivacy.com" target="_blank" rel="noopener" class="nav-icon-btn" title="View site"><svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
+    <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener" class="nav-icon-btn" title="Assets"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></a>
+    <a href="/settings" class="nav-icon-btn {{ 'active' if active == 'settings' else '' }}" title="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a>
+    <a href="/logout" class="nav-icon-btn" title="Sign out"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></a>
   </div>
 </nav>"""
 
@@ -1713,22 +1718,20 @@ def admin():
 </div>
 <script>
 async function deleteCustomer(cid, name, btn){
-  if (!btn.dataset.confirmed) {
-    btn.dataset.confirmed = '1';
-    btn.textContent = 'Sure?';
-    btn.style.background = 'rgba(255,78,78,0.3)';
-    return;
-  }
+  const typed = prompt('This permanently deletes ' + name + ' (' + cid + '): AdGuard client, DNS profile, dashboard login, customer record, and cancels any active billing. This cannot be undone.\\n\\nType the client ID to confirm:');
+  if (typed === null) return;
+  if (typed.trim() !== cid) { alert('Client ID did not match. Nothing was deleted.'); return; }
   btn.textContent = '...';
   btn.disabled = true;
   try {
-    const r = await fetch('/api/admin/delete-customer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid})});
+    const r = await fetch('/api/admin/delete-customer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid, confirm:typed.trim()})});
     const d = await r.json();
     if(d.ok){
       btn.closest('.customer-row').remove();
     } else {
       btn.textContent = 'Error';
       btn.disabled = false;
+      if (d.error) alert(d.error);
     }
   } catch(e) {
     btn.textContent = 'Error';
@@ -2486,22 +2489,20 @@ function submitCode(){
   window.location.href='/admin/customer/'+CID+'?code='+code;
 }
 async function deleteCustomer(cid, name, btn){
-  if (!btn.dataset.confirmed) {
-    btn.dataset.confirmed = '1';
-    btn.textContent = 'Sure?';
-    btn.style.background = 'rgba(255,78,78,0.3)';
-    return;
-  }
+  const typed = prompt('This permanently deletes ' + name + ' (' + cid + '): AdGuard client, DNS profile, dashboard login, customer record, and cancels any active billing. This cannot be undone.\\n\\nType the client ID to confirm:');
+  if (typed === null) return;
+  if (typed.trim() !== cid) { alert('Client ID did not match. Nothing was deleted.'); return; }
   btn.textContent = '...';
   btn.disabled = true;
   try {
-    const r = await fetch('/api/admin/delete-customer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid})});
+    const r = await fetch('/api/admin/delete-customer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid, confirm:typed.trim()})});
     const d = await r.json();
     if(d.ok){
       btn.closest('.customer-row').remove();
     } else {
       btn.textContent = 'Error';
       btn.disabled = false;
+      if (d.error) alert(d.error);
     }
   } catch(e) {
     btn.textContent = 'Error';
@@ -3193,6 +3194,8 @@ def admin_delete_customer():
     client_id = data.get("client_id", "")
     if client_id in PROTECTED_IDS:
         return jsonify({"ok": False, "error": "Cannot delete protected account"})
+    if data.get("confirm", "") != client_id:
+        return jsonify({"ok": False, "error": "Confirmation did not match client ID. Nothing was deleted."})
     customers = load_customers()
     customer = next((c for c in customers if c.get("client_id") == client_id), None)
     if not customer:
