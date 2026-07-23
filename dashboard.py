@@ -430,7 +430,7 @@ from harbor_lib.config import EMAIL_FAILURES_FILE
 # ════════════════════════════════════════════════════════════
 
 STYLE = """<!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="{% if light_theme %}light{% endif %}">
 <head>
 <link rel="icon" type="image/svg+xml" href="/dashboard-icon.svg">
 <link rel="icon" type="image/png" sizes="32x32" href="/dashboard-icon-32.png">
@@ -462,6 +462,12 @@ STYLE = """<!DOCTYPE html>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
 <style>
   :root{--bg:#0a0e0f;--surface:#111618;--surface-2:#151c1e;--border:#1e2a2d;--border-soft:#192325;--accent:#00e5c0;--accent-dim:rgba(0,229,192,0.10);--text:#e8f0ef;--muted:#6b8a87;--danger:#ff4e4e;--radius:14px;--radius-sm:10px;--shadow:0 1px 2px rgba(0,0,0,0.3),0 10px 28px -14px rgba(0,0,0,0.55);}
+  /* Cream/gold theme matching breach.harborprivacy.com, opt-in per page via
+     <html class="light"> -- inert everywhere else, so pages that don't ask
+     for it (admin tooling, etc) keep the default dark theme unaffected. */
+  html.light{--bg:#fbf7f0;--surface:#ffffff;--surface-2:#f4eee2;--border:#e6dfd2;--border-soft:#e6dfd2;--accent:#c98a52;--accent-dim:rgba(201,138,82,0.10);--text:#1a2420;--muted:#6b7a72;}
+  html.light nav{background:linear-gradient(180deg,#ffffff 0%,#fbf7f0 100%);}
+  html.light .btn{color:#ffffff;}
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.7;min-height:100vh;}
   body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:0.3;pointer-events:none;z-index:0;}
@@ -744,6 +750,8 @@ NAV_CUSTOMER = """
   <div class="nav-links" style="padding:10px 24px;border-bottom:1px solid var(--border);justify-content:flex-start;gap:20px;">
     <a href="https://harborprivacy.com" style="font-size:10px;">← Site</a>
     <a href="/dashboard" class="{{ 'active' if active == 'dashboard' else '' }}">Dashboard</a>
+    <a href="https://breach.harborprivacy.com/app">Breach Monitor</a>
+    <a href="https://scan.harborprivacy.com">Harbor Scan</a>
     <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">Settings</a>
     <a href="/logout" style="margin-left:auto;">Sign Out</a>
   </div>
@@ -1015,17 +1023,6 @@ def login():
                         return resp
 
     html = STYLE + """
-{% if from_breach %}
-<style>
-  /* Continue breach.harborprivacy.com's cream/gold theme instead of the
-     dashboard's default dark teal -- arriving here mid-signup shouldn't
-     feel like landing on a different, unrelated product. */
-  :root{--bg:#fbf7f0;--surface:#ffffff;--surface-2:#f4eee2;--border:#e6dfd2;--border-soft:#e6dfd2;--accent:#c98a52;--accent-dim:rgba(201,138,82,0.10);--text:#1a2420;--muted:#6b7a72;}
-  body::before{opacity:0.08;}
-  .btn{color:#ffffff;}
-  .btn:hover{background:#dba470;box-shadow:0 6px 18px -8px rgba(201,138,82,0.5);}
-</style>
-{% endif %}
 <nav>
   <a href="https://harborprivacy.com" class="logo">harbor<span>/</span>privacy</a>
   <div class="nav-links">
@@ -1084,7 +1081,7 @@ def login():
     import hmac as _hmac2, hashlib as _hs2
     _key2 = app.secret_key if isinstance(app.secret_key, bytes) else app.secret_key.encode()
     pw_tok = _hmac2.new(_key2, email.encode(), _hs2.sha256).hexdigest() if email else ""
-    return render_template_string(html, step=step, email=email, error=error, show_2fa=show_2fa, pw_tok=pw_tok, nxt=nxt, from_breach="breach.harborprivacy.com" in nxt)
+    return render_template_string(html, step=step, email=email, error=error, show_2fa=show_2fa, pw_tok=pw_tok, nxt=nxt, from_breach="breach.harborprivacy.com" in nxt, light_theme=True)
 
 @app.route("/dns-whoami/<token>")
 def dns_whoami(token):
@@ -1354,7 +1351,7 @@ def dashboard():
 
 </div>
 </html>"""
-        return render_template_string(html, name=name, client_id=client_id, active="dashboard")
+        return render_template_string(html, name=name, client_id=client_id, active="dashboard", light_theme=True)
     if plan_type == "harbor-remote-light": plan_badge = "LIGHT"
     elif plan_type == "3month": plan_badge = "3-MONTH"
     elif plan_type == "6month": plan_badge = "6-MONTH"
@@ -1675,11 +1672,11 @@ def dashboard():
         <img src="https://scan.harborprivacy.com/scan-favicon.svg" alt="Harbor Scan" style="width:32px;height:32px;">
       </div>
       <div style="flex:1;min-width:200px;">
-        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:6px;">New from Harbor</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:6px;">Also From Harbor</div>
         <div style="font-size:16px;color:var(--text);font-weight:500;margin-bottom:4px;">Harbor Scan &mdash; remove your name from data brokers</div>
         <div style="font-size:13px;color:var(--muted);line-height:1.5;">Spokeo, Whitepages, BeenVerified, and 13 more. Automated CCPA opt-outs. Verified removal.</div>
       </div>
-      <a href="https://scan.harborprivacy.com" target="_blank" rel="noopener" style="display:inline-block;background:var(--accent);color:var(--bg);padding:10px 18px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;flex-shrink:0;">Join Waitlist &rarr;</a>
+      <a href="https://scan.harborprivacy.com" target="_blank" rel="noopener" style="display:inline-block;background:var(--accent);color:var(--bg);padding:10px 18px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.08em;text-decoration:none;flex-shrink:0;">Start Free Scan &rarr;</a>
     </div>
   </div>
 
@@ -1746,7 +1743,7 @@ async function removeRule(rule){
         user_email=email, is_trial=is_trial, plan_badge=plan_badge, has_family_badge=has_family_badge,
         filtering_paused=filtering_paused,
         is_founder=is_founder, top_blocked=top_blocked, customer=customer,
-        service_groups=service_groups, blocked_services=blocked_services, active="dashboard")
+        service_groups=service_groups, blocked_services=blocked_services, active="dashboard", light_theme=True)
 
 # ════════════════════════════════════════════════════════════
 # SECTION 12 — ROUTES: ADMIN DASHBOARD
@@ -3002,7 +2999,7 @@ async function deleteMyAccount(){
     user = get_user(request.user_email)
     weekly_email = user.get("weekly_email", False) if user else False
     return render_template_string(html, has_2fa=has_2fa, is_admin=is_admin, weekly_email=weekly_email,
-        msg=msg, msg_ok=msg_ok, email=email, active="settings", show_2fa_reset=show_2fa_reset)
+        msg=msg, msg_ok=msg_ok, email=email, active="settings", show_2fa_reset=show_2fa_reset, light_theme=True)
 
 @app.route("/settings/password", methods=["POST"])
 @login_required
