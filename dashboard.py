@@ -7074,18 +7074,26 @@ def api_contact():
         log.warning(f"contact fast-submit from {ip}")
         return jsonify({"ok": True})
 
-    from webhook import send_email
-    safe = lambda x: x.replace("<", "&lt;").replace(">", "&gt;")
-    body = (f"<div style=\"font-family:sans-serif\">"
-            f"<h3>New contact message</h3>"
-            f"<p><b>Name:</b> {safe(name)}<br>"
-            f"<b>Email:</b> {safe(email)}<br>"
-            f"<b>Phone:</b> {safe(phone) or '(none)'}<br>"
-            f"<b>IP:</b> {ip}</p>"
-            f"<hr><pre style=\"white-space:pre-wrap;font-family:inherit\">{safe(message)}</pre>"
-            f"</div>")
-    ok = send_email("support@harborprivacy.com", f"Contact: {name}", body)
-    resp = jsonify({"ok": bool(ok)})
+    import hmac, hashlib
+    brand = (data.get("brand") or "general").strip().lower()
+    body = message + (f"\n\nPhone: {phone}" if phone else "")
+    payload = json.dumps({
+        "email": email, "name": name, "subject": f"Contact: {name}",
+        "body": body, "brand": brand, "category": "presale",
+        "internal_ref": {"kind": "contact_form", "ip": ip},
+    }).encode()
+    sig = hmac.new(os.environ.get("HELP_INTERNAL_TICKET_SECRET", "").encode(),
+                    payload, hashlib.sha256).hexdigest()
+    try:
+        r = requests.post(
+            os.environ.get("HELP_INTERNAL_URL", "https://help.harborprivacy.com/api/internal/ticket"),
+            data=payload, headers={"Content-Type": "application/json", "X-Harbor-Help-Sig": sig},
+            timeout=8)
+        ok = r.ok
+    except Exception as e:
+        log.warning(f"contact->help ticket create failed: {e}")
+        ok = False
+    resp = jsonify({"ok": ok})
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp, (200 if ok else 500)
 
