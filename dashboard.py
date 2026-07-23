@@ -353,33 +353,6 @@ def is_marketing_suppressed(email):
     except Exception:
         return False
 
-@app.route("/unsubscribe")
-def unsubscribe():
-    import hmac
-    email = (request.args.get("email") or "").strip().lower()
-    token = request.args.get("token", "")
-    if not email or not hmac.compare_digest(token, _unsub_token_for(email)):
-        return "Invalid or expired unsubscribe link. Email support@harborprivacy.com and we'll remove you by hand.", 400
-    try:
-        try:
-            with open(MARKETING_SUPPRESSIONS_FILE) as f:
-                suppressed = json.load(f)
-        except Exception:
-            suppressed = []
-        if email not in suppressed:
-            suppressed.append(email)
-        tmp = MARKETING_SUPPRESSIONS_FILE + ".tmp"
-        with open(tmp, "w") as f:
-            json.dump(suppressed, f, indent=2)
-        os.replace(tmp, MARKETING_SUPPRESSIONS_FILE)
-    except Exception as e:
-        log.error(f"unsubscribe write failed for {email}: {e}")
-        return "Something went wrong. Email support@harborprivacy.com and we'll remove you by hand.", 500
-    return f"""<div style="font-family:sans-serif;max-width:480px;margin:60px auto;padding:0 20px;color:#1a2420;">
-<h2 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;">You're unsubscribed</h2>
-<p style="color:#6b7a72;">{email} will not receive Harbor Privacy marketing or product-announcement emails. You'll still get transactional emails tied to your account (receipts, security alerts, breach alerts if you use Breach Monitor).</p>
-</div>"""
-
 
 def _login_redirect():
     # Preserve the page the user was heading to (e.g. /social or /leads from
@@ -685,6 +658,76 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 </script>
 """
 
+UNSUBSCRIBE_PAGE = STYLE + """
+<nav>
+  <a href="https://harborprivacy.com" class="logo">harbor<span>/</span>privacy</a>
+  <div class="nav-links">
+    {% if logged_in %}
+    <a href="/dashboard">Dashboard</a>
+    <a href="/logout">Sign Out</a>
+    {% else %}
+    <a href="/login">Sign In</a>
+    {% endif %}
+  </div>
+</nav>
+<div class="wrap-sm">
+  {% if error %}
+  <div class="sec-head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Unsubscribe</div>
+  <h1 style="margin-bottom:12px;">Invalid or expired link</h1>
+  <div class="error">This link isn't valid or has already been used.</div>
+  <p class="note">Email <a href="mailto:support@harborprivacy.com" style="color:var(--accent);">support@harborprivacy.com</a> and we'll remove you by hand.</p>
+  {% else %}
+  <div class="sec-head"><svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>Unsubscribe</div>
+  <h1 style="margin-bottom:12px;">You're unsubscribed</h1>
+  <div class="success">{{ email }} will not receive Harbor Privacy marketing or product-announcement emails.</div>
+  <p class="note" style="margin-bottom:24px;">You'll still get transactional emails tied to your account &mdash; receipts, security alerts, and (if you use it) Breach Monitor alerts.</p>
+
+  <div class="doh-box" style="color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.6;">
+    <strong style="color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;display:block;margin-bottom:8px;">Using Breach Monitor?</strong>
+    Unsubscribing here does <strong>not</strong> stop the daily breach checks or breach-found alerts on any email you're monitoring &mdash; those are account emails, not marketing. To stop the checks themselves, remove the monitored email from your dashboard.
+  </div>
+  <a href="https://breach.harborprivacy.com/app" class="ghost" style="margin-top:16px;display:inline-block;">Manage Monitored Emails →</a>
+
+  {% if logged_in %}
+  <div style="margin-top:28px;"><a href="/dashboard" class="btn">Return to My Dashboard →</a></div>
+  {% endif %}
+  {% endif %}
+</div>"""
+
+def _is_logged_in():
+    raw = request.headers.get("Cookie", "")
+    for part in raw.split(";"):
+        part = part.strip()
+        if part.startswith("hp_token=") and verify_token(part[len("hp_token="):]):
+            return True
+    return False
+
+@app.route("/unsubscribe")
+def unsubscribe():
+    import hmac
+    email = (request.args.get("email") or "").strip().lower()
+    token = request.args.get("token", "")
+    logged_in = _is_logged_in()
+    if not email or not hmac.compare_digest(token, _unsub_token_for(email)):
+        return render_template_string(UNSUBSCRIBE_PAGE, error=True, email=None, logged_in=logged_in), 400
+    try:
+        try:
+            with open(MARKETING_SUPPRESSIONS_FILE) as f:
+                suppressed = json.load(f)
+        except Exception:
+            suppressed = []
+        if email not in suppressed:
+            suppressed.append(email)
+        tmp = MARKETING_SUPPRESSIONS_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(suppressed, f, indent=2)
+        os.replace(tmp, MARKETING_SUPPRESSIONS_FILE)
+    except Exception as e:
+        log.error(f"unsubscribe write failed for {email}: {e}")
+        return "Something went wrong. Email support@harborprivacy.com and we'll remove you by hand.", 500
+    return render_template_string(UNSUBSCRIBE_PAGE, error=False, email=email, logged_in=logged_in)
+
+
 NAV_CUSTOMER = """
 <div id="timeout-warning" style="display:none;position:fixed;bottom:24px;right:24px;background:#f4eee2;border:1px solid #1f5d6b;padding:20px 24px;z-index:9999;font-family:monospace;font-size:12px;color:#1a2420;flex-direction:column;gap:12px;max-width:300px;"><span>You will be logged out in 5 minutes due to inactivity.</span><button onclick="resetTimer()" style="background:#1f5d6b;color:#ffffff;border:none;padding:8px 16px;cursor:pointer;font-family:monospace;font-size:11px;">Stay Logged In</button></div>
 <nav style="flex-direction:column;align-items:stretch;gap:0;padding:0;">
@@ -716,13 +759,14 @@ NAV_ADMIN = """
     <a href="/leads" class="{{ 'active' if active == 'leads' else '' }}">Leads</a>
     <a href="/linkedin" class="{{ 'active' if active == 'linkedin' else '' }}">LinkedIn</a>
     <div class="nav-drop">
-      <a href="#" onclick="this.parentNode.classList.toggle('open');return false;" class="{% if active in ('links','analytics','logs','scan','etsy') %}active{% endif %}">Tools &#9662;</a>
+      <a href="#" onclick="this.parentNode.classList.toggle('open');return false;" class="{% if active in ('links','analytics','logs','scan','etsy','marketing') %}active{% endif %}">Tools &#9662;</a>
       <div class="nav-drop-menu">
         <a href="/admin/links" class="{{ 'active' if active == 'links' else '' }}">Link Manager</a>
         <a href="/etsy" class="{{ 'active' if active == 'etsy' else '' }}">Etsy Listings</a>
         <a href="/admin/analytics" class="{{ 'active' if active == 'analytics' else '' }}">DNS Analytics</a>
         <a href="/admin/logs" class="{{ 'active' if active == 'logs' else '' }}">Live Logs</a>
         <a href="/admin/scan" class="{{ 'active' if active == 'scan' else '' }}">Harbor Scan</a>
+        <a href="/admin/marketing" class="{{ 'active' if active == 'marketing' else '' }}">Marketing</a>
       </div>
     </div>
   </div>
@@ -2192,6 +2236,121 @@ def admin_analytics():
   <a href="/admin" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;">← Back to Admin</a>
 </div></html>"""
     return render_template_string(html, active="analytics")
+
+@app.route("/admin/marketing", methods=["GET"])
+@admin_required
+def admin_marketing():
+    ANNOUNCED_FILE = "/home/ubuntu/harbor-breach/.announced.json"
+    try:
+        with open(ANNOUNCED_FILE) as f:
+            announced = json.load(f)  # {email: iso_timestamp}
+    except Exception:
+        announced = {}
+    try:
+        with open(MARKETING_SUPPRESSIONS_FILE) as f:
+            suppressed = json.load(f)
+    except Exception:
+        suppressed = []
+
+    sent_rows = sorted(announced.items(), key=lambda kv: kv[1], reverse=True)
+
+    html = STYLE + NAV_ADMIN + """
+<div class="wrap">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:32px;flex-wrap:wrap;gap:16px;">
+    <div>
+      <div class="sec-head"><svg viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>Marketing</div>
+      <h1>Announcements &amp; Unsubscribes</h1>
+    </div>
+    <a href="/admin" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;">← Back to Admin</a>
+  </div>
+
+  <div class="stat-grid" style="margin-bottom:20px;">
+    <div class="stat"><div class="stat-num">{{ sent_rows|length }}</div><div class="stat-label">Sent To</div></div>
+    <div class="stat"><div class="stat-num">{{ suppressed|length }}</div><div class="stat-label">Unsubscribed</div></div>
+  </div>
+
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Breach Monitor Announcement — Sent Messages</div>
+    {% for email, ts in sent_rows %}
+    <div class="row">
+      <span style="font-size:14px;">{{ email }}</span>
+      <span class="note" style="font-family:'DM Mono',monospace;font-size:11px;">{{ ts[:16] }} UTC</span>
+    </div>
+    {% else %}
+    <p class="note">No announcement sends recorded yet.</p>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div class="card-label">Unsubscribed From Marketing</div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <input type="email" id="suppress-email" placeholder="email@example.com" style="margin-bottom:0;">
+      <button class="btn" onclick="suppressEmail()">Add</button>
+    </div>
+    {% for email in suppressed %}
+    <div class="row" id="sup-{{ loop.index }}">
+      <span style="font-size:14px;">{{ email }}</span>
+      <button class="ghost btn-sm" onclick="unsuppressEmail('{{ email }}', 'sup-{{ loop.index }}')">Resubscribe</button>
+    </div>
+    {% else %}
+    <p class="note">No unsubscribes yet.</p>
+    {% endfor %}
+  </div>
+</div>
+<script>
+async function suppressEmail(){
+  const input = document.getElementById('suppress-email');
+  const email = input.value.trim();
+  if(!email) return;
+  const r = await fetch('/api/admin/marketing/suppress', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email})});
+  const d = await r.json();
+  if(d.ok) location.reload(); else alert(d.error || 'Something went wrong');
+}
+async function unsuppressEmail(email, rowId){
+  if(!confirm('Let ' + email + ' receive marketing emails again?')) return;
+  const r = await fetch('/api/admin/marketing/unsuppress', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email})});
+  const d = await r.json();
+  if(d.ok) document.getElementById(rowId).remove(); else alert(d.error || 'Something went wrong');
+}
+</script>"""
+    return render_template_string(html, active="marketing", sent_rows=sent_rows, suppressed=suppressed)
+
+
+def _save_suppressions(suppressed):
+    tmp = MARKETING_SUPPRESSIONS_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(suppressed, f, indent=2)
+    os.replace(tmp, MARKETING_SUPPRESSIONS_FILE)
+
+@app.route("/api/admin/marketing/suppress", methods=["POST"])
+@admin_required
+def api_admin_marketing_suppress():
+    email = (request.json or {}).get("email", "").strip().lower()
+    if "@" not in email:
+        return jsonify({"ok": False, "error": "invalid email"})
+    try:
+        with open(MARKETING_SUPPRESSIONS_FILE) as f:
+            suppressed = json.load(f)
+    except Exception:
+        suppressed = []
+    if email not in suppressed:
+        suppressed.append(email)
+    _save_suppressions(suppressed)
+    return jsonify({"ok": True})
+
+@app.route("/api/admin/marketing/unsuppress", methods=["POST"])
+@admin_required
+def api_admin_marketing_unsuppress():
+    email = (request.json or {}).get("email", "").strip().lower()
+    try:
+        with open(MARKETING_SUPPRESSIONS_FILE) as f:
+            suppressed = json.load(f)
+    except Exception:
+        suppressed = []
+    suppressed = [e for e in suppressed if e != email]
+    _save_suppressions(suppressed)
+    return jsonify({"ok": True})
+
 
 @app.route("/admin/links", methods=["GET"])
 @admin_required
