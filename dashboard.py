@@ -934,7 +934,11 @@ def login():
 
         elif action == "login":
             ip = request.headers.get("X-Real-IP", request.remote_addr)
-            if not check_rate_limit(ip):
+            ts = request.form.get("cf-turnstile-response", "")
+            if not _verify_turnstile(ts, ip):
+                error = "CAPTCHA verification failed. Please try again."
+                step = "2"
+            elif not check_rate_limit(ip):
                 error = "Too many failed attempts. Try again in 15 minutes."
                 step = "2"
             else:
@@ -1029,6 +1033,7 @@ def login():
     <a href="https://harborprivacy.com" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">← Back to site</a>
   </div>
 </nav>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <div class="wrap-sm">
   <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">Customer Dashboard</p>
   <h1 style="margin-bottom:8px;">Sign in.</h1>
@@ -1071,6 +1076,7 @@ def login():
     {% else %}
     <input type="password" name="password" placeholder="Your password" required autocomplete="current-password" autofocus>
     {% endif %}
+    <div class="cf-turnstile" data-sitekey="0x4AAAAAADMxTv4Gen_OFaKO" data-theme="light" style="margin:12px 0;"></div>
     <button type="submit" class="btn" style="width:100%;margin-top:4px;">{% if show_2fa %}Verify →{% else %}Sign In →{% endif %}</button>
   </form>
   <div style="margin-top:16px;">
