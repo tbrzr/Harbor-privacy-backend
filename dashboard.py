@@ -1015,6 +1015,17 @@ def login():
                         return resp
 
     html = STYLE + """
+{% if from_breach %}
+<style>
+  /* Continue breach.harborprivacy.com's cream/gold theme instead of the
+     dashboard's default dark teal -- arriving here mid-signup shouldn't
+     feel like landing on a different, unrelated product. */
+  :root{--bg:#fbf7f0;--surface:#ffffff;--surface-2:#f4eee2;--border:#e6dfd2;--border-soft:#e6dfd2;--accent:#c98a52;--accent-dim:rgba(201,138,82,0.10);--text:#1a2420;--muted:#6b7a72;}
+  body::before{opacity:0.08;}
+  .btn{color:#ffffff;}
+  .btn:hover{background:#dba470;box-shadow:0 6px 18px -8px rgba(201,138,82,0.5);}
+</style>
+{% endif %}
 <nav>
   <a href="https://harborprivacy.com" class="logo">harbor<span>/</span>privacy</a>
   <div class="nav-links">
@@ -1024,7 +1035,12 @@ def login():
 <div class="wrap-sm">
   <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">Customer Dashboard</p>
   <h1 style="margin-bottom:8px;">Sign in.</h1>
-  <p class="note" style="margin-bottom:32px;">{% if step == '1' %}Enter your email to get started.{% else %}Welcome back — enter your password.{% endif %}</p>
+  <p class="note" style="margin-bottom:32px;">
+    {% if step != '1' %}Welcome back — enter your password.
+    {% elif from_breach %}Log in to check your email for data breaches. Free for Harbor Privacy customers.
+    {% else %}Enter your email to get started.
+    {% endif %}
+  </p>
 
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
@@ -1035,6 +1051,12 @@ def login():
     <input type="email" name="email" placeholder="Your email address" value="{{ email }}" required autocomplete="email" autofocus>
     <button type="submit" class="btn" style="width:100%;">Continue →</button>
   </form>
+  <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border);text-align:center;">
+    <p class="note" style="font-size:13px;margin-bottom:10px;">New to Harbor Privacy?</p>
+    <a href="https://adblock.harborprivacy.com/pricing" class="ghost" style="display:inline-block;">
+      {% if from_breach %}See Plans, Starting at $1.99/mo →{% else %}See Plans →{% endif %}
+    </a>
+  </div>
   {% else %}
   <form method="POST">
     <input type="hidden" name="action" value="login">
@@ -1062,7 +1084,7 @@ def login():
     import hmac as _hmac2, hashlib as _hs2
     _key2 = app.secret_key if isinstance(app.secret_key, bytes) else app.secret_key.encode()
     pw_tok = _hmac2.new(_key2, email.encode(), _hs2.sha256).hexdigest() if email else ""
-    return render_template_string(html, step=step, email=email, error=error, show_2fa=show_2fa, pw_tok=pw_tok, nxt=nxt)
+    return render_template_string(html, step=step, email=email, error=error, show_2fa=show_2fa, pw_tok=pw_tok, nxt=nxt, from_breach="breach.harborprivacy.com" in nxt)
 
 @app.route("/dns-whoami/<token>")
 def dns_whoami(token):
