@@ -780,9 +780,21 @@ def login():
     error = None
     show_2fa = False
 
-    # Internal-path-only post-login destination (from PWA start_url etc.)
+    # Post-login destination (from PWA start_url etc, or a subdomain like
+    # breach.harborprivacy.com sending customers here to log in). Relative
+    # paths are always fine. Absolute URLs are only fine if they point back
+    # at a harborprivacy.com (sub)domain -- anything else is an open-redirect
+    # risk (attacker crafts a login link whose next= sends the customer to a
+    # phishing site right after they authenticate), so it gets dropped.
     nxt = (request.form.get("next") or request.args.get("next") or "").strip()
-    if not (nxt.startswith("/") and not nxt.startswith("//") and ":" not in nxt):
+    if nxt.startswith("/") and not nxt.startswith("//") and ":" not in nxt:
+        pass
+    elif nxt.startswith("https://"):
+        from urllib.parse import urlparse
+        host = (urlparse(nxt).hostname or "").lower()
+        if not (host == "harborprivacy.com" or host.endswith(".harborprivacy.com")):
+            nxt = ""
+    else:
         nxt = ""
 
     if request.method == "POST":
