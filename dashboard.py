@@ -327,6 +327,59 @@ def _verify_setup_token(token, email):
     expected = _setup_token_for(email)
     return bool(expected) and hmac.compare_digest(token, expected)
 
+# ── Marketing-email unsubscribe (CAN-SPAM) ──────────────────────
+# Stateless HMAC token, not tied to a customer record (unlike setup
+# tokens above) since it needs to keep working even after the customer
+# cancels. Suppression list is a flat JSON file shared across products
+# so any future bulk/marketing send (not just Breach Monitor) can check
+# it before mailing someone who opted out. Transactional email (welcome,
+# receipts, breach alerts themselves) is exempt from CAN-SPAM's opt-out
+# requirement and does NOT need to consult this list.
+MARKETING_SUPPRESSIONS_FILE = "/home/ubuntu/harbor-shared/marketing-suppressions.json"
+
+def _unsub_token_for(email):
+    import hmac, hashlib
+    key = app.secret_key if isinstance(app.secret_key, bytes) else app.secret_key.encode()
+    return hmac.new(key, email.lower().encode(), hashlib.sha256).hexdigest()[:32]
+
+def unsubscribe_link(email):
+    from urllib.parse import quote
+    return f"https://dashboard.harborprivacy.com/unsubscribe?email={quote(email)}&token={_unsub_token_for(email)}"
+
+def is_marketing_suppressed(email):
+    try:
+        with open(MARKETING_SUPPRESSIONS_FILE) as f:
+            return email.lower().strip() in json.load(f)
+    except Exception:
+        return False
+
+@app.route("/unsubscribe")
+def unsubscribe():
+    import hmac
+    email = (request.args.get("email") or "").strip().lower()
+    token = request.args.get("token", "")
+    if not email or not hmac.compare_digest(token, _unsub_token_for(email)):
+        return "Invalid or expired unsubscribe link. Email support@harborprivacy.com and we'll remove you by hand.", 400
+    try:
+        try:
+            with open(MARKETING_SUPPRESSIONS_FILE) as f:
+                suppressed = json.load(f)
+        except Exception:
+            suppressed = []
+        if email not in suppressed:
+            suppressed.append(email)
+        tmp = MARKETING_SUPPRESSIONS_FILE + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(suppressed, f, indent=2)
+        os.replace(tmp, MARKETING_SUPPRESSIONS_FILE)
+    except Exception as e:
+        log.error(f"unsubscribe write failed for {email}: {e}")
+        return "Something went wrong. Email support@harborprivacy.com and we'll remove you by hand.", 500
+    return f"""<div style="font-family:sans-serif;max-width:480px;margin:60px auto;padding:0 20px;color:#1a2420;">
+<h2 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;">You're unsubscribed</h2>
+<p style="color:#6b7a72;">{email} will not receive Harbor Privacy marketing or product-announcement emails. You'll still get transactional emails tied to your account (receipts, security alerts, breach alerts if you use Breach Monitor).</p>
+</div>"""
+
 
 def _login_redirect():
     # Preserve the page the user was heading to (e.g. /social or /leads from
