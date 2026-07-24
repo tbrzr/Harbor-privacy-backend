@@ -468,6 +468,7 @@ STYLE = """<!DOCTYPE html>
   html.light{--bg:#fbf7f0;--surface:#ffffff;--surface-2:#f4eee2;--border:#e6dfd2;--border-soft:#e6dfd2;--accent:#c98a52;--accent-dim:rgba(201,138,82,0.10);--text:#1a2420;--muted:#6b7a72;}
   html.light nav{background:linear-gradient(180deg,#ffffff 0%,#fbf7f0 100%);}
   html.light .btn{color:#ffffff;}
+  html.light .card{background:linear-gradient(180deg,var(--surface),var(--surface-2));}
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.7;min-height:100vh;}
   body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:0.3;pointer-events:none;z-index:0;}
@@ -622,6 +623,9 @@ nav.hp-bottom-tabs .hp-bottom-tab{flex:1;display:flex;flex-direction:column;alig
 nav.hp-bottom-tabs .hp-bottom-tab svg{stroke:currentColor;}
 nav.hp-bottom-tabs .hp-bottom-tab.active{color:#00e5c0;}
 nav.hp-bottom-tabs .hp-bottom-tab:active{transform:scale(.94);}
+html.light nav.hp-bottom-tabs{background:rgba(255,255,255,0.96) !important;border-top:1px solid var(--border) !important;}
+html.light nav.hp-bottom-tabs .hp-bottom-tab{color:var(--muted);}
+html.light nav.hp-bottom-tabs .hp-bottom-tab.active{color:var(--accent);}
 
 /* hp-hm-zoom-lift: lift native .hm-zoom above .hp-bottom-tabs in PWA standalone on phones */
 @media all and (display-mode:standalone) and (max-width:768px){
@@ -1274,7 +1278,7 @@ def dashboard():
     rules = get_client_rules(client_id) if client_id else []
     family_safe = client.get("parental_enabled", False) if client else False
     plan_type = customer.get("plan_type", "") if customer else ""
-    harbor_kids = True if (customer and plan_type != "harbor-remote-light" and is_active) else customer.get("harbor_kids", False) if customer else False
+    harbor_kids = customer.get("harbor_kids", False) if customer else False
     filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
@@ -2526,7 +2530,7 @@ def admin_customer(client_id):
     # CRITICAL: plan_type must always be defined before harbor_kids -- do not reorder
     plan_type = customer.get("plan_type", "remote") if customer else "remote"
     is_active = customer.get("status", "") == "active" if customer else False
-    harbor_kids = True if (customer and plan_type != "harbor-remote-light" and is_active) else customer.get("harbor_kids", False) if customer else False
+    harbor_kids = customer.get("harbor_kids", False) if customer else False
     is_founder = customer.get("is_founder", False) if customer else False
     cstats = get_client_stats(client_id)
 
@@ -2654,7 +2658,7 @@ def admin_customer(client_id):
         <div class="toggle-desc">Child device DNS filtering, adult content blocking, parental control</div>
       </div>
       <label class="toggle">
-        <input type="checkbox" {% if harbor_kids %}checked{% endif %} {% if not is_active %}disabled{% else %}onchange="toggleAddon('harbor_kids',this.checked)"{% endif %}>
+        <input type="checkbox" {% if harbor_kids %}checked{% endif %} {% if not is_active %}disabled{% else %}onchange="toggleHarborKids(this.checked)"{% endif %}>
         <span class="slider locked"></span>
       </label>
     </div>
@@ -2812,6 +2816,11 @@ async function removeKidProfile(kids_id){
 }
 async function toggleFamily(enabled){
   const r=await fetch('/api/admin/addon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CID,type:'family',enabled})});
+  const d=await r.json();
+  if(d.ok)location.reload();else alert('Failed.');
+}
+async function toggleHarborKids(enabled){
+  const r=await fetch('/api/admin/addon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CID,type:'harbor_kids',enabled})});
   const d=await r.json();
   if(d.ok)location.reload();else alert('Failed.');
 }
@@ -3431,6 +3440,11 @@ def api_addon():
         updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True, "use_global_settings": False, "safe_search": {"enabled": enabled, "bing": enabled, "duckduckgo": enabled, "ecosia": enabled, "google": enabled, "pixabay": enabled, "yandex": enabled, "youtube": enabled}}
         return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
 
+    if data.get("type") == "harbor_kids":
+        enabled = data.get("enabled", False)
+        update_customer_harbor_kids_flag(client_id, enabled)
+        return jsonify({"ok": True})
+
     if data.get("type") == "harbor_kids_add":
         kid_num = data.get("kid_num", 1)
         kids_id = f"{client_id}kid{kid_num}"
@@ -3700,6 +3714,11 @@ def api_admin_addon():
         enabled = data.get("enabled", False)
         updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True, "use_global_settings": False, "safe_search": {"enabled": enabled, "bing": enabled, "duckduckgo": enabled, "ecosia": enabled, "google": enabled, "pixabay": enabled, "yandex": enabled, "youtube": enabled}}
         return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
+
+    if data.get("type") == "harbor_kids":
+        enabled = data.get("enabled", False)
+        update_customer_harbor_kids_flag(client_id, enabled)
+        return jsonify({"ok": True})
 
     if data.get("type") == "harbor_kids_add":
         kid_num = data.get("kid_num", 1)

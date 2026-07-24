@@ -82,11 +82,13 @@ def get_client_stats(client_id):
     try:
         stats = agh_get("/control/stats")
         top_clients = stats.get("top_clients", [])
+        client = get_client(client_id)
+        ids = client.get("ids", [client_id]) if client else [client_id]
         total = 0
         for entry in top_clients:
-            if client_id in entry:
-                total = entry[client_id]
-                break
+            for cid in ids:
+                if cid in entry:
+                    total += entry[cid]
         global_total = stats.get("num_dns_queries", 0)
         global_blocked = stats.get("num_blocked_filtering", 0) + stats.get("num_replaced_safebrowsing", 0) + stats.get("num_replaced_parental", 0)
         global_pct = round(global_blocked / max(global_total, 1) * 100, 1)

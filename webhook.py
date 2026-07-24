@@ -171,6 +171,10 @@ def get_allowed_clients():
         return []
 
 def set_allowed_clients(clients):
+    # 127.0.0.1 must never be in this list: nginx anonymizes every DoH
+    # client to loopback, so allowing that IP allows any client ID at all,
+    # bypassing per-customer access control entirely.
+    clients = [c for c in clients if c != "127.0.0.1"]
     try:
         r = requests.post(f"{ADGUARD_URL}/control/access/set",
             json={"allowed_clients": clients, "disallowed_clients": [], "blocked_hosts": []},
