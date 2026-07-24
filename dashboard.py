@@ -1544,27 +1544,11 @@ def dashboard():
       </div>
 
     </div>
-      <div style="position:relative;">
-      <div class="toggle-row">
-        <div>
-          <div class="toggle-label">
-            Harbor Kids
-            <span class="badge {% if harbor_kids %}badge-on{% else %}badge-off{% endif %}">{% if harbor_kids %}ON{% else %}OFF{% endif %}</span>
-          </div>
-          <div class="toggle-desc">DNS filtering for your child's devices — blocks adult content, malware, and ads</div>
-        </div>
-        <label class="toggle" style="width:44px;height:24px;flex-shrink:0;">
-          <input type="checkbox" {% if harbor_kids %}checked{% endif %} {% if not is_active %}disabled{% else %}onchange="toggleAddon('harbor_kids',this.checked)"{% endif %}>
-          <span class="slider" style="border-radius:24px;"></span>
-        </label>
-      </div>
-
-    </div>
   </div>
 
   <div class="card">
     <div class="card-label">Harbor Kids &#8212; Your Child Profiles</div>
-    {% if harbor_kids and kids_profiles %}
+    {% if kids_profiles %}
     <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Each child profile has its own DNS address. Use the setup guide to install it on your child's device.</p>
     {% for kp in kids_profiles %}
     <div style="border:1px solid var(--border);padding:16px;margin-bottom:12px;background:var(--bg);">
@@ -1577,17 +1561,15 @@ def dashboard():
       </div>
     </div>
     {% endfor %}
-    {% elif harbor_kids %}
-    <p style="font-size:13px;color:var(--muted);">Your Harbor Kids profile is being set up. Check back shortly or contact support@harborprivacy.com.</p>
     {% else %}
-    <p style="font-size:13px;color:var(--muted);">Enable Harbor Kids in the Add-Ons section above to get started.</p>
+    <p style="font-size:13px;color:var(--muted);">Add your first child profile to get started.</p>
     {% endif %}
-    {% if harbor_kids and kids_profiles|length < 5 %}
+    {% if kids_profiles|length < 5 %}
     <div style="margin-top:16px;">
       <button onclick="addKidProfileCustomer()" style="background:var(--accent);color:#0a0e0f;border:none;padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:0.08em;">+ Add Child Profile</button>
       <span style="font-size:12px;color:var(--muted);margin-left:8px;">{{ 5 - kids_profiles|length }} of 5 remaining</span>
     </div>
-    {% elif harbor_kids and kids_profiles|length >= 5 %}
+    {% else %}
     <div style="margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">Maximum of 5 child profiles reached.</div>
     {% endif %}
     <div style="font-size:11px;color:var(--muted);margin-top:12px;">Harbor Kids accounts are managed by a parent or guardian. We do not collect personal information from children. <a href="https://harborprivacy.com/nologs" style="color:var(--accent);text-decoration:none;">Privacy Policy</a></div>
@@ -2645,23 +2627,6 @@ def admin_customer(client_id):
         <span class="slider"></span>
       </label>
     </div>
-    <div class="toggle-row">
-      <div>
-        <div class="toggle-label">
-          Harbor Kids
-          {% if harbor_kids %}
-          <span class="badge badge-on">ON</span>
-          {% else %}
-          <span class="badge badge-off">OFF</span>
-          {% endif %}
-        </div>
-        <div class="toggle-desc">Child device DNS filtering, adult content blocking, parental control</div>
-      </div>
-      <label class="toggle">
-        <input type="checkbox" {% if harbor_kids %}checked{% endif %} {% if not is_active %}disabled{% else %}onchange="toggleHarborKids(this.checked)"{% endif %}>
-        <span class="slider locked"></span>
-      </label>
-    </div>
   </div>
 
   <div class="card">
@@ -2816,11 +2781,6 @@ async function removeKidProfile(kids_id){
 }
 async function toggleFamily(enabled){
   const r=await fetch('/api/admin/addon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CID,type:'family',enabled})});
-  const d=await r.json();
-  if(d.ok)location.reload();else alert('Failed.');
-}
-async function toggleHarborKids(enabled){
-  const r=await fetch('/api/admin/addon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:CID,type:'harbor_kids',enabled})});
   const d=await r.json();
   if(d.ok)location.reload();else alert('Failed.');
 }
@@ -3440,11 +3400,6 @@ def api_addon():
         updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True, "use_global_settings": False, "safe_search": {"enabled": enabled, "bing": enabled, "duckduckgo": enabled, "ecosia": enabled, "google": enabled, "pixabay": enabled, "yandex": enabled, "youtube": enabled}}
         return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
 
-    if data.get("type") == "harbor_kids":
-        enabled = data.get("enabled", False)
-        update_customer_harbor_kids_flag(client_id, enabled)
-        return jsonify({"ok": True})
-
     if data.get("type") == "harbor_kids_add":
         kid_num = data.get("kid_num", 1)
         kids_id = f"{client_id}kid{kid_num}"
@@ -3714,11 +3669,6 @@ def api_admin_addon():
         enabled = data.get("enabled", False)
         updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True, "use_global_settings": False, "safe_search": {"enabled": enabled, "bing": enabled, "duckduckgo": enabled, "ecosia": enabled, "google": enabled, "pixabay": enabled, "yandex": enabled, "youtube": enabled}}
         return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
-
-    if data.get("type") == "harbor_kids":
-        enabled = data.get("enabled", False)
-        update_customer_harbor_kids_flag(client_id, enabled)
-        return jsonify({"ok": True})
 
     if data.get("type") == "harbor_kids_add":
         kid_num = data.get("kid_num", 1)
