@@ -1169,16 +1169,20 @@ def setup():
         password2 = request.form.get("password2", "")
         is_admin = request.form.get("is_admin", "0") == "1"
 
+        agree_tos = request.form.get("agree_tos", "0") == "1"
+
         if not is_admin and not find_customer(email):
             error = "No active subscription found. Contact support@harborprivacy.com"
         elif len(password) < 8:
             error = "Password must be at least 8 characters."
         elif password != password2:
             error = "Passwords do not match."
+        elif not agree_tos:
+            error = "You must agree to the Terms of Service and Privacy Policy."
         else:
             users = load_users()
             hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-            users[email.lower()] = {"email": email.lower(), "password": hashed, "created": datetime.utcnow().isoformat()}
+            users[email.lower()] = {"email": email.lower(), "password": hashed, "created": datetime.utcnow().isoformat(), "tos_agreed_at": datetime.utcnow().isoformat()}
             save_users(users)
             token = make_token(email.lower(), is_admin=is_admin)
             resp = make_response(redirect("/admin" if is_admin else "/setup/2fa-prompt"))
@@ -1202,6 +1206,10 @@ def setup():
     <div style="background:var(--surface);border:1px solid var(--border);padding:12px 16px;margin-bottom:16px;font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);">{{ email }}</div>
     <input type="password" name="password" placeholder="Choose a password (min 8 characters)" required minlength="8" autofocus>
     <input type="password" name="password2" placeholder="Confirm your password" required>
+    <label style="display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--muted);margin:16px 0;cursor:pointer;">
+      <input type="checkbox" name="agree_tos" value="1" required style="margin-top:3px;">
+      <span>I agree to the <a href="https://harborprivacy.com/terms" target="_blank">Terms of Service</a> and <a href="https://harborprivacy.com/privacy" target="_blank">Privacy Policy</a>.</span>
+    </label>
     <button type="submit" class="btn" style="width:100%;margin-top:4px;">Create Account →</button>
   </form>
 </div>"""
