@@ -754,6 +754,7 @@ NAV_CUSTOMER = """
   <div class="nav-links" style="padding:10px 24px;border-bottom:1px solid var(--border);justify-content:flex-start;gap:20px;">
     <a href="https://harborprivacy.com" style="font-size:10px;">← Site</a>
     <a href="/dashboard" class="{{ 'active' if active == 'dashboard' else '' }}">Dashboard</a>
+    <a href="/dashboard/adblock" class="{{ 'active' if active == 'adblock' else '' }}">AdBlock Usage</a>
     <a href="https://breach.harborprivacy.com/app">Breach Monitor</a>
     <a href="https://scan.harborprivacy.com">Harbor Scan</a>
     <a href="/settings" class="{{ 'active' if active == 'settings' else '' }}">Settings</a>
@@ -8027,6 +8028,90 @@ def public_link_page():
     resp = make_response(render_template_string(_LINK_PAGE_TMPL, links=links))
     resp.headers["Cache-Control"] = "public, max-age=60"
     return resp
+
+# ════════════════════════════════════════════════════════════
+# SECTION 23 — ADBLOCK MONTHLY STATS (preview, not linked from nav)
+# Owns: /dashboard/adblock
+#
+# Pulls accurate per-client monthly stats from HAB (Harbor AdBlock, the
+# private AGH fork, hab.harborprivacy.com), NOT production AGH — production
+# doesn't have the /control/stats/client endpoint yet, only HAB does. The
+# existing get_client_stats() used on the main /dashboard route (SECTION 11)
+# is a rough estimate: it multiplies a client's share of the top-100
+# leaderboard by the GLOBAL block percentage, capped to whatever's in AGH's
+# rolling stats window. This route is the accurate replacement, linked from
+# nav as its own page rather than folded into the guarded dashboard() route.
+# ════════════════════════════════════════════════════════════
+
+HAB_URL = os.environ.get("HAB_URL", "http://127.0.0.1:3990")
+
+def hab_get_client_monthly(client_id, months=12):
+    """Fetches monthly total/blocked counts for client_id from HAB. Returns
+    [] on any failure — never raises, since this must not be able to break
+    a page load."""
+    try:
+        r = requests.get(
+            f"{HAB_URL}/control/stats/client",
+            params={"client": client_id, "months": months},
+            auth=(ADGUARD_USER, ADGUARD_PASS),
+            timeout=AGH_TIMEOUT,
+        )
+        if r.status_code == 200:
+            return r.json().get("monthly", [])
+        log.warning(f"hab_get_client_monthly {client_id} -> {r.status_code}")
+    except Exception as e:
+        log.warning(f"hab_get_client_monthly {client_id} failed: {e}")
+    return []
+
+@app.route("/dashboard/adblock")
+@login_required
+def adblock_usage():
+    email = request.user_email
+    customer = find_customer(email)
+    client_id = customer.get("client_id", "") if customer else ""
+    monthly = hab_get_client_monthly(client_id) if client_id else []
+
+    is_trial = customer.get("is_trial", False) if customer else False
+    plan_type = customer.get("plan_type", "") if customer else ""
+    harbor_kids = customer.get("harbor_kids", False) if customer else False
+    client = get_client(client_id) if client_id else {}
+    has_family_badge = has_family_addon(client_id) if client_id else False
+    plan_badge = ""
+    if plan_type == "harbor-remote-light": plan_badge = "LIGHT"
+    elif plan_type == "3month": plan_badge = "3-MONTH"
+    elif plan_type == "6month": plan_badge = "6-MONTH"
+    elif plan_type == "annual": plan_badge = "ANNUAL"
+    elif customer and not is_trial: plan_badge = "MONTHLY"
+
+    html = STYLE + NAV_CUSTOMER + """
+<div class="wrap-sm">
+  <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">AdBlock</p>
+  <h1 style="margin-bottom:24px;">Your usage.</h1>
+  {% if not client_id %}
+  <p class="note">No AdBlock client found on your account.</p>
+  {% else %}
+  <div class="card">
+    <div class="card-label">Monthly</div>
+    {% for m in monthly %}
+    <div class="row">
+      <span>{{ m.month }}</span>
+      <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);">{{ m.total }} queries &middot; {{ m.blocked }} blocked</span>
+    </div>
+    {% endfor %}
+    {% if not monthly %}
+    <p class="note">No usage recorded yet.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+  <a href="/dashboard" class="ghost" style="margin-top:16px;display:inline-block;">&larr; Back to Dashboard</a>
+</div>"""
+    return render_template_string(
+        html, client_id=client_id, monthly=monthly,
+        user_email=email, is_trial=is_trial, plan_badge=plan_badge,
+        has_family_badge=has_family_badge, harbor_kids=harbor_kids,
+        active="adblock", light_theme=True,
+    )
+
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=int(os.environ.get("DASHBOARD_PORT", 7000)), debug=False)
