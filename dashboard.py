@@ -179,8 +179,15 @@ def _verify_turnstile(token, ip):
         data = _up.urlencode({"secret": TURNSTILE_SECRET, "response": token, "remoteip": ip}).encode()
         req = _ur.Request("https://challenges.cloudflare.com/turnstile/v0/siteverify", data=data, method="POST")
         with _ur.urlopen(req, timeout=5) as resp:
-            return _jj.loads(resp.read()).get("success", False)
-    except Exception:
+            result = _jj.loads(resp.read())
+            if not result.get("success", False):
+                log.warning(f"turnstile rejected ip={ip} error-codes={result.get('error-codes')}")
+            return result.get("success", False)
+    except Exception as e:
+        # Fails closed on purpose (still blocks login), but log it so a
+        # Cloudflare/network hiccup on our end is distinguishable from a
+        # genuinely bad token next time this gets reported.
+        log.warning(f"turnstile verify request failed ip={ip}: {e}")
         return False
 
 # ════════════════════════════════════════════════════════════
@@ -939,28 +946,34 @@ def login():
 
         elif action == "login":
             ip = request.headers.get("X-Real-IP", request.remote_addr)
+            password = request.form.get("password", "")
+            totp_code = request.form.get("totp", "").strip()
+
+            # A valid pw_token proves the password step (and its Turnstile
+            # check) already succeeded earlier in this same login attempt --
+            # don't make the user pass a second, independent CAPTCHA just to
+            # enter their 2FA code moments later.
+            import hmac, hashlib
+            PW_SIGN_KEY = app.secret_key if isinstance(app.secret_key, bytes) else app.secret_key.encode()
+            pw_token = request.form.get("pw_token", "")
+            expected_token = hmac.new(PW_SIGN_KEY, email.encode(), hashlib.sha256).hexdigest() if email else ""
+            is_2fa_continuation = bool(pw_token) and hmac.compare_digest(pw_token, expected_token)
+
             ts = request.form.get("cf-turnstile-response", "")
-            if not _verify_turnstile(ts, ip):
+            if not is_2fa_continuation and not _verify_turnstile(ts, ip):
                 error = "CAPTCHA verification failed. Please try again."
                 step = "2"
             elif not check_rate_limit(ip):
                 error = "Too many failed attempts. Try again in 15 minutes."
                 step = "2"
             else:
-                password = request.form.get("password", "")
-                totp_code = request.form.get("totp", "").strip()
                 user = get_user(email)
                 if not user:
                     error = "Session expired. Please start over."
                     step = "1"
                     email = ""
                 else:
-                    # Check password -- use hmac token in hidden field to survive stateless proxy
-                    import hmac, hashlib
-                    PW_SIGN_KEY = app.secret_key if isinstance(app.secret_key, bytes) else app.secret_key.encode()
-                    pw_token = request.form.get("pw_token", "")
-                    expected_token = hmac.new(PW_SIGN_KEY, email.encode(), hashlib.sha256).hexdigest() if email else ""
-                    if pw_token and hmac.compare_digest(pw_token, expected_token):
+                    if is_2fa_continuation:
                         pw_ok = True
                     elif password:
                         pw_ok = bcrypt.checkpw(password.encode(), user["password"].encode())
