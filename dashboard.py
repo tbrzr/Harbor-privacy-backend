@@ -8030,22 +8030,22 @@ def public_link_page():
     return resp
 
 # ════════════════════════════════════════════════════════════
-# SECTION 23 — ADBLOCK MONTHLY STATS (preview, not linked from nav)
+# SECTION 23 — ADBLOCK MONTHLY STATS
 # Owns: /dashboard/adblock
 #
-# Pulls accurate per-client monthly stats from HAB (Harbor AdBlock, the
-# private AGH fork, hab.harborprivacy.com), NOT production AGH — production
-# doesn't have the /control/stats/client endpoint yet, only HAB does. The
-# existing get_client_stats() used on the main /dashboard route (SECTION 11)
-# is a rough estimate: it multiplies a client's share of the top-100
-# leaderboard by the GLOBAL block percentage, capped to whatever's in AGH's
-# rolling stats window. This route is the accurate replacement, linked from
-# nav as its own page rather than folded into the guarded dashboard() route.
+# Pulls accurate per-client monthly stats from HAB (Harbor AdBlock,
+# hab.harborprivacy.com) — this feature's backend on purpose, kept
+# independent of production AGH rather than calling its local port.
+# Replaces the rough estimate get_client_stats() still used on the main
+# /dashboard route (SECTION 11): that one multiplies a client's share
+# of the top-100 leaderboard by the GLOBAL block percentage, capped to
+# whatever's in AGH's rolling stats window. Kept as its own route
+# rather than folded into the guarded dashboard() route.
 # ════════════════════════════════════════════════════════════
 
-HAB_URL = os.environ.get("HAB_URL", "http://127.0.0.1:3990")
+HAB_URL = os.environ.get("HAB_URL", "https://hab.harborprivacy.com")
 
-def hab_get_client_monthly(client_id, months=12):
+def get_client_monthly(client_id, months=12):
     """Fetches monthly total/blocked counts for client_id from HAB. Returns
     [] on any failure — never raises, since this must not be able to break
     a page load."""
@@ -8058,9 +8058,9 @@ def hab_get_client_monthly(client_id, months=12):
         )
         if r.status_code == 200:
             return r.json().get("monthly", [])
-        log.warning(f"hab_get_client_monthly {client_id} -> {r.status_code}")
+        log.warning(f"get_client_monthly {client_id} -> {r.status_code}")
     except Exception as e:
-        log.warning(f"hab_get_client_monthly {client_id} failed: {e}")
+        log.warning(f"get_client_monthly {client_id} failed: {e}")
     return []
 
 @app.route("/dashboard/adblock")
@@ -8069,7 +8069,7 @@ def adblock_usage():
     email = request.user_email
     customer = find_customer(email)
     client_id = customer.get("client_id", "") if customer else ""
-    monthly = hab_get_client_monthly(client_id) if client_id else []
+    monthly = get_client_monthly(client_id) if client_id else []
 
     is_trial = customer.get("is_trial", False) if customer else False
     plan_type = customer.get("plan_type", "") if customer else ""
