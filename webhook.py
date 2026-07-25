@@ -770,7 +770,7 @@ def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url
 <div style="background:#f4eee2;border:1px solid #1f5d6b;padding:20px;margin:24px 0;">
 <p style="font-family:monospace;font-size:11px;color:#1f5d6b;letter-spacing:0.1em;margin-bottom:8px;">WANT MORE CONTROL?</p>
 <p style="color:#1a2420;margin-bottom:12px;">Upgrade to Harbor Remote for the full dashboard, stats, custom rules and more.</p>
-<a href="https://buy.stripe.com/cNi3cugZ1dlR07380T6kg0e" style="background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Upgrade to Remote $5.99/mo</a>
+<a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" style="background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Upgrade to Remote $5.99/mo</a>
 </div>
 <div style="border-top:1px solid #e6dfd2;padding-top:20px;margin-top:20px;">
 <a href="https://dashboard.harborprivacy.com" style="display:inline-block;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Your Dashboard</a>

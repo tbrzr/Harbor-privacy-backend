@@ -1232,11 +1232,75 @@ def setup_2fa_prompt():
   <h1 style="margin-bottom:12px;">Add two-factor authentication?</h1>
   <p class="note" style="margin-bottom:32px;">2FA adds an extra layer of security to your account. You can always set it up later in Settings.</p>
   <div style="display:flex;flex-direction:column;gap:12px;">
-    <a href="/settings/2fa/setup" class="btn" style="width:100%;text-align:center;">Set Up 2FA Now →</a>
-    <a href="/dashboard" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);text-align:center;padding:12px;">Skip for now</a>
+    <a href="/settings/2fa/setup?next=/setup/tutorial" class="btn" style="width:100%;text-align:center;">Set Up 2FA Now →</a>
+    <a href="/setup/tutorial" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);text-align:center;padding:12px;">Skip for now</a>
   </div>
 </div>"""
     return render_template_string(html)
+
+@app.route("/setup/tutorial")
+@login_required
+def setup_tutorial():
+    email = request.user_email
+    customer = find_customer(email)
+    client_id = customer.get("client_id", "") if customer else ""
+    doh = f"https://doh.harborprivacy.com/dns-query/{client_id}" if client_id else ""
+
+    html = STYLE + """
+<nav>
+  <a href="https://harborprivacy.com" class="logo">harbor<span>/</span>privacy</a>
+</nav>
+<div class="wrap-sm" style="text-align:center;">
+  <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">Quick Setup</p>
+  <h1 style="margin-bottom:12px;">Let's protect your devices.</h1>
+  <p class="note" style="margin-bottom:8px;">Pick a device for setup steps, or skip straight to your dashboard.</p>
+  <a href="/dashboard" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);text-decoration:underline;">Skip for now →</a>
+
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:28px 0;">
+    <button onclick="showDevice('iphone')" class="profile-btn" data-device="iphone">📱 iPhone / iPad</button>
+    <button onclick="showDevice('android')" class="profile-btn" data-device="android">🤖 Android</button>
+    <button onclick="showDevice('mac')" class="profile-btn" data-device="mac">💻 Mac</button>
+    <button onclick="showDevice('windows')" class="profile-btn" data-device="windows">🖥️ Windows</button>
+  </div>
+
+  <div id="device-detail" style="display:none;text-align:left;">
+    <div class="card" id="detail-iphone" style="display:none;">
+      <div class="card-label">iPhone &amp; iPad Setup</div>
+      <p class="note" style="margin-bottom:16px;">Download your personal profile — it configures everything automatically.</p>
+      {% if client_id %}<a href="https://adblock.harborprivacy.com/profiles/{{ client_id }}.mobileconfig" class="btn" style="margin-bottom:16px;">Download iOS Profile →</a>{% endif %}
+      <p class="note">After downloading: <strong>Settings → General → VPN &amp; Device Management</strong> → tap <strong>Harbor Privacy DNS</strong> → <strong>Install</strong> → enter your passcode → <strong>Install</strong> again.</p>
+    </div>
+    <div class="card" id="detail-android" style="display:none;">
+      <div class="card-label">Android Setup</div>
+      <p class="note" style="margin-bottom:16px;">We recommend the free <strong>Intra</strong> app by Google.</p>
+      {% if client_id %}<a href="https://adblock.harborprivacy.com/setup/android/{{ client_id }}" target="_blank" class="btn" style="margin-bottom:16px;">Android Setup + QR →</a>{% endif %}
+      <p class="note" style="margin-bottom:12px;">Install Intra from the Play Store → open it → tap the settings gear → <strong>DNS over HTTPS server</strong> → <strong>Custom server URL</strong> → paste your address below → tap the power button to enable.</p>
+      {% if doh %}<div class="doh-box">{{ doh }}</div>{% endif %}
+    </div>
+    <div class="card" id="detail-mac" style="display:none;">
+      <div class="card-label">Mac Setup</div>
+      <p class="note">Open <strong>System Settings → Network</strong> → select your connection → <strong>Details → DNS</strong> → click <strong>+</strong> and add <strong>152.70.197.252</strong> → <strong>OK</strong> → <strong>Apply</strong>.</p>
+      <p class="note" style="margin-top:12px;">Using Chrome or Edge on this Mac? Their "Secure DNS" setting can override this — see the <a href="https://harborprivacy.com/setup-guide#browser" target="_blank" style="color:var(--accent);">full setup guide</a>.</p>
+    </div>
+    <div class="card" id="detail-windows" style="display:none;">
+      <div class="card-label">Windows Setup</div>
+      <p class="note">Open <strong>Settings → Network &amp; Internet → WiFi</strong> (or Ethernet) → your connection → <strong>Edit</strong> next to DNS → <strong>Manual</strong> → enable IPv4 → set Preferred DNS to <strong>152.70.197.252</strong> → <strong>Save</strong>.</p>
+      <p class="note" style="margin-top:12px;">Using Chrome or Edge on this PC? Their "Secure DNS" setting can override this — see the <a href="https://harborprivacy.com/setup-guide#browser" target="_blank" style="color:var(--accent);">full setup guide</a>.</p>
+    </div>
+  </div>
+
+  <a href="/dashboard" class="btn" style="width:100%;text-align:center;margin-top:28px;">Continue to Dashboard →</a>
+</div>
+<script>
+function showDevice(id){
+  document.getElementById('device-detail').style.display='block';
+  document.querySelectorAll('#device-detail .card').forEach(function(c){ c.style.display='none'; });
+  document.getElementById('detail-'+id).style.display='block';
+  document.querySelectorAll('.profile-btn').forEach(function(b){ b.classList.remove('profile-active'); });
+  document.querySelector('[data-device="'+id+'"]').classList.add('profile-active');
+}
+</script>"""
+    return render_template_string(html, client_id=client_id, doh=doh)
 
 @app.route("/logout")
 def logout():
@@ -1279,6 +1343,7 @@ def dashboard():
     family_safe = client.get("parental_enabled", False) if client else False
     plan_type = customer.get("plan_type", "") if customer else ""
     harbor_kids = customer.get("harbor_kids", False) if customer else False
+    kids_eligible = plan_type != "harbor-remote-light"
     filtering_paused = not client.get("filtering_enabled", True) if client else False
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
@@ -1347,7 +1412,7 @@ def dashboard():
     <div class="card-label" style="color:var(--accent);">Upgrade to Harbor Remote</div>
     <p style="color:var(--text);font-size:14px;margin-bottom:16px;">Get your full dashboard — see your stats, block specific services, set custom rules, and more.</p>
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-      <a href="https://buy.stripe.com/cNi3cugZ1dlR07380T6kg0e?prefilled_email={{ user_email }}" target="_blank" class="btn">Upgrade to Remote — $5.99/mo →</a>
+      <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank" class="btn">Upgrade to Remote — $5.99/mo →</a>
       <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">Cancel anytime</span>
     </div>
   </div>
@@ -1564,7 +1629,9 @@ def dashboard():
     {% else %}
     <p style="font-size:13px;color:var(--muted);">Add your first child profile to get started.</p>
     {% endif %}
-    {% if kids_profiles|length < 5 %}
+    {% if not kids_eligible %}
+    <div style="margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">Harbor Kids is included with Harbor Remote. <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank" style="color:var(--accent);">Switch to Remote (prorated) →</a></div>
+    {% elif kids_profiles|length < 5 %}
     <div style="margin-top:16px;">
       <button onclick="addKidProfileCustomer()" style="background:var(--accent);color:#0a0e0f;border:none;padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:0.08em;">+ Add Child Profile</button>
       <span style="font-size:12px;color:var(--muted);margin-left:8px;">{{ 5 - kids_profiles|length }} of 5 remaining</span>
@@ -1738,7 +1805,7 @@ async function removeRule(rule){
     blocked_services = get_client_blocked_services(client_id) if is_active and client_id else []
     return render_template_string(html, name=name, client_id=client_id,
         is_active=is_active, total=total, blocked=blocked, pct=pct,
-        rules=rules, family_safe=family_safe, has_family=has_family, harbor_kids=harbor_kids, kids_profiles=get_kids_profiles(client_id),
+        rules=rules, family_safe=family_safe, has_family=has_family, harbor_kids=harbor_kids, kids_eligible=kids_eligible, kids_profiles=get_kids_profiles(client_id),
         active_profile=customer.get("active_profile", "custom") if customer else "custom",
         user_email=email, is_trial=is_trial, plan_badge=plan_badge, has_family_badge=has_family_badge,
         filtering_paused=filtering_paused,
@@ -3018,6 +3085,8 @@ def setup_2fa():
 
     is_admin = request.is_admin
     NAV = NAV_ADMIN if is_admin else NAV_CUSTOMER
+    next_url = request.args.get("next", "") if request.args.get("next", "").startswith("/") else ""
+    cancel_url = next_url or "/settings"
 
     html = STYLE + NAV + """
 <div class="wrap" style="max-width:480px;">
@@ -3031,13 +3100,14 @@ def setup_2fa():
   <form method="POST" action="/settings/2fa/enable">
     <input type="hidden" name="csrf" value="{{ csrf_token }}">
     <input type="hidden" name="secret" value="{{ secret }}">
+    <input type="hidden" name="next" value="{{ next_url }}">
     <input type="text" name="code" placeholder="Enter 6-digit code to confirm" maxlength="6" required autofocus>
     <button type="submit" class="btn" style="width:100%;">Enable 2FA →</button>
   </form>
-  <div style="margin-top:16px;"><a href="/settings" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">← Cancel</a></div>
+  <div style="margin-top:16px;"><a href="{{ cancel_url }}" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">← Cancel</a></div>
 </div>
 </html>"""
-    return render_template_string(html, qr=qr_b64, secret=secret, active="settings")
+    return render_template_string(html, qr=qr_b64, secret=secret, active="settings", next_url=next_url, cancel_url=cancel_url)
 
 @app.route("/settings/2fa/enable", methods=["POST"])
 @login_required
@@ -3045,11 +3115,17 @@ def enable_2fa():
     email = request.user_email
     secret = request.form.get("secret", "")
     code = request.form.get("code", "")
+    next_url = request.form.get("next", "")
+    next_url = next_url if next_url.startswith("/") else ""
     if not pyotp.TOTP(secret).verify(code, valid_window=1):
+        if next_url:
+            return redirect(f"/settings/2fa/setup?next={next_url}")
         return redirect("/settings?msg=Invalid+code.+Please+try+again.&ok=0")
     users = load_users()
     users[email]["totp_secret"] = secret
     save_users(users)
+    if next_url:
+        return redirect(next_url)
     return redirect("/settings?msg=Two-factor+authentication+enabled.&ok=1")
 
 @app.route("/settings/2fa/disable", methods=["POST"])
@@ -3401,6 +3477,8 @@ def api_addon():
         return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
 
     if data.get("type") == "harbor_kids_add":
+        if customer.get("plan_type", "") == "harbor-remote-light":
+            return jsonify({"ok": False, "error": "Harbor Kids requires Harbor Remote"})
         kid_num = data.get("kid_num", 1)
         kids_id = f"{client_id}kid{kid_num}"
         ss = {"enabled":True,"bing":True,"duckduckgo":True,"ecosia":True,"google":True,"pixabay":True,"yandex":True,"youtube":True}
