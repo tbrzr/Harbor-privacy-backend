@@ -1094,7 +1094,9 @@ def login():
     {% else %}
     <input type="password" name="password" placeholder="Your password" required autocomplete="current-password" autofocus>
     {% endif %}
+    {% if not show_2fa %}
     <div class="cf-turnstile" data-sitekey="0x4AAAAAADMxTv4Gen_OFaKO" data-theme="light" style="margin:12px 0;"></div>
+    {% endif %}
     <button type="submit" class="btn" style="width:100%;margin-top:4px;">{% if show_2fa %}Verify →{% else %}Sign In →{% endif %}</button>
   </form>
   <div style="margin-top:16px;">
