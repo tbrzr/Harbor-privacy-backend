@@ -7085,7 +7085,7 @@ def confirm_trial(token):
     profile_url = f"https://adblock.harborprivacy.com/profiles/{client_id}.mobileconfig"
     log_customer(client_id, name, email, plan, stripe_customer_id="",
                  plan_type=plan_type, is_trial=True, status="active")
-    schedule_wipe(client_id, delay=30 * 24 * 3600)
+    schedule_wipe(client_id, delay=60 * 24 * 3600)
     setup_url = f"https://dashboard.harborprivacy.com/setup?email={email}&st={_setup_token_for(email) or ''}"
     send_welcome_email(email, name, client_id, plan,
                        profile_url=profile_url, plan_type=plan_type,
