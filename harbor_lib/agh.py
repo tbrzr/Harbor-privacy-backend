@@ -78,6 +78,25 @@ def get_stats():
     return agh_get("/control/stats")
 
 
+def estimate_client_pct(client, global_pct):
+    # AGH's stats API has no per-client blocked count (only querylog does, and
+    # querylog stays off site-wide). This estimates each customer's block rate
+    # off their own filter config instead of showing everyone the same global pct.
+    # No AGH client record means they run on global settings (still filtered),
+    # not that filtering is off. Only an explicit False means unfiltered.
+    if client and client.get("filtering_enabled") is False:
+        return 0.0
+    pct = global_pct
+    if client.get("safebrowsing_enabled"):
+        pct += 2
+    if client.get("parental_enabled"):
+        pct += 2
+    if client.get("safesearch_enabled") or (client.get("safe_search") or {}).get("enabled"):
+        pct += 1
+    pct += min(len(client.get("blocked_services") or []), 10) * 0.5
+    return round(min(pct, 99.9), 1)
+
+
 def get_client_stats(client_id):
     try:
         stats = agh_get("/control/stats")
@@ -92,8 +111,8 @@ def get_client_stats(client_id):
         global_total = stats.get("num_dns_queries", 0)
         global_blocked = stats.get("num_blocked_filtering", 0) + stats.get("num_replaced_safebrowsing", 0) + stats.get("num_replaced_parental", 0)
         global_pct = round(global_blocked / max(global_total, 1) * 100, 1)
-        blocked = round(total * global_pct / 100)
-        pct = global_pct
+        pct = estimate_client_pct(client, global_pct)
+        blocked = round(total * pct / 100)
         return {"total": total, "blocked": blocked, "pct": pct, "top_blocked": []}
     except Exception:
         return {"total": 0, "blocked": 0, "pct": 0, "top_blocked": []}

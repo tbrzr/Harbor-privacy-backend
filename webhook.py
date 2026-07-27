@@ -234,6 +234,114 @@ def delete_adguard_client(client_id):
         log.error(f"AdGuard delete error: {e}")
         return False
 
+def disable_client_filtering(client_id):
+    # Soft trial expiry: DNS keeps resolving normally, ad/tracker blocking
+    # just stops. Distinct from delete_adguard_client, which removes the
+    # client (and everything else) entirely at the day-60 hard wipe.
+    try:
+        clients = requests.get(f"{ADGUARD_URL}/control/clients",
+            auth=(ADGUARD_USER, ADGUARD_PASS), timeout=10).json().get("clients", [])
+        client = next((c for c in clients if client_id in c.get("ids", [])), None)
+        if not client:
+            log.warning(f"AdGuard client not found for {client_id}")
+            return False
+        updated = {**client, "filtering_enabled": False}
+        r = requests.post(f"{ADGUARD_URL}/control/clients/update",
+            json={"name": client["name"], "data": updated}, auth=(ADGUARD_USER, ADGUARD_PASS), timeout=10)
+        if r.status_code == 200:
+            log.info(f"Disabled filtering (trial soft-expire) for {client_id}")
+            return True
+        log.error(f"AdGuard filtering-disable failed: {r.status_code} {r.text}")
+        return False
+    except Exception as e:
+        log.error(f"AdGuard filtering-disable error: {e}")
+        return False
+
+def enable_client_filtering(client_id):
+    # Re-enables blocking on an existing AGH client -- used when a trial
+    # customer upgrades after their day-31 soft-expire already turned it off.
+    try:
+        clients = requests.get(f"{ADGUARD_URL}/control/clients",
+            auth=(ADGUARD_USER, ADGUARD_PASS), timeout=10).json().get("clients", [])
+        client = next((c for c in clients if client_id in c.get("ids", [])), None)
+        if not client:
+            log.warning(f"AdGuard client not found for {client_id}")
+            return False
+        updated = {**client, "filtering_enabled": True}
+        r = requests.post(f"{ADGUARD_URL}/control/clients/update",
+            json={"name": client["name"], "data": updated}, auth=(ADGUARD_USER, ADGUARD_PASS), timeout=10)
+        if r.status_code == 200:
+            log.info(f"Re-enabled filtering for {client_id}")
+            return True
+        log.error(f"AdGuard filtering-enable failed: {r.status_code} {r.text}")
+        return False
+    except Exception as e:
+        log.error(f"AdGuard filtering-enable error: {e}")
+        return False
+
+DISCOUNT_CODES_FILE = "/var/log/harbor-discount-codes.json"
+ANNUAL50_COUPON_ID = "harbor-annual50"
+
+def _load_discount_codes():
+    try:
+        with open(DISCOUNT_CODES_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _save_discount_codes(data):
+    with open(DISCOUNT_CODES_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+def _ensure_annual50_coupon():
+    r = requests.get(f"https://api.stripe.com/v1/coupons/{ANNUAL50_COUPON_ID}",
+                      auth=(STRIPE_SECRET, ""), timeout=10)
+    if r.status_code == 200:
+        return ANNUAL50_COUPON_ID
+    r = requests.post("https://api.stripe.com/v1/coupons",
+        data={"id": ANNUAL50_COUPON_ID, "percent_off": 50, "duration": "once",
+              "name": "Harbor Annual 50% Off"},
+        auth=(STRIPE_SECRET, ""), timeout=10)
+    if r.status_code != 200:
+        raise Exception(f"Coupon create failed: {r.status_code} {r.text}")
+    return ANNUAL50_COUPON_ID
+
+def _create_unique_promo_code(prefix):
+    coupon_id = _ensure_annual50_coupon()
+    for _ in range(5):
+        code = f"{prefix}-{''.join(random.choices(string.ascii_uppercase + string.digits, k=6))}"
+        r = requests.post("https://api.stripe.com/v1/promotion_codes",
+            data={"promotion[type]": "coupon", "promotion[coupon]": coupon_id, "code": code, "max_redemptions": 1,
+                  "restrictions[first_time_transaction]": "false"},
+            auth=(STRIPE_SECRET, ""), timeout=10)
+        if r.status_code == 200:
+            return code
+        if "already exists" not in r.text.lower():
+            raise Exception(f"Promo code create failed: {r.status_code} {r.text}")
+    raise Exception("Could not mint a unique promo code after 5 attempts")
+
+def get_or_create_personal_discount_code(client_id):
+    # One 50%-off annual-upgrade code per trial customer, for their own use.
+    # Reused on repeat welcome-email sends instead of minting a new one each time.
+    codes = _load_discount_codes()
+    entry = codes.setdefault(client_id, {})
+    if entry.get("personal_code"):
+        return entry["personal_code"]
+    code = _create_unique_promo_code(f"TRIAL{client_id[:6].upper()}")
+    entry["personal_code"] = code
+    _save_discount_codes(codes)
+    return code
+
+def create_referral_code(client_id):
+    # A fresh 50%-off code for the customer to hand to a friend. Admin-triggered
+    # (see /api/admin/send-referral), so a new code mints on every call.
+    code = _create_unique_promo_code(f"REF{client_id[:6].upper()}")
+    codes = _load_discount_codes()
+    entry = codes.setdefault(client_id, {})
+    entry.setdefault("referrals", []).append({"code": code, "date": datetime.utcnow().isoformat()})
+    _save_discount_codes(codes)
+    return code
+
 def generate_qr_code(client_id):
     try:
         import qrcode
@@ -466,6 +574,135 @@ def process_pending_wipes():
 
 def deactivate_after_grace(client_id, delay=3600):
     schedule_wipe(client_id, delay)
+
+TRIAL_EVENTS_FILE = "/var/log/harbor-trial-events.json"
+
+def _load_trial_events():
+    try:
+        with open(TRIAL_EVENTS_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+def _save_trial_events(events):
+    with open(TRIAL_EVENTS_FILE, "w") as f:
+        json.dump(events, f)
+
+def schedule_trial_lifecycle(client_id, email, name):
+    # Day 27: "don't lose your adblocking" reminder. Day 31: ad/tracker
+    # blocking actually stops (disable_client_filtering), a day past the
+    # marketed 30-day trial. The account itself isn't touched until the
+    # separate day-60 hard wipe (schedule_wipe) already scheduled alongside this.
+    import time
+    events = _load_trial_events()
+    now = time.time()
+    events[client_id] = {
+        "email": email, "name": name,
+        "remind_at": now + 27 * 24 * 3600,
+        "expire_at": now + 31 * 24 * 3600,
+        "reminded": False, "expired": False,
+    }
+    _save_trial_events(events)
+    log.info(f"Scheduled trial lifecycle for {client_id}: remind day 27, expire day 31")
+
+def cancel_trial_lifecycle(client_id):
+    events = _load_trial_events()
+    if client_id in events:
+        del events[client_id]
+        _save_trial_events(events)
+        log.info(f"Cancelled trial lifecycle for {client_id}")
+
+def is_trial_expired(client_id):
+    # Live check against expire_at rather than the cached "expired" flag, so
+    # the dashboard paywall gates immediately at day 31 even if the cron
+    # (10-min cadence) hasn't run disable_client_filtering yet.
+    import time
+    ev = _load_trial_events().get(client_id)
+    return bool(ev) and time.time() >= ev.get("expire_at", float("inf"))
+
+def send_trial_reminder_email(email, name, client_id):
+    upgrade_url = f"https://harborprivacy.com/pricing?plan=remote&email={email}"
+    try:
+        promo_code = get_or_create_personal_discount_code(client_id)
+    except Exception as pe:
+        log.error(f"Personal discount code error for {client_id}: {pe}")
+        promo_code = None
+    annual_url = f"https://harborprivacy.com/pricing?plan=annual&email={email}"
+    if promo_code:
+        annual_url += f"&promo={promo_code}"
+    savings_line = (f"Harbor Remote is $3.99/mo, or save with $26.99/yr ($2.25/mo) -- your one-time code <strong>{promo_code}</strong> takes 50% off your first year."
+                     if promo_code else "Harbor Remote is $3.99/mo, or save with $26.99/yr ($2.25/mo).")
+    html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Don't lose your adblocking!</h1>
+<p>Hi {name},</p>
+<p>Your Harbor Privacy free trial is almost up. In a few days, ad and tracker blocking will stop working on your devices unless you upgrade.</p>
+<div style="background:#f4eee2;border:1px solid #1f5d6b;padding:20px;margin:24px 0;">
+<p style="font-family:monospace;font-size:11px;color:#1f5d6b;letter-spacing:0.1em;margin-bottom:8px;">KEEP YOUR ADBLOCKING RUNNING</p>
+<p style="color:#1a2420;margin-bottom:12px;">{savings_line}</p>
+<a href="{upgrade_url}" style="background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;margin-right:8px;">Upgrade Monthly &#8594;</a>
+<a href="{annual_url}" style="display:inline-block;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Upgrade Annual &#8594;</a>
+</div>
+<p style="color:#6b7a72;font-size:13px;">No action needed if you want to keep using the trial as-is until it ends -- this is just a heads up before blocking turns off.</p>
+<p style="padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-452-3452</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
+</div>'''
+    send_email(email, "Don't lose your adblocking - your Harbor Privacy trial is ending", html)
+
+def send_early_switch_email(email, name, client_id):
+    # Admin-triggered, not automatic -- Tim picks who gets this and when,
+    # any time during their trial. Reuses the same cached personal code as
+    # the day-27 reminder and the dashboard card (get_or_create_personal_discount_code
+    # is idempotent), so it's the same offer wherever the customer sees it.
+    try:
+        promo_code = get_or_create_personal_discount_code(client_id)
+    except Exception as pe:
+        log.error(f"Personal discount code error for {client_id}: {pe}")
+        promo_code = None
+    annual_url = f"https://harborprivacy.com/pricing?plan=annual&email={email}"
+    if promo_code:
+        annual_url += f"&promo={promo_code}"
+    code_line = (f"Here's <strong>50% off your first year</strong> if you want to switch sooner -- code <strong>{promo_code}</strong>, good for one year of Harbor Remote Annual at $13.50 instead of $26.99."
+                 if promo_code else "Reply and we'll get you a discount to switch sooner.")
+    html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Liking the trial so far?</h1>
+<p>Hi {name},</p>
+<p>No pressure, your trial keeps running either way. But if you're already finding it useful and want to switch over sooner, we'd love to have you.</p>
+<div style="background:#f4eee2;border:1px solid #1f5d6b;padding:20px;margin:24px 0;">
+<p style="font-family:monospace;font-size:11px;color:#1f5d6b;letter-spacing:0.1em;margin-bottom:8px;">SWITCH EARLY AND SAVE</p>
+<p style="color:#1a2420;margin-bottom:12px;">{code_line}</p>
+<a href="{annual_url}" style="background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Switch to Annual &#8594;</a>
+</div>
+<p style="padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-452-3452</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
+</div>'''
+    send_email(email, "Liking the trial so far? Switch early and save 50%", html)
+
+def process_trial_lifecycle():
+    """Check trial-events file and send reminders / soft-expire any that are due"""
+    import time
+    events = _load_trial_events()
+    if not events:
+        return
+    now = time.time()
+    changed = False
+    for client_id, ev in list(events.items()):
+        if not ev.get("reminded") and now >= ev.get("remind_at", 0):
+            try:
+                send_trial_reminder_email(ev["email"], ev["name"], client_id)
+                ev["reminded"] = True
+                changed = True
+            except Exception as e:
+                log.error(f"Trial reminder error for {client_id}: {e}")
+        if not ev.get("expired") and now >= ev.get("expire_at", 0):
+            try:
+                disable_client_filtering(client_id)
+                ev["expired"] = True
+                changed = True
+            except Exception as e:
+                log.error(f"Trial soft-expire error for {client_id}: {e}")
+        if ev.get("reminded") and ev.get("expired"):
+            del events[client_id]
+            changed = True
+    if changed:
+        _save_trial_events(events)
 
 def find_customer(stripe_customer_id):
     try:
@@ -751,9 +988,60 @@ def find_customer_by_email(email):
         pass
     return None
 
+def _update_customer_for_upgrade(client_id, plan, plan_type, stripe_customer_id):
+    # Rewrites the existing (first matching, active) record in place instead
+    # of appending a new log_customer() line -- find_customer/find_customer_by_email
+    # both return the FIRST active match for a given key, so a second active
+    # line for the same client_id would just be permanently shadowed dead data.
+    lines = []
+    hit = False
+    try:
+        with open(CUSTOMERS_LOG) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    c = json.loads(line)
+                except Exception:
+                    lines.append(line)
+                    continue
+                if not hit and c.get("client_id") == client_id and c.get("status") == "active":
+                    c["plan"] = plan
+                    c["plan_type"] = plan_type
+                    c["is_trial"] = False
+                    c["stripe_customer_id"] = stripe_customer_id
+                    hit = True
+                lines.append(json.dumps(c))
+        if hit:
+            with open(CUSTOMERS_LOG, "w") as f:
+                f.write("\n".join(lines) + "\n")
+            log.info(f"Updated customer record for upgrade: {client_id} -> {plan_type}")
+        return hit
+    except Exception as e:
+        log.error(f"Error updating customer for upgrade {client_id}: {e}")
+        return False
+
+def send_upgrade_confirmation_email(email, name, client_id, plan_type, invoice_url=""):
+    # Distinct from send_welcome_email: an upgrading trial customer keeps
+    # their existing client_id/DoH address, so this confirms the upgrade
+    # rather than re-walking them through setup they already did. Also
+    # bypasses send_welcome_email's per-email dedup guard, which would
+    # otherwise silently skip this since their original trial welcome
+    # email already consumed that same key.
+    plan_label = "Harbor Light" if plan_type == "harbor-remote-light" else "Harbor Remote"
+    html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">You're upgraded to {plan_label}</h1>
+<p>Hi {name},</p>
+<p>Your subscription is active. Nothing to reconfigure -- your devices keep using the same DNS address as before, and ad and tracker blocking is back on if it had paused.</p>
+{('<p><a href="' + invoice_url + '" style="display:inline-block;background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">View Invoice &#8594;</a></p>') if invoice_url else ''}
+<p style="border-top:1px solid #e6dfd2;padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-452-3452</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
+</div>'''
+    send_email(email, f"You're upgraded to {plan_label}", html)
+
 BREACH_PROMO = '<div style="background:#faf1e4;border:1px solid #c98a52;padding:18px 20px;margin:24px 0;"><p style="font-family:monospace;font-size:11px;color:#c98a52;letter-spacing:0.1em;margin-bottom:8px;">INCLUDED FREE</p><p style="color:#1a2420;margin-bottom:12px;">Harbor Breach Monitor checks your email against known data breaches every day and alerts you the moment a new one shows up &mdash; encrypted storage, no extra signup.</p><a href="https://breach.harborprivacy.com" style="background:#c98a52;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Check My Email &#8594;</a></div>'
 
-def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url="", plan_type=None, setup_url=""):
+def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url="", plan_type=None, setup_url="", is_trial=False):
     doh = f"https://{DOH_BASE}/{client_id}"
 
     if plan_type == "harbor-remote-light":
@@ -770,7 +1058,7 @@ def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url
 <div style="background:#f4eee2;border:1px solid #1f5d6b;padding:20px;margin:24px 0;">
 <p style="font-family:monospace;font-size:11px;color:#1f5d6b;letter-spacing:0.1em;margin-bottom:8px;">WANT MORE CONTROL?</p>
 <p style="color:#1a2420;margin-bottom:12px;">Upgrade to Harbor Remote for the full dashboard, stats, custom rules and more.</p>
-<a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" style="background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Upgrade to Remote $5.99/mo</a>
+<a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" style="background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Upgrade to Remote $3.99/mo</a>
 </div>
 <div style="border-top:1px solid #e6dfd2;padding-top:20px;margin-top:20px;">
 <a href="https://dashboard.harborprivacy.com" style="display:inline-block;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Your Dashboard</a>
@@ -784,6 +1072,14 @@ def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url
     if plan == "remote":
         dot_host = f"{client_id}.doh.harborprivacy.com"
         ios_btn = f'<p><a href="{profile_url}" style="display:inline-block;background:#1f5d6b;color:#ffffff;padding:12px 24px;text-decoration:none;font-family:monospace;font-size:13px;">Download iOS DNS Profile</a></p><p style="font-size:12px;color:#6b7a72;">Tap on iPhone/iPad then Settings > General > VPN & Device Management > Install</p>' if profile_url else "<p style='color:#6b7a72;'>iOS profile will be sent separately.</p>"
+        annual_offer_block = ""
+        if is_trial:
+            try:
+                promo_code = get_or_create_personal_discount_code(client_id)
+                upgrade_url = f"https://harborprivacy.com/pricing?plan=annual&promo={promo_code}&email={email}"
+                annual_offer_block = f'''<div style="background:#f4eee2;border:1px solid #1f5d6b;padding:20px;margin-bottom:24px;"><p style="font-family:monospace;font-size:11px;color:#1f5d6b;letter-spacing:0.1em;margin-bottom:8px;">SAVE 50% — PRE-PAY YOUR FIRST YEAR</p><p style="color:#1a2420;margin-bottom:12px;">Lock in annual at $26.99/yr and take 50% off your first year with code <strong>{promo_code}</strong> - billing starts when your trial ends.</p><a href="{upgrade_url}" style="background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Upgrade to Annual &#8594;</a></div>'''
+            except Exception as pe:
+                log.error(f"Personal discount code error for {client_id}: {pe}")
         html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
 <h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Your Harbor Privacy Setup</h1>
 <p>Hi {name},</p><p>Your private DNS endpoint is ready.</p>
@@ -792,7 +1088,7 @@ def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url
 <p style="background:#f4eee2;border-left:3px solid #1f5d6b;padding:16px;font-family:monospace;font-size:14px;color:#1f5d6b;word-break:break-all;margin-bottom:16px;">{dot_host}</p>
 <p style="font-family:monospace;font-size:10px;color:#6b7a72;letter-spacing:0.1em;margin-bottom:4px;">DNS OVER HTTPS (BROWSERS &amp; OTHER APPS)</p>
 <p style="background:#f4eee2;border-left:3px solid #e6dfd2;padding:14px;font-family:monospace;font-size:13px;color:#6b7a72;word-break:break-all;margin-bottom:16px;">{doh}</p>
-<div style="background:#f4eee2;border:1px solid #1f5d6b;padding:20px;margin-bottom:24px;"><p style="font-family:monospace;font-size:11px;color:#1f5d6b;letter-spacing:0.1em;margin-bottom:8px;">SAVE 44% — UPGRADE TO ANNUAL</p><p style="color:#1a2420;margin-bottom:12px;">Lock in your rate for a full year at $39.99. Use code <strong>FOUNDERS10</strong> for 50% off while it lasts.</p><a href="https://buy.stripe.com/9B69AS6knepVbPL2Gz6kg09?prefilled_email={email}" style="background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Upgrade to Annual &#8594;</a></div><h2 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Setup Instructions</h2>
+{annual_offer_block}<h2 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Setup Instructions</h2>
 <h3 style="color:#1f5d6b;font-family:monospace;font-size:13px;">iPhone / iPad</h3><p style="color:#6b7a72;font-size:13px;margin-bottom:12px;"><strong style="color:#1a2420;">Note:</strong> When installing the profile you may see an "Unsigned" notice. This is normal for small businesses and is safe to install. The profile only configures your DNS settings and nothing else.</p>{ios_btn}
 <h3 style="color:#1f5d6b;font-family:monospace;font-size:13px;">Android / Pixel</h3>
 <p style="color:#6b7a72;font-size:13px;margin-bottom:12px;">Android has built-in Private DNS — no app needed. Takes 30 seconds.</p>
@@ -837,7 +1133,7 @@ def send_welcome_email(email, name, client_id, plan, profile_url="", invoice_url
 </div>
 <div style="background:#f4eee2;border:1px solid #e6dfd2;padding:20px;margin-bottom:24px;">
 <p style="font-family:monospace;font-size:11px;color:#6b7a72;letter-spacing:0.1em;margin-bottom:8px;">AFTER YOUR TRIAL</p>
-<p style="color:#6b7a72;font-size:13px;">Harbor Light is $3.99/mo after your 30-day trial. No credit card needed today -- you'll get a reminder before it ends.</p>
+<p style="color:#6b7a72;font-size:13px;">You're on the full Harbor Remote feature set -- Harbor Kids and per-device filtering included. Harbor Remote is $3.99/mo (or $26.99/yr) after your 30-day trial. No credit card needed today -- you'll get a reminder before it ends.</p>
 </div>
 {BREACH_PROMO}
 <p style="border-top:1px solid #e6dfd2;padding-top:24px;color:#6b7a72;">Questions? Reply to this email or text <strong style="color:#1a2420;">781-452-3452</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
@@ -955,7 +1251,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     # checkouts got onboarded as real Harbor Remote DNS customers).
                     HARBOR_DNS_PRICE_IDS = {
                         "price_1TE36NCOrGNrBgIf2T8ApaAG",  # Harbor Light
-                        "price_1TCTlYCOrGNrBgIf4euUONmf",  # Harbor Remote (monthly)
+                        "price_1TCTlYCOrGNrBgIf4euUONmf",  # Harbor Remote (monthly, archived 2026-07-27, was $5.99)
+                        "price_1TxpJzCOrGNrBgIfGrU6tqzW",  # Harbor Remote (monthly, $3.99)
                         "price_1TenLxCOrGNrBgIfCi4l3lU3",  # Harbor Remote (annual)
                         "price_1TFbbsCOrGNrBgIfURHUPNbw",  # Harbor Kids Add-on
                         "price_1TAxm1COrGNrBgIfuNOEhSTk",  # Harbor Privacy Network Install
@@ -981,11 +1278,21 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     plan = "remote" if ("remote" in str(meta).lower() or mode == "subscription") else "install"
                     log.info(f"Plan={plan} mode={mode} email={email}")
                     if email:
-                        client_id = generate_client_id(name, email)
+                        existing = find_customer_by_email(email)
+                        upgrading_trial = bool(existing) and bool(existing.get("is_trial"))
+                        if upgrading_trial:
+                            client_id = existing["client_id"]
+                            name = existing.get("name", name)
+                        else:
+                            client_id = generate_client_id(name, email)
                         profile_url = ""
                         if plan == "remote":
-                            create_adguard_client(client_id, name)
-                            add_to_allowed_clients(client_id)
+                            if upgrading_trial:
+                                enable_client_filtering(client_id)
+                                add_to_allowed_clients(client_id)
+                            else:
+                                create_adguard_client(client_id, name)
+                                add_to_allowed_clients(client_id)
                             profile_url = save_ios_profile(client_id, name)
                         generate_qr_code(client_id)
                         generate_android_page(client_id)
@@ -1002,19 +1309,31 @@ class WebhookHandler(BaseHTTPRequestHandler):
                         plan_type = meta.get("plan_type", plan)
                         is_trial = s.get("payment_status", "") == "no_payment_required"
                         try:
-                            welcome_key = f"welcome:{email.lower()}"
-                            if is_processed(welcome_key):
-                                log.info(f"Welcome already sent for {email}, skipping")
+                            if upgrading_trial:
+                                # Bypasses send_welcome_email's per-email dedup guard on
+                                # purpose -- their original trial welcome already consumed
+                                # that key, so the plain guard would silently skip this.
+                                send_upgrade_confirmation_email(email, name, client_id, plan_type, invoice_url)
+                                _update_customer_for_upgrade(client_id, plan, plan_type, stripe_id)
                             else:
-                                send_welcome_email(email, name, client_id, plan, profile_url, invoice_url, plan_type=plan_type)
-                                mark_processed(welcome_key)
-                            log_customer(client_id, name, email, plan, stripe_id, plan_type=plan_type, is_trial=is_trial)
+                                welcome_key = f"welcome:{email.lower()}"
+                                if is_processed(welcome_key):
+                                    log.info(f"Welcome already sent for {email}, skipping")
+                                else:
+                                    send_welcome_email(email, name, client_id, plan, profile_url, invoice_url, plan_type=plan_type, is_trial=is_trial)
+                                    mark_processed(welcome_key)
+                                log_customer(client_id, name, email, plan, stripe_id, plan_type=plan_type, is_trial=is_trial)
                             cancel_wipe(client_id)
+                            cancel_trial_lifecycle(client_id)
                             mark_processed(session_id)
-                            log.info(f"Onboarded: {name} ({client_id})")
+                            log.info(f"Onboarded: {name} ({client_id})" + (" [upgraded from trial]" if upgrading_trial else ""))
                         except Exception as pe:
                             log.error(f"Provisioning failed for {email}: {pe}")
-                            log_customer(client_id, name, email, plan, stripe_id, plan_type=plan_type, is_trial=is_trial, status="failed")
+                            # On an upgrade failure, leave their existing trial record
+                            # alone rather than appending a shadowed "failed" duplicate --
+                            # they keep the trial they had; admin can reprovision manually.
+                            if not upgrading_trial:
+                                log_customer(client_id, name, email, plan, stripe_id, plan_type=plan_type, is_trial=is_trial, status="failed")
                             mark_processed(session_id)
                             fail_html = f"""<div style="font-family:sans-serif;background:#fbf7f0;color:#1a2420;padding:32px;">
 <h2 style="color:#ff4e4e;">Provisioning Failed</h2>
@@ -1023,6 +1342,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
 <p><strong>Client ID:</strong> {client_id}</p>
 <p><strong>Plan:</strong> {plan_type}</p>
 <p><strong>Stripe ID:</strong> {stripe_id}</p>
+<p><strong>Upgrading trial:</strong> {upgrading_trial}</p>
 <p><strong>Error:</strong> {pe}</p>
 <p>Go to admin dashboard to reprovision.</p>
 </div>"""
@@ -1068,7 +1388,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                                 if is_processed(welcome_key):
                                     log.info(f"Welcome already sent for {customer_email}, skipping")
                                 else:
-                                    send_welcome_email(customer_email, customer_name, client_id, "remote", profile_url, invoice.get("hosted_invoice_url",""), plan_type=plan_type)
+                                    send_welcome_email(customer_email, customer_name, client_id, "remote", profile_url, invoice.get("hosted_invoice_url",""), plan_type=plan_type, is_trial=is_trial)
                                     mark_processed(welcome_key)
                                 log_customer(client_id, customer_name, customer_email, "remote", stripe_id, plan_type=plan_type, is_trial=is_trial)
                                 mark_processed(invoice_id)

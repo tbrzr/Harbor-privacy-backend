@@ -1364,6 +1364,32 @@ def dashboard():
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
     is_trial = customer.get("is_trial", False) if customer else False
+    personal_promo_code = None
+
+    # Trial expired (day 31) — force upgrade before showing any account data.
+    if is_trial and client_id:
+        import sys as _sys
+        _sys.path.insert(0, "/home/ubuntu/harbor-backend")
+        from webhook import is_trial_expired, get_or_create_personal_discount_code
+        if is_trial_expired(client_id):
+            html = STYLE + NAV_CUSTOMER + f'''
+<div class="wrap" style="max-width:520px;">
+  <div class="card" style="text-align:center;padding:40px 32px;">
+    <div class="card-label" style="color:var(--accent);margin-bottom:12px;">Trial Ended</div>
+    <h2 style="margin-bottom:12px;">Your free trial has ended</h2>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:28px;">Ad and tracker blocking is paused on your devices. Pick a plan to turn it back on.</p>
+    <a href="https://harborprivacy.com/pricing?plan=remote&email={email}" style="display:block;background:var(--accent);color:var(--bg);font-family:'DM Mono',monospace;font-size:13px;padding:14px;text-decoration:none;margin-bottom:12px;">Harbor Remote -- $3.99/mo (Harbor Kids included) &#8594;</a>
+    <a href="https://harborprivacy.com/pricing?plan=annual&email={email}" style="display:block;background:var(--accent);color:var(--bg);font-family:'DM Mono',monospace;font-size:13px;padding:14px;text-decoration:none;margin-bottom:12px;">Harbor Remote Annual -- $26.99/yr &#8594;</a>
+    <a href="https://harborprivacy.com/pricing?plan=light&email={email}" style="display:block;border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:13px;padding:14px;text-decoration:none;">Harbor Light -- $1.99/mo (ad blocking only) &#8594;</a>
+  </div>
+</div>'''
+            return render_template_string(html, name=name, client_id=client_id, active="dashboard", light_theme=True)
+        try:
+            personal_promo_code = get_or_create_personal_discount_code(client_id)
+        except Exception as pe:
+            log.error(f"Personal discount code error for {client_id}: {pe}")
+            personal_promo_code = None
+
     plan_badge = ""
 
     # Harbor Light plan — stripped dashboard
@@ -1394,6 +1420,18 @@ def dashboard():
       <a href="https://adblock.harborprivacy.com/setup/android/{{ client_id }}" target="_blank" class="ghost dim">Android Setup + QR</a>
     </div>
     <p class="note" style="margin-top:12px;">Add this to your iPhone under Settings → General → VPN & Device Management, or Android under Settings → Private DNS.</p>
+  </div>
+
+  <!-- STATS -->
+  <div class="stat-grid">
+    <div class="stat">
+      <div class="stat-num">{{ total }}</div>
+      <div class="stat-label">Queries (7 Days)</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num">{{ blocked }}</div>
+      <div class="stat-label">Blocked (7 Days)</div>
+    </div>
   </div>
 
   <div class="card">
@@ -1428,7 +1466,7 @@ def dashboard():
     <div class="card-label" style="color:var(--accent);">Upgrade to Harbor Remote</div>
     <p style="color:var(--text);font-size:14px;margin-bottom:16px;">Get your full dashboard — see your stats, block specific services, set custom rules, and more.</p>
     <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-      <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank" class="btn">Upgrade to Remote — $5.99/mo →</a>
+      <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank" class="btn">Upgrade to Remote — $3.99/mo →</a>
       <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">Cancel anytime</span>
     </div>
   </div>
@@ -1450,7 +1488,7 @@ def dashboard():
 
 </div>
 </html>"""
-        return render_template_string(html, name=name, client_id=client_id, active="dashboard", light_theme=True)
+        return render_template_string(html, name=name, client_id=client_id, total=total, blocked=blocked, active="dashboard", light_theme=True)
     if plan_type == "harbor-remote-light": plan_badge = "LIGHT"
     elif plan_type == "3month": plan_badge = "3-MONTH"
     elif plan_type == "6month": plan_badge = "6-MONTH"
@@ -1531,6 +1569,12 @@ def dashboard():
         <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">PLAN</span>
         <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">{% if plan_badge %}{{ plan_badge }}{% else %}Remote{% endif %}</span>
       </div>
+      {% if customer and customer.plan_type %}
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">PLAN TYPE</span>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">{{ customer.plan_type }}</span>
+      </div>
+      {% endif %}
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">STATUS</span>
         <span class="badge badge-on">ACTIVE</span>
@@ -1590,6 +1634,18 @@ def dashboard():
     {% endif %}
   </div>
 
+  <!-- UPGRADE EARLY CARD — trial only, disappears the moment they upgrade -->
+  {% if is_trial and personal_promo_code %}
+  <div class="card" style="border-color:var(--accent);background:rgba(0,229,192,0.03);margin-bottom:20px;">
+    <div class="card-label" style="color:var(--accent);">Like it so far? Upgrade early and save</div>
+    <p style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin:6px 0 12px;">Your one-time code <strong style="color:var(--text);">{{ personal_promo_code }}</strong> is good for 50% off your first year of Annual — it disappears once you upgrade.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      <a href="https://harborprivacy.com/pricing?plan=remote&email={{ user_email }}" style="border:1px solid var(--accent);color:var(--accent);font-family:'DM Mono',monospace;font-size:11px;padding:8px 16px;text-decoration:none;white-space:nowrap;">Upgrade Monthly — $3.99/mo →</a>
+      <a href="https://harborprivacy.com/pricing?plan=annual&promo={{ personal_promo_code }}&email={{ user_email }}" style="background:var(--accent);color:var(--bg);font-family:'DM Mono',monospace;font-size:11px;padding:8px 16px;text-decoration:none;white-space:nowrap;">Upgrade Annual (50% off) →</a>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- UPGRADE CARD — monthly only -->
   {% if plan_badge == "MONTHLY" and is_active %}
   <div class="card" style="border-color:#1e3a35;background:rgba(0,229,192,0.03);margin-bottom:20px;">
@@ -1599,7 +1655,7 @@ def dashboard():
         <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">Annual — $26.99/yr</div>
         <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">Just $2.25/mo, billed once a year</div>
       </div>
-      <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank" style="background:var(--accent);color:var(--bg);font-family:'DM Mono',monospace;font-size:11px;padding:6px 14px;text-decoration:none;white-space:nowrap;">Switch →</a>
+      <a href="https://harborprivacy.com/pricing?plan=annual&email={{ user_email }}" style="background:var(--accent);color:var(--bg);font-family:'DM Mono',monospace;font-size:11px;padding:6px 14px;text-decoration:none;white-space:nowrap;">Switch →</a>
     </div>
   </div>
   {% endif %}
@@ -1824,6 +1880,7 @@ async function removeRule(rule){
         rules=rules, family_safe=family_safe, has_family=has_family, harbor_kids=harbor_kids, kids_eligible=kids_eligible, kids_profiles=get_kids_profiles(client_id),
         active_profile=customer.get("active_profile", "custom") if customer else "custom",
         user_email=email, is_trial=is_trial, plan_badge=plan_badge, has_family_badge=has_family_badge,
+        personal_promo_code=personal_promo_code,
         filtering_paused=filtering_paused,
         is_founder=is_founder, top_blocked=top_blocked, customer=customer,
         service_groups=service_groups, blocked_services=blocked_services, active="dashboard", light_theme=True)
@@ -1964,7 +2021,7 @@ async function deleteCustomer(cid, name, btn){
 # carries plan_type so the right badge/feature gating applies.
 ADBLOCK_PLANS = {
     "light":  ("price_1TE36NCOrGNrBgIf2T8ApaAG", "harbor-remote-light"),
-    "remote": ("price_1TCTlYCOrGNrBgIf4euUONmf", "remote"),
+    "remote": ("price_1TxpJzCOrGNrBgIfGrU6tqzW", "remote"),
     "annual": ("price_1TenLxCOrGNrBgIfCi4l3lU3", "annual"),
 }
 _ADBLOCK_ORIGINS = ("https://harborprivacy.com", "https://www.harborprivacy.com",
@@ -1992,7 +2049,9 @@ def adblock_checkout():
     secret = os.environ.get("STRIPE_SECRET", "")
     if not secret:
         return _adblock_cors(make_response(jsonify({"error": "billing unavailable"}), 503))
-    plan = ((request.get_json(silent=True) or {}).get("plan") or "").strip().lower()
+    body = request.get_json(silent=True) or {}
+    plan = (body.get("plan") or "").strip().lower()
+    promo = (body.get("promo") or "").strip().upper()
     if plan not in ADBLOCK_PLANS:
         return _adblock_cors(make_response(jsonify({"error": "invalid plan"}), 400))
     price_id, plan_type = ADBLOCK_PLANS[plan]
@@ -2006,6 +2065,23 @@ def adblock_checkout():
         "metadata[harbor_product]": "adblock",
         "subscription_data[metadata][plan_type]": plan_type,
     }
+    # A promo code from an email link is applied directly (skips Stripe's own
+    # promo box); an invalid/missing one just falls back to letting the
+    # customer type a code in at checkout.
+    promo_id = None
+    if promo:
+        try:
+            pr = _req.get("https://api.stripe.com/v1/promotion_codes",
+                          params={"code": promo, "active": "true"}, auth=(secret, ""), timeout=10)
+            matches = pr.json().get("data", [])
+            if matches:
+                promo_id = matches[0]["id"]
+        except Exception:
+            pass
+    if promo_id:
+        form["discounts[0][promotion_code]"] = promo_id
+    else:
+        form["allow_promotion_codes"] = "true"
     try:
         r = _req.post("https://api.stripe.com/v1/checkout/sessions",
                       data=form, auth=(secret, ""), timeout=20)
@@ -2624,6 +2700,12 @@ def admin_customer(client_id):
         <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">PLAN</span>
         <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">{{ customer.plan }}</span>
       </div>
+      {% if customer.plan_type %}
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">PLAN TYPE</span>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">{{ customer.plan_type }}</span>
+      </div>
+      {% endif %}
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">STATUS</span>
         <span class="badge {% if customer.status == 'active' %}badge-on{% else %}badge-off{% endif %}">{{ customer.status|upper }}</span>
@@ -2659,10 +2741,14 @@ def admin_customer(client_id):
     {% endif %}
 
     <div style="border-top:1px solid var(--border);margin:16px 0;"></div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
       <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;">Update Email</div>
-      <div style="display:flex;gap:8px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button onclick="resendWelcome('{{ customer.client_id }}')" class="btn btn-sm" style="background:transparent;border-color:var(--accent);color:var(--accent);">Resend Welcome</button>
+        <button onclick="sendReferral('{{ customer.client_id }}')" class="btn btn-sm" style="background:transparent;border-color:var(--accent);color:var(--accent);">Send Referral Link</button>
+        {% if customer.is_trial %}
+        <button onclick="sendEarlySwitch('{{ customer.client_id }}')" class="btn btn-sm" style="background:transparent;border-color:var(--accent);color:var(--accent);">Send Early-Switch Offer</button>
+        {% endif %}
         <button onclick="reprovision('{{ customer.client_id }}')" class="btn btn-sm btn-danger">Re-provision</button>
       </div>
     </div>
@@ -2837,6 +2923,20 @@ async function resendWelcome(cid){
   const d=await r.json();
   btn.textContent=d.ok?'Sent!':'Error';
   setTimeout(()=>{btn.textContent='Resend Welcome';btn.disabled=false;},3000);
+}
+async function sendReferral(cid){
+  const btn=event.target;btn.textContent='Sending...';btn.disabled=true;
+  const r=await fetch('/api/admin/send-referral',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid})});
+  const d=await r.json();
+  btn.textContent=d.ok?'Sent!':'Error';
+  setTimeout(()=>{btn.textContent='Send Referral Link';btn.disabled=false;},3000);
+}
+async function sendEarlySwitch(cid){
+  const btn=event.target;btn.textContent='Sending...';btn.disabled=true;
+  const r=await fetch('/api/admin/send-early-switch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({client_id:cid})});
+  const d=await r.json();
+  btn.textContent=d.ok?'Sent!':'Error';
+  setTimeout(()=>{btn.textContent='Send Early-Switch Offer';btn.disabled=false;},3000);
 }
 async function reprovision(cid){
   const btn=event.target;btn.textContent='Working...';btn.disabled=true;
@@ -3664,12 +3764,68 @@ def admin_resend_welcome():
         email = customer.get("email", "")
         name = customer.get("name", "Customer")
         plan = customer.get("plan", "remote")
+        plan_type = customer.get("plan_type", plan)
+        is_trial = bool(customer.get("is_trial", False))
         profile_url = f"https://adblock.harborprivacy.com/profiles/{client_id}.mobileconfig"
-        send_welcome_email(email, name, client_id, plan, profile_url)
+        send_welcome_email(email, name, client_id, plan, profile_url, plan_type=plan_type, is_trial=is_trial)
         log.info(f"Admin resent welcome to {email} for {client_id}")
         return jsonify({"ok": True})
     except Exception as e:
         log.error(f"Resend welcome error: {e}")
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.route("/api/admin/send-referral", methods=["POST"])
+@admin_required
+def admin_send_referral():
+    data = request.get_json()
+    client_id = data.get("client_id", "")
+    customers = load_customers()
+    customer = next((c for c in customers if c.get("client_id") == client_id), None)
+    if not customer:
+        return jsonify({"ok": False, "error": "Customer not found"})
+    try:
+        import sys
+        sys.path.insert(0, "/home/ubuntu/harbor-backend")
+        from webhook import create_referral_code
+        email = customer.get("email", "")
+        name = customer.get("name", "Customer")
+        code = create_referral_code(client_id)
+        link = f"https://harborprivacy.com/pricing?plan=annual&promo={code}"
+        html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Share Harbor Privacy</h1>
+<p>Hi {name},</p>
+<p>Here's a link for a friend - it gets them 50% off their first year of Harbor Remote.</p>
+<p style="background:#f4eee2;border-left:3px solid #1f5d6b;padding:16px;font-family:monospace;font-size:14px;color:#1f5d6b;word-break:break-all;">{link}</p>
+<p style="color:#6b7a72;font-size:13px;">Code: <strong style="color:#1a2420;">{code}</strong></p>
+<p style="padding-top:24px;color:#6b7a72;">- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
+</div>'''
+        send_email(email, "A link to share Harbor Privacy", html)
+        log.info(f"Admin sent referral code {code} to {email} for {client_id}")
+        return jsonify({"ok": True, "code": code, "link": link})
+    except Exception as e:
+        log.error(f"Send referral error: {e}")
+        return jsonify({"ok": False, "error": str(e)})
+
+@app.route("/api/admin/send-early-switch", methods=["POST"])
+@admin_required
+def admin_send_early_switch():
+    data = request.get_json()
+    client_id = data.get("client_id", "")
+    customers = load_customers()
+    customer = next((c for c in customers if c.get("client_id") == client_id), None)
+    if not customer:
+        return jsonify({"ok": False, "error": "Customer not found"})
+    if not customer.get("is_trial"):
+        return jsonify({"ok": False, "error": "Only for customers still on trial"})
+    try:
+        import sys
+        sys.path.insert(0, "/home/ubuntu/harbor-backend")
+        from webhook import send_early_switch_email
+        send_early_switch_email(customer.get("email", ""), customer.get("name", "Customer"), client_id)
+        log.info(f"Admin sent early-switch offer to {customer.get('email','')} for {client_id}")
+        return jsonify({"ok": True})
+    except Exception as e:
+        log.error(f"Send early-switch error: {e}")
         return jsonify({"ok": False, "error": str(e)})
 
 @app.route("/api/admin/reprovision", methods=["POST"])
@@ -6561,7 +6717,7 @@ Both tools delete your data within 2 hours. No account needed."""
         cta_ig = "More tips in bio"
         cta_li = "harborprivacy.com/learn"
     else:
-        context = """Harbor Privacy is a managed home network privacy service. Harbor Light $1.99/mo (ad and tracker blocking). Harbor Remote $5.99/mo with 30-day free trial (full privacy on any network). Blocks ads before they load, stops trackers, blocks malware. Works on every device automatically. No tech knowledge needed."""
+        context = """Harbor Privacy is a managed home network privacy service. Harbor Light $1.99/mo (ad and tracker blocking). Harbor Remote $3.99/mo with 30-day free trial (full privacy on any network). Blocks ads before they load, stops trackers, blocks malware. Works on every device automatically. No tech knowledge needed."""
         problem_angles = [
             "Your ISP is legally allowed to sell your browsing history. Most people have no idea.",
             "Every ad you see online is the result of someone tracking exactly what you did, when, and on what device.",
@@ -7044,7 +7200,8 @@ def confirm_trial(token):
     import json as _json, time as _t
     from webhook import (generate_client_id, create_adguard_client, save_ios_profile,
                          log_customer, send_welcome_email, add_to_allowed_clients,
-                         generate_android_page, generate_qr_code, schedule_wipe)
+                         generate_android_page, generate_qr_code, schedule_wipe,
+                         schedule_trial_lifecycle)
     # Atomic claim FIRST — defends against email-scanner prefetch races
     # (Gmail, Outlook ATP, Mimecast, Proofpoint all prefetch link contents).
     pending = _load_pending()
@@ -7074,7 +7231,7 @@ def confirm_trial(token):
 
     name = email.split("@")[0].capitalize()
     client_id = generate_client_id(name, email)
-    plan = "trial"; plan_type = "light"
+    plan = "trial"; plan_type = "remote"
 
     create_adguard_client(client_id, name)
     add_to_allowed_clients(client_id)
@@ -7086,6 +7243,7 @@ def confirm_trial(token):
     log_customer(client_id, name, email, plan, stripe_customer_id="",
                  plan_type=plan_type, is_trial=True, status="active")
     schedule_wipe(client_id, delay=60 * 24 * 3600)
+    schedule_trial_lifecycle(client_id, email, name)
     setup_url = f"https://dashboard.harborprivacy.com/setup?email={email}&st={_setup_token_for(email) or ''}"
     send_welcome_email(email, name, client_id, plan,
                        profile_url=profile_url, plan_type=plan_type,
