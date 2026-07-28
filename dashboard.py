@@ -747,7 +747,7 @@ def unsubscribe():
 
 NAV_CUSTOMER = """
 <div id="timeout-warning" style="display:none;position:fixed;bottom:24px;right:24px;background:#f4eee2;border:1px solid #1f5d6b;padding:20px 24px;z-index:9999;font-family:monospace;font-size:12px;color:#1a2420;flex-direction:column;gap:12px;max-width:300px;"><span>You will be logged out in 5 minutes due to inactivity.</span><button onclick="resetTimer()" style="background:#1f5d6b;color:#ffffff;border:none;padding:8px 16px;cursor:pointer;font-family:monospace;font-size:11px;">Stay Logged In</button></div>
-<nav style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 24px;border-bottom:1px solid var(--border);flex-wrap:nowrap;">
+<nav style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 24px;border-bottom:1px solid var(--border);">
   <div style="display:flex;align-items:center;gap:20px;min-width:0;">
     <a href="/dashboard" class="logo">harbor<span>/</span>privacy</a>
     <div class="nav-links" style="flex-wrap:nowrap;white-space:nowrap;font-weight:700;">
