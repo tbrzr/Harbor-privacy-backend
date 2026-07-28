@@ -747,21 +747,30 @@ def unsubscribe():
 
 NAV_CUSTOMER = """
 <div id="timeout-warning" style="display:none;position:fixed;bottom:24px;right:24px;background:#f4eee2;border:1px solid #1f5d6b;padding:20px 24px;z-index:9999;font-family:monospace;font-size:12px;color:#1a2420;flex-direction:column;gap:12px;max-width:300px;"><span>You will be logged out in 5 minutes due to inactivity.</span><button onclick="resetTimer()" style="background:#1f5d6b;color:#ffffff;border:none;padding:8px 16px;cursor:pointer;font-family:monospace;font-size:11px;">Stay Logged In</button></div>
-<nav style="display:flex;align-items:center;gap:24px;padding:14px 24px;border-bottom:1px solid var(--border);flex-wrap:nowrap;overflow-x:auto;">
-  <a href="/dashboard" class="logo">harbor<span>/</span>privacy</a>
-  <div style="display:flex;gap:6px;flex-wrap:nowrap;">
-    {% if user_email == "tim@harborprivacy.com" %}<span class="badge badge-owner">OWNER</span>{% endif %}
-    {% if is_trial %}<span class="badge badge-trial">FREE TRIAL</span>{% endif %}
-    {% if plan_badge %}<span class="badge badge-{{ plan_badge.lower().replace(' ','-') }}">{{ plan_badge }}</span>{% endif %}
-    {% if has_family_badge %}<span class="badge badge-family">FAMILY SAFE</span>{% endif %}
-    {% if harbor_kids %}<span class="badge" style="background:#06b6d4;color:#0a0e0f;">HARBOR KIDS</span>{% endif %}
+<nav style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 24px;border-bottom:1px solid var(--border);flex-wrap:nowrap;">
+  <div style="display:flex;align-items:center;gap:20px;min-width:0;">
+    <a href="/dashboard" class="logo">harbor<span>/</span>privacy</a>
+    <div class="nav-links" style="flex-wrap:nowrap;white-space:nowrap;font-weight:700;">
+      <div class="nav-drop">
+        <a href="#" onclick="this.parentNode.classList.toggle('open');return false;" class="{% if active in ('adblock',) %}active{% endif %}">Menu &#9662;</a>
+        <div class="nav-drop-menu">
+          <a href="https://harborprivacy.com">← Site</a>
+          <a href="/dashboard/adblock" class="{{ 'active' if active == 'adblock' else '' }}">AdBlock Usage</a>
+          <a href="https://breach.harborprivacy.com/app">Breach Monitor</a>
+          <a href="https://scan.harborprivacy.com">Harbor Scan</a>
+        </div>
+      </div>
+    </div>
   </div>
-  <div class="nav-links" style="flex-wrap:nowrap;white-space:nowrap;font-weight:700;">
-    <a href="https://harborprivacy.com" style="font-size:10px;">← Site</a>
-    <a href="/dashboard/adblock" class="{{ 'active' if active == 'adblock' else '' }}">AdBlock Usage</a>
-    <a href="https://breach.harborprivacy.com/app">Breach Monitor</a>
-    <a href="https://scan.harborprivacy.com">Harbor Scan</a>
-    <a href="/logout" style="margin-left:auto;">Sign Out</a>
+  <div style="display:flex;align-items:center;gap:16px;flex-wrap:nowrap;">
+    <div style="display:flex;gap:6px;flex-wrap:nowrap;">
+      {% if user_email == "tim@harborprivacy.com" %}<span class="badge badge-owner">OWNER</span>{% endif %}
+      {% if is_trial %}<span class="badge badge-trial">FREE TRIAL</span>{% endif %}
+      {% if plan_badge %}<span class="badge badge-{{ plan_badge.lower().replace(' ','-') }}">{{ plan_badge }}</span>{% endif %}
+      {% if has_family_badge %}<span class="badge badge-family">FAMILY SAFE</span>{% endif %}
+      {% if harbor_kids %}<span class="badge" style="background:#06b6d4;color:#0a0e0f;">HARBOR KIDS</span>{% endif %}
+    </div>
+    <div class="nav-links" style="flex-wrap:nowrap;white-space:nowrap;font-weight:700;"><a href="/logout">Sign Out</a></div>
   </div>
 </nav>"""
 
