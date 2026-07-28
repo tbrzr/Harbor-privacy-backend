@@ -18,6 +18,20 @@ PROFILES_DIR = os.environ.get("PROFILES_DIR", "/var/www/network/profiles")
 PROFILES_URL = os.environ.get("PROFILES_URL", "https://adblock.harborprivacy.com/profiles")
 CUSTOMERS_LOG = "/var/log/harbor-customers.json"
 
+# Positive allowlist of Harbor DNS (adblock) Stripe price IDs. This Stripe account is
+# shared across many products (Play Park, fax, resume, coverletter, booking, stickers...).
+# Every webhook path that auto-provisions an AdGuard client + Harbor Remote customer
+# record must gate on this, not infer "is Harbor DNS" from absence of other signals.
+HARBOR_DNS_PRICE_IDS = {
+    "price_1TE36NCOrGNrBgIf2T8ApaAG",  # Harbor Light
+    "price_1TCTlYCOrGNrBgIf4euUONmf",  # Harbor Remote (monthly, archived 2026-07-27, was $5.99)
+    "price_1TxpJzCOrGNrBgIfGrU6tqzW",  # Harbor Remote (monthly, $3.99)
+    "price_1TenLxCOrGNrBgIfCi4l3lU3",  # Harbor Remote (annual)
+    "price_1TFbbsCOrGNrBgIfURHUPNbw",  # Harbor Kids Add-on
+    "price_1TAxm1COrGNrBgIfuNOEhSTk",  # Harbor Privacy Network Install
+    "price_1TB7VeCOrGNrBgIfmGYCyBpx",  # Harbor Remote Monthly Service (legacy price)
+}
+
 def load_customers():
     try:
         with open(CUSTOMERS_LOG) as f:
@@ -1249,15 +1263,6 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     # substring let unrelated products silently provision live AdGuard clients and
                     # fire the customer welcome email - see 2026-07-18 incident (Play Park Pro/Pro+
                     # checkouts got onboarded as real Harbor Remote DNS customers).
-                    HARBOR_DNS_PRICE_IDS = {
-                        "price_1TE36NCOrGNrBgIf2T8ApaAG",  # Harbor Light
-                        "price_1TCTlYCOrGNrBgIf4euUONmf",  # Harbor Remote (monthly, archived 2026-07-27, was $5.99)
-                        "price_1TxpJzCOrGNrBgIfGrU6tqzW",  # Harbor Remote (monthly, $3.99)
-                        "price_1TenLxCOrGNrBgIfCi4l3lU3",  # Harbor Remote (annual)
-                        "price_1TFbbsCOrGNrBgIfURHUPNbw",  # Harbor Kids Add-on
-                        "price_1TAxm1COrGNrBgIfuNOEhSTk",  # Harbor Privacy Network Install
-                        "price_1TB7VeCOrGNrBgIfmGYCyBpx",  # Harbor Remote Monthly Service (legacy price)
-                    }
                     is_harbor_dns = meta.get("harbor_product") == "adblock"
                     if not is_harbor_dns:
                         try:
@@ -1358,8 +1363,19 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     invoice_id = invoice.get("id","")
                     lines_data = invoice.get("lines",{}).get("data",[])
 
-                    # New subscription — provision if not already done
-                    if billing_reason == "subscription_create" and customer_email:
+                    # New subscription — provision if not already done. Same positive
+                    # allowlist as checkout.session.completed: this invoice can belong
+                    # to any product on the shared Stripe account (Play Park Pro+ etc),
+                    # not just Harbor DNS. See 2026-07-18 incident.
+                    is_harbor_dns_invoice = any(
+                        (line.get("pricing", {}).get("price_details", {}).get("price")
+                         or line.get("price", {}).get("id", "")) in HARBOR_DNS_PRICE_IDS
+                        for line in lines_data
+                    )
+                    if billing_reason == "subscription_create" and customer_email and not is_harbor_dns_invoice:
+                        log.info(f"Skipping non-Harbor-DNS subscription invoice: {invoice_id} ({customer_email})")
+                        mark_processed(invoice_id)
+                    elif billing_reason == "subscription_create" and customer_email:
                         if is_processed(invoice_id):
                             log.info(f"Skipping already-provisioned invoice: {invoice_id}")
                         elif find_customer_by_email(customer_email):
