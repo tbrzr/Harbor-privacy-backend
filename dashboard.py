@@ -2070,23 +2070,29 @@ def adblock_checkout():
         "metadata[harbor_product]": "adblock",
         "subscription_data[metadata][plan_type]": plan_type,
     }
-    # A promo code from an email link is applied directly (skips Stripe's own
-    # promo box); an invalid/missing one just falls back to letting the
-    # customer type a code in at checkout.
-    promo_id = None
-    if promo:
-        try:
-            pr = _req.get("https://api.stripe.com/v1/promotion_codes",
-                          params={"code": promo, "active": "true"}, auth=(secret, ""), timeout=10)
-            matches = pr.json().get("data", [])
-            if matches:
-                promo_id = matches[0]["id"]
-        except Exception:
-            pass
-    if promo_id:
-        form["discounts[0][promotion_code]"] = promo_id
-    else:
-        form["allow_promotion_codes"] = "true"
+    if plan == "annual":
+        form["subscription_data[trial_period_days]"] = "7"
+        # A promo code from an email link is applied directly (skips Stripe's own
+        # promo box); an invalid/missing one just falls back to letting the
+        # customer type a code in at checkout. Annual-only: current codes
+        # (harbor-annual50, harbor25) are both scoped to the annual plan, and
+        # Stripe's coupon applies_to.products restriction isn't enforced at
+        # Checkout on this account, so the plan gate here is what actually
+        # keeps them off the monthly/light prices.
+        promo_id = None
+        if promo:
+            try:
+                pr = _req.get("https://api.stripe.com/v1/promotion_codes",
+                              params={"code": promo, "active": "true"}, auth=(secret, ""), timeout=10)
+                matches = pr.json().get("data", [])
+                if matches:
+                    promo_id = matches[0]["id"]
+            except Exception:
+                pass
+        if promo_id:
+            form["discounts[0][promotion_code]"] = promo_id
+        else:
+            form["allow_promotion_codes"] = "true"
     try:
         r = _req.post("https://api.stripe.com/v1/checkout/sessions",
                       data=form, auth=(secret, ""), timeout=20)
@@ -4700,6 +4706,39 @@ def social_post_fb():
     return (jsonify({"ok": True, "fb_post_id": msg}), 200) if ok else (jsonify({"ok": False, "error": msg}), 502)
 
 
+def _publish_fb_text(pid, entry):
+    """Publish an entry's caption only (no image) to the FB Page feed.
+    Text-only posts get better organic reach on FB than photo posts, so this
+    is a separate button from the image post rather than a fallback."""
+    import time as _time, requests as _req
+    if not (META_PAGE_ID and META_PAGE_TOKEN):
+        return False, "Facebook Page not configured"
+    try:
+        r = _req.post(f"https://graph.facebook.com/v21.0/{META_PAGE_ID}/feed",
+                      data={"message": entry.get("body", ""), "access_token": META_PAGE_TOKEN},
+                      timeout=40)
+        j = r.json()
+    except Exception as e:
+        return False, f"request failed: {e}"
+    if r.status_code != 200 or "error" in j:
+        return False, (j.get("error", {}) or {}).get("message", f"HTTP {r.status_code}")
+    posted = _load_posted()
+    posted[pid] = int(_time.time())
+    _save_posted(posted)
+    return True, j.get("id", "")
+
+
+@app.route("/api/social/post-fb-text", methods=["POST"])
+@admin_required
+def social_post_fb_text():
+    pid = (request.json or {}).get("id", "")
+    entry = _social_entry(pid)
+    if not entry:
+        return jsonify({"ok": False, "error": "post not found"}), 404
+    ok, msg = _publish_fb_text(pid, entry)
+    return (jsonify({"ok": True, "fb_post_id": msg}), 200) if ok else (jsonify({"ok": False, "error": msg}), 502)
+
+
 def _pinterest_token():
     """Return a usable Pinterest v5 access token. Prefer refreshing (refresh
     tokens last ~1yr; access tokens expire), fall back to the static env token."""
@@ -6015,6 +6054,10 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
   <svg viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
   <span id="fbTxt">Post to Facebook Page now</span>
 </button>
+<button class="btn alt" id="fbTextPostBtn" onclick="postFBText()" style="margin-top:10px;">
+  <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+  <span id="fbTextTxt">Post text only to Facebook</span>
+</button>
 {% endif %}
 {% if ig_ready %}
 <button class="btn" id="igPostBtn" onclick="postIG()" style="margin-top:10px;">
@@ -6118,6 +6161,11 @@ async function postFB(){var b=document.getElementById('fbPostBtn'),t=document.ge
     if(j.ok){t.textContent='Posted to Page';toast('Posted to Facebook Page');}
     else{t.textContent='Post to Facebook Page now';b.disabled=false;toast(j.error||'Post failed');}
   }catch(e){t.textContent='Post to Facebook Page now';b.disabled=false;toast('Post failed');}}
+async function postFBText(){var b=document.getElementById('fbTextPostBtn'),t=document.getElementById('fbTextTxt');b.disabled=true;t.textContent='Posting...';
+  try{var r=await fetch('/api/social/post-fb-text',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:PID})});var j=await r.json();
+    if(j.ok){t.textContent='Posted (text only)';toast('Posted text-only to Facebook');}
+    else{t.textContent='Post text only to Facebook';b.disabled=false;toast(j.error||'Post failed');}
+  }catch(e){t.textContent='Post text only to Facebook';b.disabled=false;toast('Post failed');}}
 async function postIG(){var b=document.getElementById('igPostBtn'),t=document.getElementById('igTxt');b.disabled=true;t.textContent='Posting...';
   try{var r=await fetch('/api/social/post-ig',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:PID})});var j=await r.json();
     if(j.ok){t.textContent='Posted to Instagram';toast('Posted to Instagram');}
