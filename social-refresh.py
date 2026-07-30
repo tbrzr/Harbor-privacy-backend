@@ -144,7 +144,9 @@ def sticker_entry(data):
     except Exception as e:
         print(f"sticker_entry: could not stage png for {pid}: {e!r}")
 
-    body = f"{p['caption']}\n\n{link}\n\n{p['hashtags']}"
+    # link is NOT embedded in the body: posted as the first FB comment instead
+    # (outbound links in the post body get reach-suppressed by FB's algorithm).
+    body = f"{p['caption']}\n\n{p['hashtags']}"
     entry = {
         "id": pid,
         "category": "Stickers",
@@ -186,7 +188,8 @@ Return ONLY a JSON object with these keys:
          without giving it all away (each max 52 chars)
   "caption": the full social caption. The FIRST line must be a scroll-stopping hook (a surprising fact
              or a pointed question), then deliver the concrete tip with exact names/settings/numbers,
-             ending with the line {url} and then 3-4 hashtags. 2-4 short paragraphs.
+             ending with 3-4 hashtags. Do NOT include a URL anywhere, the link is posted separately.
+             2-4 short paragraphs.
 
 The caption must be genuinely useful and specific, a real tip people would screenshot, never generic
 marketing. Lead with the problem and the surprise, not the product.
@@ -218,7 +221,7 @@ def quality_ok(brand, post):
     if not isinstance(sub, list) or len(sub) != 2:       return "bad sub"
     if any(len(s) > 56 for s in sub):                    return "sub too long"
     if not (120 <= len(cap) <= 800):                     return f"caption len {len(cap)}"
-    if url not in cap:                                   return "missing link"
+    if url in cap:                                        return "link should not be in caption, posted as first comment"
     if "—" in cap or "—" in head:                        return "em dash"
     low = cap.lower()
     if brand in ACCOUNT_REQUIRED and ("no account" in low or "no sign" in low or "no signup" in low):

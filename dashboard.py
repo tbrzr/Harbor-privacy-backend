@@ -4683,6 +4683,23 @@ def social_review():
     return jsonify(result)
 
 
+def _post_fb_comment(post_id, message):
+    """Add the link as the first comment on a FB post instead of embedding it in
+    the caption. FB reach-suppresses posts with an outbound link in the body;
+    a link in the first comment avoids that penalty. Best-effort, non-fatal."""
+    import requests as _req
+    if not (post_id and message and META_PAGE_TOKEN):
+        return
+    try:
+        r = _req.post(f"https://graph.facebook.com/v21.0/{post_id}/comments",
+                      data={"message": message, "access_token": META_PAGE_TOKEN}, timeout=20)
+        j = r.json()
+        if r.status_code != 200 or "error" in j:
+            log.error("FB first-comment failed for %s: %s", post_id, j.get("error", {}))
+    except Exception as e:
+        log.error("FB first-comment failed for %s: %s", post_id, e)
+
+
 def _publish_fb(pid, entry):
     """Publish an entry's image + caption to the FB Page. Returns (ok, msg) where
     msg is the post id on success or an error string. Marks posted on success.
@@ -4710,7 +4727,9 @@ def _publish_fb(pid, entry):
     # not have (returns "(#3) Application does not have the granular permission").
     # _publish_fb_story() is kept for if the app ever clears review. IG stories,
     # which need no such review, are auto-shared in _publish_ig.
-    return True, (j.get("post_id") or j.get("id", ""))
+    post_id = j.get("post_id") or j.get("id", "")
+    _post_fb_comment(post_id, entry.get("link", ""))
+    return True, post_id
 
 
 @app.route("/api/social/post-fb", methods=["POST"])
@@ -4743,7 +4762,9 @@ def _publish_fb_text(pid, entry):
     posted = _load_posted()
     posted[pid] = int(_time.time())
     _save_posted(posted)
-    return True, j.get("id", "")
+    post_id = j.get("id", "")
+    _post_fb_comment(post_id, entry.get("link", ""))
+    return True, post_id
 
 
 @app.route("/api/social/post-fb-text", methods=["POST"])
