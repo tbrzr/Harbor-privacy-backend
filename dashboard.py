@@ -421,6 +421,22 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated
 
+def authentik_admin_required(f):
+    # Gate is nginx's auth_request to Authentik on /admin and /api/admin
+    # (auth.harborprivacy.com). nginx overwrites X-authentik-email on every
+    # proxied request regardless of what a client sends, so this header is
+    # only ever present and truthful when the request already passed
+    # Authentik. No separate hp_token/password check here by design.
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        email = request.headers.get("X-authentik-email", "").strip()
+        if not email:
+            return redirect("/dashboard")
+        request.user_email = email
+        request.is_admin = True
+        return f(*args, **kwargs)
+    return decorated
+
 # ════════════════════════════════════════════════════════════
 # SECTION 08 — EMAIL
 # Owns: send_email (Resend API), email-failures.json log
@@ -1898,7 +1914,7 @@ async function removeRule(rule){
 # ════════════════════════════════════════════════════════════
 
 @app.route("/admin")
-@admin_required
+@authentik_admin_required
 def admin():
     allowed = get_allowed_clients()
     all_customers = load_customers()
@@ -2344,7 +2360,7 @@ def log_dns_analytics():
     return resp
 
 @app.route("/admin/analytics")
-@admin_required
+@authentik_admin_required
 def admin_analytics():
     import json as _json, time
     ANALYTICS_FILE = "/var/log/harbor-dns-analytics.json"
@@ -2427,7 +2443,7 @@ def admin_analytics():
     return render_template_string(html, active="analytics")
 
 @app.route("/admin/marketing", methods=["GET"])
-@admin_required
+@authentik_admin_required
 def admin_marketing():
     ANNOUNCED_FILE = "/home/ubuntu/harbor-breach/.announced.json"
     try:
@@ -2512,7 +2528,7 @@ def _save_suppressions(suppressed):
     os.replace(tmp, MARKETING_SUPPRESSIONS_FILE)
 
 @app.route("/api/admin/marketing/suppress", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def api_admin_marketing_suppress():
     email = (request.json or {}).get("email", "").strip().lower()
     if "@" not in email:
@@ -2528,7 +2544,7 @@ def api_admin_marketing_suppress():
     return jsonify({"ok": True})
 
 @app.route("/api/admin/marketing/unsuppress", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def api_admin_marketing_unsuppress():
     email = (request.json or {}).get("email", "").strip().lower()
     try:
@@ -2542,7 +2558,7 @@ def api_admin_marketing_unsuppress():
 
 
 @app.route("/admin/links", methods=["GET"])
-@admin_required
+@authentik_admin_required
 def admin_links():
     import json as _json
     LINKS_FILE = "/var/www/link/links.json"
@@ -2638,7 +2654,7 @@ async function moveLink(i, dir){
     return render_template_string(html, links=enumerate(links), active="links")
 
 @app.route("/api/admin/links", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def api_admin_links():
     import json as _json
     LINKS_FILE = "/var/www/link/links.json"
@@ -2665,7 +2681,7 @@ def api_admin_links():
     return resp
 
 @app.route("/admin/customer/<client_id>")
-@admin_required
+@authentik_admin_required
 def admin_customer(client_id):
     customers = load_customers()
     customer = next((c for c in customers if c.get("client_id") == client_id), None)
@@ -3573,7 +3589,7 @@ def api_support_code():
     return jsonify({"ok": True, "code": code})
 
 @app.route("/api/admin/revoke-code", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def api_admin_revoke_code():
     data = request.json
     revoke_support_code(data.get("client_id", ""))
@@ -3648,7 +3664,7 @@ def api_addon():
     return jsonify({"ok": False})
 
 @app.route("/api/admin/delete-customer", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def admin_delete_customer():
     data = request.get_json()
     PROTECTED_EMAILS = {"admin@harborprivacy.com", "tim@harborprivacy.com"}
@@ -3760,7 +3776,7 @@ def api_account_delete_self():
     return resp
 
 @app.route("/api/admin/resend-welcome", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def admin_resend_welcome():
     data = request.get_json()
     client_id = data.get("client_id", "")
@@ -3786,7 +3802,7 @@ def admin_resend_welcome():
         return jsonify({"ok": False, "error": str(e)})
 
 @app.route("/api/admin/send-referral", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def admin_send_referral():
     data = request.get_json()
     client_id = data.get("client_id", "")
@@ -3818,7 +3834,7 @@ def admin_send_referral():
         return jsonify({"ok": False, "error": str(e)})
 
 @app.route("/api/admin/send-early-switch", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def admin_send_early_switch():
     data = request.get_json()
     client_id = data.get("client_id", "")
@@ -3840,7 +3856,7 @@ def admin_send_early_switch():
         return jsonify({"ok": False, "error": str(e)})
 
 @app.route("/api/admin/reprovision", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def admin_reprovision():
     data = request.get_json()
     client_id = data.get("client_id", "")
@@ -3919,7 +3935,7 @@ def update_customer_harbor_kids_flag(client_id, enabled):
         log.error(f"update_customer_harbor_kids_flag error: {e}")
 
 @app.route("/api/admin/addon", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def api_admin_addon():
     data = request.json
     client_id = data.get("client_id", "")
@@ -4008,7 +4024,7 @@ def api_rule():
 # ════════════════════════════════════════════════════════════
 
 @app.route("/api/admin/update-email", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def api_admin_update_email():
     data = request.get_json()
     old_email = (data.get("old_email") or "").strip()
@@ -4020,7 +4036,7 @@ def api_admin_update_email():
     return jsonify({"ok": updated})
 
 @app.route("/api/admin/toggle-plan", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def api_admin_toggle_plan():
     data = request.get_json()
     client_id = data.get("client_id", "")
@@ -4039,7 +4055,7 @@ def api_admin_toggle_plan():
     return jsonify({"ok": updated})
 
 @app.route("/api/admin/service", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def api_admin_service():
     data = request.json
     client_id = data.get("client_id", "")
@@ -4053,7 +4069,7 @@ def api_admin_service():
     return jsonify({"ok": set_client_blocked_services(client_id, current)})
 
 @app.route("/api/admin/rule", methods=["POST", "DELETE"])
-@admin_required
+@authentik_admin_required
 def api_admin_rule():
     data = request.json
     client_id = data.get("client_id", "")
@@ -4068,7 +4084,7 @@ def api_admin_rule():
 # ════════════════════════════════════════════════════════════
 
 @app.route("/admin/logs")
-@admin_required
+@authentik_admin_required
 def admin_logs():
     import subprocess
     result = subprocess.run(
@@ -4093,7 +4109,7 @@ def admin_logs():
     return template.replace("LOG_CONTENT_PLACEHOLDER", log_html)
 
 @app.route("/admin/logs/stream")
-@admin_required
+@authentik_admin_required
 def admin_logs_stream():
     import subprocess
     result = subprocess.run(
@@ -4249,7 +4265,7 @@ a.row.dead{opacity:.55;pointer-events:none;}
 
 
 @app.route("/social/sent")
-@admin_required
+@authentik_admin_required
 def social_sent():
     import json as _json, time as _time
     try:
@@ -4566,7 +4582,7 @@ document.addEventListener('click',function(e){var w=document.getElementById('gen
 
 
 @app.route("/social")
-@admin_required
+@authentik_admin_required
 def social():
     import json as _json
     try:
@@ -4607,7 +4623,7 @@ def social():
 
 
 @app.route("/api/social/posted", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def social_mark_posted():
     import time as _time
     data = request.json or {}
@@ -4625,7 +4641,7 @@ def social_mark_posted():
 
 
 @app.route("/api/social/review", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def social_review():
     """Approve or reject a pending AI draft. The actual policy (what reject does,
     whether an approve can be refused) lives in _review_decision() — yours to own.
@@ -4696,7 +4712,7 @@ def _publish_fb(pid, entry):
 
 
 @app.route("/api/social/post-fb", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def social_post_fb():
     pid = (request.json or {}).get("id", "")
     entry = _social_entry(pid)
@@ -4729,7 +4745,7 @@ def _publish_fb_text(pid, entry):
 
 
 @app.route("/api/social/post-fb-text", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def social_post_fb_text():
     pid = (request.json or {}).get("id", "")
     entry = _social_entry(pid)
@@ -4794,7 +4810,7 @@ def _publish_pinterest(pid, entry):
 
 
 @app.route("/api/social/post-pinterest", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def social_post_pinterest():
     pid = (request.json or {}).get("id", "")
     entry = _social_entry(pid)
@@ -4868,7 +4884,7 @@ def _publish_x(pid, entry):
 
 
 @app.route("/api/social/post-x", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def social_post_x():
     pid = (request.json or {}).get("id", "")
     entry = _social_entry(pid)
@@ -5106,7 +5122,7 @@ def _publish_ig(pid, entry):
 
 
 @app.route("/api/social/post-ig", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def social_post_ig():
     pid = (request.json or {}).get("id", "")
     entry = _social_entry(pid)
@@ -5166,7 +5182,7 @@ def _social_delete_entry(pid):
 
 
 @app.route("/api/social/schedule", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def social_schedule():
     """Set or clear a post's scheduled publish time. Body: {id, when (epoch secs or
     null to cancel), platforms: ['fb','ig']}. The minute cron fires due posts."""
@@ -5306,7 +5322,7 @@ def social_autopost_cards():
 
 
 @app.route("/api/social/generate-set", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def social_generate_set():
     import json as _json, time as _time, random as _random, requests as _req
     try:
@@ -5534,7 +5550,7 @@ def social_generate_set():
 
 
 @app.route("/api/social/generate-reel", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def social_generate_reel():
     """On-demand reel build. mode=='pets' runs the deep-teal pet pack; anything
     else runs the normal brand rotation. Synchronous: reel-refresh.py renders the
@@ -5565,7 +5581,7 @@ def social_generate_reel():
 
 
 @app.route("/api/social/generate-sticker-reel", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def social_generate_sticker_reel():
     """On-demand randomized Etsy sticker product reel. make-sticker-reel.py in
     'random' mode assembles a fresh reel (design subset+order, hook/CTA copy,
@@ -5590,7 +5606,7 @@ def social_generate_sticker_reel():
 
 
 @app.route("/api/social/generate-cards-set", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def social_generate_cards_set():
     """Regenerate the curated card-engine slogan set (10 cards, varied layouts) and
     push them LIVE into /social. push-cards-to-social.py renders each through the
@@ -5612,7 +5628,7 @@ def social_generate_cards_set():
 
 
 @app.route("/api/social/generate-cards-reel", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def social_generate_cards_reel():
     """On-demand reel that animates the card_engine promo layouts (dark quote,
     receipt, stat, outline, compare...) into a 9:16 mp4 with Ken Burns motion.
@@ -5862,7 +5878,7 @@ syncLink();
 
 
 @app.route("/linkedin")
-@admin_required
+@authentik_admin_required
 def linkedin_page():
     P = _linkedin_personas()
     personas = [{"key": k, "label": v.get("label", k), "link": v.get("default_link", "")} for k, v in P.items()]
@@ -5872,7 +5888,7 @@ def linkedin_page():
 
 
 @app.route("/api/linkedin/generate", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def linkedin_generate():
     import requests as _rq, json as _j
     d = request.get_json(silent=True) or {}
@@ -6238,7 +6254,7 @@ def _x_caption(entry):
 
 
 @app.route("/social/post/<post_id>")
-@admin_required
+@authentik_admin_required
 def social_post_page(post_id):
     entry = _social_entry(post_id)
     if not entry:
@@ -6258,7 +6274,7 @@ def social_post_page(post_id):
 
 
 @app.route("/social/img/<post_id>")
-@admin_required
+@authentik_admin_required
 def social_post_img(post_id):
     # Same-origin image proxy so the staging page can copy/download cleanly.
     from flask import Response, send_file
@@ -6371,7 +6387,7 @@ a.row:hover{border-color:var(--teal);}
 
 
 @app.route("/social/pages")
-@admin_required
+@authentik_admin_required
 def social_pages():
     import glob as _glob, os as _os
     groups = {c: [] for c in PAGES_ORDER}
@@ -6598,7 +6614,7 @@ function toggleSort(btn){
 </body></html>"""
 
 @app.route("/leads")
-@admin_required
+@authentik_admin_required
 def leads_page():
     data = _leads_load()
     leads = [l for l in data.get("leads", []) if l.get("status") != "removed"]
@@ -6609,7 +6625,7 @@ def leads_page():
     return render_template_string(LEADS_HTML, leads=leads, vertical=data.get("vertical", "leads"), today=today, nav_active="leads")
 
 @app.route("/api/leads/update", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def leads_update():
     d = request.json or {}
     lid = d.get("id"); status = d.get("status")
@@ -6631,7 +6647,7 @@ def leads_update():
     return jsonify({"ok": True})
 
 @app.route("/api/leads/vet", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def leads_vet():
     import time as _t, json as _j, requests as _rq
     d = request.json or {}
@@ -7052,7 +7068,7 @@ def _generate_tip_card(topic, card, fmt="story"):
     return None
 
 @app.route("/api/social/generate", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def social_generate():
     import requests as _req, json as _json
     data = request.json or {}
@@ -7464,7 +7480,7 @@ def api_integrity():
 
 
 @app.route("/api/social/post-to-make", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def post_to_make():
     import requests as _req
     data = request.json or {}
@@ -7637,13 +7653,13 @@ def social_autopost():
     return jsonify({"ok": True, "topic": topic, "posts": posts, "image_url": image_url, "make_errors": make_errors})
 
 @app.route("/api/social/status")
-@admin_required
+@authentik_admin_required
 def social_status():
     enabled = not os.path.exists("/var/log/harbor-social-paused")
     return jsonify({"enabled": enabled})
 
 @app.route("/api/social/toggle", methods=["POST"])
-@admin_required
+@authentik_admin_required
 def social_toggle():
     paused = "/var/log/harbor-social-paused"
     if os.path.exists(paused):
@@ -7918,13 +7934,13 @@ _HS_OVERVIEW_TMPL = """<div class="wrap">
 
 
 @app.route("/admin/scan")
-@admin_required
+@authentik_admin_required
 def admin_scan_overview():
     data = _hs_summary()
     return render_template_string(STYLE + NAV_ADMIN + _HS_OVERVIEW_TMPL, data=data, active="scan")
 
 @app.route("/admin/scan/profile/<int:profile_id>")
-@admin_required
+@authentik_admin_required
 def admin_scan_profile(profile_id):
     data = _hs_summary(profile_id=profile_id)
     return render_template_string(STYLE + NAV_ADMIN + _HS_PROFILE_TMPL,
@@ -8145,7 +8161,7 @@ async function dlPrint(slug){var name=slug+'-300dpi.png';
 
 
 @app.route("/etsy")
-@admin_required
+@authentik_admin_required
 def etsy_page():
     listings, footer, shared = _etsy_listings()
     resp = make_response(render_template_string(ETSY_PAGE_HTML, listings=listings,
@@ -8155,7 +8171,7 @@ def etsy_page():
 
 
 @app.route("/etsy/img/<slug>")
-@admin_required
+@authentik_admin_required
 def etsy_img(slug):
     import re as _re, os as _os
     from flask import send_file
