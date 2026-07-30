@@ -3615,12 +3615,14 @@ def api_addon():
     if not client:
         return jsonify({"ok": False})
     if data.get("type") == "family":
+        if not has_family_addon(client_id):
+            return jsonify({"ok": False, "error": "Family Safe add-on not purchased"})
         enabled = data.get("enabled", False)
         updated = {**client, "parental_enabled": enabled, "safebrowsing_enabled": True, "use_global_settings": False, "safe_search": {"enabled": enabled, "bing": enabled, "duckduckgo": enabled, "ecosia": enabled, "google": enabled, "pixabay": enabled, "yandex": enabled, "youtube": enabled}}
         return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
 
     if data.get("type") == "harbor_kids_add":
-        if customer.get("plan_type", "") == "harbor-remote-light":
+        if customer.get("plan_type", "") == "harbor-remote-light" or customer.get("is_trial", False):
             return jsonify({"ok": False, "error": "Harbor Kids requires Harbor Remote"})
         kid_num = data.get("kid_num", 1)
         kids_id = f"{client_id}kid{kid_num}"
