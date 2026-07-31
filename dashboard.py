@@ -1385,6 +1385,10 @@ def dashboard():
     has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
     is_trial = customer.get("is_trial", False) if customer else False
+    # Display-only convenience field, written by harbor-vpn-portal's webhook
+    # when a VPN addon subscription activates. Not the entitlement source of
+    # truth -- vpn.harborprivacy.com's own vpn_customers table is.
+    vpn_status = customer.get("vpn_status", False) if customer else False
     personal_promo_code = None
 
     # Trial expired (day 31) — force upgrade before showing any account data.
@@ -1493,6 +1497,12 @@ def dashboard():
   </div>
 
   <div class="card">
+    <div class="card-label">Harbor VPN {% if vpn_status %}<span class="badge badge-on">ACTIVE</span>{% endif %}</div>
+    <p class="note" style="margin-bottom:16px;">WireGuard, OpenVPN &amp; AmneziaWG tunnels with the same DNS-layer blocking, added to any plan.</p>
+    <a href="https://vpn.harborprivacy.com" target="_blank" class="btn" style="background:transparent;border-color:var(--accent);color:var(--accent);">{% if vpn_status %}Manage Devices{% else %}Add Harbor VPN{% endif %} →</a>
+  </div>
+
+  <div class="card">
     <div class="card-label">Support</div>
     <p class="note" style="margin-bottom:16px;">Need help with setup or have a question?</p>
     <a href="mailto:support@harborprivacy.com" class="btn" style="background:transparent;border-color:var(--border);color:var(--text);">Email Support →</a>
@@ -1509,7 +1519,7 @@ def dashboard():
 
 </div>
 </html>"""
-        return render_template_string(html, name=name, client_id=client_id, total=total, blocked=blocked, active="dashboard", light_theme=True)
+        return render_template_string(html, name=name, client_id=client_id, total=total, blocked=blocked, active="dashboard", light_theme=True, vpn_status=vpn_status)
     if plan_type == "harbor-remote-light": plan_badge = "LIGHT"
     elif plan_type == "3month": plan_badge = "3-MONTH"
     elif plan_type == "6month": plan_badge = "6-MONTH"
@@ -1699,6 +1709,17 @@ def dashboard():
           <input type="checkbox" {% if family_safe %}checked{% endif %} {% if not is_active %}disabled{% else %}onchange="toggleAddon('family',this.checked)"{% endif %}>
           <span class="slider" style="border-radius:24px;"></span>
         </label>
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">
+            Harbor VPN
+            <span class="badge {% if vpn_status %}badge-on{% else %}badge-off{% endif %}">{% if vpn_status %}ACTIVE{% else %}NOT ACTIVE{% endif %}</span>
+          </div>
+          <div class="toggle-desc">WireGuard, OpenVPN &amp; AmneziaWG tunnels with the same DNS-layer blocking</div>
+        </div>
+        <a href="https://vpn.harborprivacy.com" target="_blank" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);border:1px solid var(--accent);padding:8px 14px;text-decoration:none;white-space:nowrap;">{% if vpn_status %}Manage Devices{% else %}Add Harbor VPN{% endif %} &#8594;</a>
       </div>
 
     </div>
@@ -1900,7 +1921,7 @@ async function removeRule(rule){
         is_active=is_active, total=total, blocked=blocked, pct=pct,
         rules=rules, family_safe=family_safe, has_family=has_family, harbor_kids=harbor_kids, kids_eligible=kids_eligible, kids_profiles=get_kids_profiles(client_id),
         active_profile=customer.get("active_profile", "custom") if customer else "custom",
-        user_email=email, is_trial=is_trial, plan_badge=plan_badge, has_family_badge=has_family_badge,
+        user_email=email, is_trial=is_trial, plan_badge=plan_badge, has_family_badge=has_family_badge, vpn_status=vpn_status,
         personal_promo_code=personal_promo_code,
         filtering_paused=filtering_paused,
         is_founder=is_founder, top_blocked=top_blocked, customer=customer,
