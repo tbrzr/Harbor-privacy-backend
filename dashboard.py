@@ -8382,6 +8382,7 @@ def public_link_page():
 # ════════════════════════════════════════════════════════════
 
 HAB_URL = os.environ.get("HAB_URL", "https://hab.harborprivacy.com")
+DOH_STATS_PATH = "/home/ubuntu/harbor-shield-backend/doh_stats.json"
 
 def get_client_monthly(client_id, months=12):
     """Fetches monthly total/blocked counts for client_id from HAB. Returns
@@ -8395,10 +8396,25 @@ def get_client_monthly(client_id, months=12):
             timeout=AGH_TIMEOUT,
         )
         if r.status_code == 200:
-            return r.json().get("monthly", [])
-        log.warning(f"get_client_monthly {client_id} -> {r.status_code}")
+            monthly = r.json().get("monthly", [])
+            if monthly:
+                return monthly
+        else:
+            log.warning(f"get_client_monthly {client_id} -> {r.status_code}")
     except Exception as e:
         log.warning(f"get_client_monthly {client_id} failed: {e}")
+
+    # AGH can't attribute per-client stats for traffic proxied through the
+    # gated DoH endpoint (nginx strips the client_id before forwarding).
+    # Fall back to the nginx-log-based tally for those clients instead of
+    # silently showing 0.
+    try:
+        with open(DOH_STATS_PATH) as f:
+            doh_total = json.load(f).get(client_id)
+        if doh_total:
+            return [{"month": "All time (DoH)", "total": doh_total, "blocked": None}]
+    except Exception as e:
+        log.warning(f"get_client_monthly {client_id} doh fallback failed: {e}")
     return []
 
 @app.route("/dashboard/adblock")
@@ -8433,7 +8449,7 @@ def adblock_usage():
     {% for m in monthly %}
     <div class="row">
       <span>{{ m.month }}</span>
-      <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);">{{ m.total }} queries &middot; {{ m.blocked }} blocked</span>
+      <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);">{{ m.total }} queries{% if m.blocked is not none %} &middot; {{ m.blocked }} blocked{% endif %}</span>
     </div>
     {% endfor %}
     {% if not monthly %}
