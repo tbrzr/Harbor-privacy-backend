@@ -2121,6 +2121,58 @@ def adblock_checkout():
     return _adblock_cors(make_response(jsonify({"client_secret": j["client_secret"]})))
 
 
+# Harbor VPN sold as an Adblock addon. Prices not created yet (see
+# /home/ubuntu/.claude/plans/twinkling-skipping-sunrise.md Phase 6) -- set via
+# harbor-secrets once the real Stripe products exist. Entitlement itself lives
+# in harbor-vpn-portal's own harbor_vpn.vpn_customers table, checked by the
+# portal directly; this only starts the addon checkout for an existing,
+# logged-in Adblock customer.
+VPN_ADDON_PLANS = {
+    "monthly": os.environ.get("STRIPE_PRICE_VPN_ADDON_MONTHLY", ""),
+    "annual": os.environ.get("STRIPE_PRICE_VPN_ADDON_ANNUAL", ""),
+}
+
+@app.route("/api/vpn-addon-checkout", methods=["POST"])
+@login_required
+def vpn_addon_checkout():
+    customer = find_customer(request.user_email)
+    if not customer:
+        return jsonify({"error": "No active subscription"}), 400
+    secret = os.environ.get("STRIPE_SECRET", "")
+    if not secret:
+        return jsonify({"error": "billing unavailable"}), 503
+    body = request.json or {}
+    plan = (body.get("plan") or "").strip().lower()
+    price_id = VPN_ADDON_PLANS.get(plan)
+    if not price_id:
+        return jsonify({"error": "plan not available yet"}), 503
+    import requests as _req
+    form = {
+        "mode": "subscription",
+        "ui_mode": "embedded",
+        "customer_email": request.user_email,
+        "line_items[0][price]": price_id,
+        "line_items[0][quantity]": "1",
+        "return_url": "https://vpn.harborprivacy.com/?session_id={CHECKOUT_SESSION_ID}",
+        "metadata[harbor_product]": "vpn",
+        "metadata[plan_type]": "vpn-addon",
+        "metadata[email]": request.user_email,
+        "subscription_data[metadata][harbor_product]": "vpn",
+        "subscription_data[metadata][plan_type]": "vpn-addon",
+        "subscription_data[metadata][email]": request.user_email,
+    }
+    try:
+        r = _req.post("https://api.stripe.com/v1/checkout/sessions",
+                      data=form, auth=(secret, ""), timeout=20)
+        j = r.json()
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+    if r.status_code >= 400 or "client_secret" not in j:
+        msg = (j.get("error") or {}).get("message", "stripe error")
+        return jsonify({"error": msg}), 400
+    return jsonify({"client_secret": j["client_secret"]})
+
+
 @app.route("/api/decal-request", methods=["POST", "OPTIONS"])
 def decal_request():
     """Public lead form from the apex sticker shop: a business requests a free
