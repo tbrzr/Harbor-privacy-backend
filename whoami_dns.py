@@ -5,7 +5,7 @@ Handles queries for *.whoami.harborprivacy.com
 Logs the resolver IP and makes it available via API
 """
 import socket, threading, time, json, os
-from dnslib import DNSRecord, DNSHeader, RR, A, QTYPE
+from dnslib import DNSRecord, DNSHeader, RR, A, QTYPE, RCODE
 from dnslib.server import DNSServer, BaseResolver
 
 WHOAMI_ZONE = "whoami.harborprivacy.com"
@@ -35,6 +35,8 @@ class WhoamiResolver(BaseResolver):
         qname = str(request.q.qname).rstrip(".").lower()
         resolver_ip = handler.client_address[0]
         
+        reply = request.reply()
+
         # Extract token from subdomain e.g. abc123.whoami.harborprivacy.com
         if qname.endswith("." + WHOAMI_ZONE) or qname == WHOAMI_ZONE:
             parts = qname.replace("." + WHOAMI_ZONE, "").replace(WHOAMI_ZONE, "")
@@ -42,9 +44,9 @@ class WhoamiResolver(BaseResolver):
             if token:
                 save_result(token, resolver_ip)
                 print(f"DNS query: token={token} resolver={resolver_ip}")
-        
-        reply = request.reply()
-        reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A(SERVER_IP), ttl=1))
+            reply.add_answer(RR(request.q.qname, QTYPE.A, rdata=A(SERVER_IP), ttl=1))
+        else:
+            reply.header.rcode = RCODE.REFUSED
         return reply
 
 if __name__ == "__main__":
