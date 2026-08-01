@@ -434,7 +434,18 @@ def authentik_admin_required(f):
             return redirect("/dashboard")
         request.user_email = email
         request.is_admin = True
-        return f(*args, **kwargs)
+        resp = make_response(f(*args, **kwargs))
+        # Authentik's own session cookie only covers /admin and /api/admin --
+        # login_required (customer-facing routes like /dashboard?preview=1,
+        # "preview as customer") has no idea Authentik exists and checks
+        # hp_token only. Mint/refresh one here so an admin who's on this page
+        # at all (Authentik already passed) can also browse customer-facing
+        # pages, same as the old legacy-password flow used to do as a side
+        # effect before it was bypassed for admin logins.
+        token = make_token(email, is_admin=True)
+        resp.set_cookie("hp_token", token, httponly=True, secure=True,
+                         samesite="Lax", max_age=2592000, domain=".harborprivacy.com")
+        return resp
     return decorated
 
 # ════════════════════════════════════════════════════════════
@@ -944,14 +955,18 @@ def login():
             if not email:
                 error = "Please enter your email address."
                 step = "1"
+            elif email == ADMIN_EMAIL:
+                # Admin is federated to Authentik -- password and TOTP happen
+                # there (auth.harborprivacy.com), not in this legacy flow.
+                # Hand off immediately regardless of whether a leftover local
+                # password row exists, same home-realm-discovery pattern as
+                # Microsoft's login: email decides where the rest happens.
+                return redirect(nxt if nxt.startswith("/admin") else "/admin")
             else:
                 user = get_user(email)
                 if user:
                     # Has account - go to password step
                     step = "2"
-                elif email == ADMIN_EMAIL:
-                    # Admin first time setup
-                    return redirect(f"/setup?email={email}&admin=1")
                 else:
                     customer = find_customer(email)
                     if customer:
@@ -1499,7 +1514,12 @@ def dashboard():
   <div class="card">
     <div class="card-label">Harbor VPN {% if vpn_status %}<span class="badge badge-on">ACTIVE</span>{% endif %}</div>
     <p class="note" style="margin-bottom:16px;">WireGuard, OpenVPN &amp; AmneziaWG tunnels with the same DNS-layer blocking, added to any plan.</p>
-    <a href="https://vpn.harborprivacy.com" target="_blank" class="btn" style="background:transparent;border-color:var(--accent);color:var(--accent);">{% if vpn_status %}Manage Devices{% else %}Add Harbor VPN{% endif %} →</a>
+    {% if vpn_status %}
+    <a href="https://vpn.harborprivacy.com" target="_blank" class="btn" style="background:transparent;border-color:var(--accent);color:var(--accent);">Manage Devices →</a>
+    {% else %}
+    <button onclick="openVpnAddonCheckout('monthly')" class="btn" style="background:transparent;border-color:var(--accent);color:var(--accent);cursor:pointer;">Add Harbor VPN — $4.99/mo →</button>
+    <button onclick="openVpnAddonCheckout('annual')" style="background:none;border:none;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;text-decoration:underline;cursor:pointer;margin-left:10px;">or $49/yr</button>
+    {% endif %}
   </div>
 
   <div class="card">
@@ -1518,6 +1538,7 @@ def dashboard():
   </div>
 
 </div>
+""" + VPN_CHECKOUT_MODAL + """
 </html>"""
         return render_template_string(html, name=name, client_id=client_id, total=total, blocked=blocked, active="dashboard", light_theme=True, vpn_status=vpn_status)
     if plan_type == "harbor-remote-light": plan_badge = "LIGHT"
@@ -1719,7 +1740,14 @@ def dashboard():
           </div>
           <div class="toggle-desc">WireGuard, OpenVPN &amp; AmneziaWG tunnels with the same DNS-layer blocking</div>
         </div>
-        <a href="https://vpn.harborprivacy.com" target="_blank" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);border:1px solid var(--accent);padding:8px 14px;text-decoration:none;white-space:nowrap;">{% if vpn_status %}Manage Devices{% else %}Add Harbor VPN{% endif %} &#8594;</a>
+        {% if vpn_status %}
+        <a href="https://vpn.harborprivacy.com" target="_blank" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);border:1px solid var(--accent);padding:8px 14px;text-decoration:none;white-space:nowrap;">Manage Devices &#8594;</a>
+        {% else %}
+        <span style="white-space:nowrap;">
+          <button onclick="openVpnAddonCheckout('monthly')" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);background:none;border:1px solid var(--accent);padding:8px 14px;cursor:pointer;white-space:nowrap;">Add — $4.99/mo &#8594;</button>
+          <button onclick="openVpnAddonCheckout('annual')" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);background:none;border:none;text-decoration:underline;cursor:pointer;">or $49/yr</button>
+        </span>
+        {% endif %}
       </div>
 
     </div>
@@ -1914,6 +1942,7 @@ async function removeRule(rule){
   if(d.ok)location.reload();
 }
 </script>
+""" + VPN_CHECKOUT_MODAL + """
 </html>"""
     service_groups = get_all_blocked_services() if is_active else {}
     blocked_services = get_client_blocked_services(client_id) if is_active and client_id else []
@@ -2142,6 +2171,56 @@ def adblock_checkout():
     return _adblock_cors(make_response(jsonify({"client_secret": j["client_secret"]})))
 
 
+VPN_CHECKOUT_MODAL = """
+<div class="modal-overlay" id="vpnPayModal" onclick="if(event.target.id==='vpnPayModal')closeVpnAddonCheckout()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--surface,#161b22);border:1px solid var(--border,#30363d);border-radius:12px;max-width:560px;width:92%;max-height:85vh;overflow:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border,#30363d);">
+      <span style="font-family:'DM Mono',monospace;font-size:13px;letter-spacing:0.08em;color:var(--text,#e6edf3);">HARBOR VPN CHECKOUT</span>
+      <button onclick="closeVpnAddonCheckout()" aria-label="Close" style="background:none;border:none;color:var(--muted,#8b949e);font-size:18px;cursor:pointer;">&#x2715;</button>
+    </div>
+    <div style="padding:20px;">
+      <div id="vpn-pay-container"></div>
+      <p id="vpn-pay-err" style="display:none;color:#e5484d;font-family:'DM Mono',monospace;font-size:12px;margin-top:12px;"></p>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var VPN_PLAN_LABEL={monthly:'$4.99/mo',annual:'$49/yr'};
+  window.closeVpnAddonCheckout=function(){
+    document.getElementById('vpnPayModal').style.display='none';
+    document.body.style.overflow='';
+  };
+  window.openVpnAddonCheckout=function(plan){
+    var m=document.getElementById('vpnPayModal');
+    var err=document.getElementById('vpn-pay-err'); err.style.display='none';
+    var box=document.getElementById('vpn-pay-container');
+    box.innerHTML=''
+      +'<p style="font-family:\\'DM Mono\\',monospace;font-size:13px;color:var(--text,#e6edf3);margin-bottom:8px;">Add Harbor VPN &mdash; '+(VPN_PLAN_LABEL[plan]||plan)+'</p>'
+      +'<p style="font-family:\\'DM Sans\\',sans-serif;font-size:13px;color:var(--text,#e8f0ef);line-height:1.6;margin-bottom:16px;">Charged today: a prorated amount for the rest of your current billing cycle. From your next renewal on, VPN bills alongside the rest of your plan on your card on file &mdash; one subscription, one invoice.</p>'
+      +'<label style="display:block;font-family:\\'DM Mono\\',monospace;font-size:11px;color:var(--muted,#8b949e);letter-spacing:0.06em;margin-bottom:6px;">COUPON CODE (OPTIONAL)</label>'
+      +'<input id="vpn-promo-input" type="text" placeholder="e.g. HARBOR25" style="width:100%;box-sizing:border-box;background:var(--bg,#0d1117);border:1px solid var(--border,#30363d);color:var(--text,#e6edf3);font-family:\\'DM Mono\\',monospace;font-size:13px;padding:10px 12px;border-radius:6px;margin-bottom:16px;">'
+      +'<button onclick="confirmVpnAddon(\\''+plan+'\\')" style="width:100%;background:var(--accent,#00e5c0);color:#04120f;border:none;padding:12px;font-family:\\'DM Mono\\',monospace;font-size:13px;font-weight:600;letter-spacing:0.06em;border-radius:6px;cursor:pointer;">Confirm &mdash; Add VPN</button>';
+    m.style.display='flex'; document.body.style.overflow='hidden';
+  };
+  window.confirmVpnAddon=async function(plan){
+    var err=document.getElementById('vpn-pay-err'); err.style.display='none';
+    var box=document.getElementById('vpn-pay-container');
+    var promo=(document.getElementById('vpn-promo-input')||{}).value||'';
+    box.innerHTML='<p style="font-family:\\'DM Mono\\',monospace;font-size:13px;color:var(--muted,#8b949e);">Adding Harbor VPN to your plan&hellip;</p>';
+    try{
+      var r=await fetch('/api/vpn-addon-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan:plan,promo:promo})});
+      var d=await r.json();
+      if(!d.ok) throw new Error(d.error||'Could not add VPN to your plan.');
+      box.innerHTML='<p style="font-family:\\'DM Mono\\',monospace;font-size:13px;color:var(--text,#e6edf3);">Harbor VPN added to your plan. The prorated charge for the rest of this billing cycle has been applied to your card on file &mdash; it\\'ll renew with the rest of your plan from here on. <a href="https://vpn.harborprivacy.com" style="color:var(--accent,#00e5c0);">Set up your first device &rarr;</a></p>';
+    }catch(e){ box.innerHTML=''; err.textContent=(e&&e.message)||'Could not add VPN to your plan. Please try again.'; err.style.display='block'; }
+  };
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape') window.closeVpnAddonCheckout(); });
+})();
+</script>
+"""
+
+
 # Harbor VPN sold as an Adblock addon. Prices not created yet (see
 # /home/ubuntu/.claude/plans/twinkling-skipping-sunrise.md Phase 6) -- set via
 # harbor-secrets once the real Stripe products exist. Entitlement itself lives
@@ -2157,41 +2236,75 @@ VPN_ADDON_PLANS = {
 @login_required
 def vpn_addon_checkout():
     customer = find_customer(request.user_email)
-    if not customer:
+    if not customer or customer.get("status") != "active":
         return jsonify({"error": "No active subscription"}), 400
     secret = os.environ.get("STRIPE_SECRET", "")
     if not secret:
         return jsonify({"error": "billing unavailable"}), 503
     body = request.json or {}
     plan = (body.get("plan") or "").strip().lower()
+    promo = (body.get("promo") or "").strip().upper()
     price_id = VPN_ADDON_PLANS.get(plan)
     if not price_id:
         return jsonify({"error": "plan not available yet"}), 503
+    stripe_customer_id = customer.get("stripe_customer_id")
+    if not stripe_customer_id:
+        return jsonify({"error": "No billing account on file"}), 400
+
     import requests as _req
-    form = {
-        "mode": "subscription",
-        "ui_mode": "embedded",
-        "customer_email": request.user_email,
-        "line_items[0][price]": price_id,
-        "line_items[0][quantity]": "1",
-        "return_url": "https://vpn.harborprivacy.com/?session_id={CHECKOUT_SESSION_ID}",
-        "metadata[harbor_product]": "vpn",
-        "metadata[plan_type]": "vpn-addon",
-        "metadata[email]": request.user_email,
-        "subscription_data[metadata][harbor_product]": "vpn",
-        "subscription_data[metadata][plan_type]": "vpn-addon",
-        "subscription_data[metadata][email]": request.user_email,
-    }
+    # Attach VPN as a second line item on the customer's EXISTING Adblock
+    # subscription rather than starting a separate one -- same renewal date,
+    # one invoice. proration_behavior=always_invoice charges the prorated
+    # remainder of this cycle right away instead of waiting for the next
+    # regular invoice. Entitlement itself is granted by harbor-vpn-portal's
+    # webhook reacting to the resulting customer.subscription.updated event
+    # (price-ID match, not subscription-level metadata -- this subscription's
+    # metadata is still the Adblock plan's, untouched here).
     try:
-        r = _req.post("https://api.stripe.com/v1/checkout/sessions",
+        r = _req.get("https://api.stripe.com/v1/subscriptions",
+                     params={"customer": stripe_customer_id, "status": "active", "limit": 1},
+                     auth=(secret, ""), timeout=20)
+        subs = r.json().get("data", [])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 502
+    if not subs:
+        return jsonify({"error": "No active subscription to add VPN to"}), 400
+    sub = subs[0]
+    existing_items = sub.get("items", {}).get("data", [])
+    for item in existing_items:
+        if (item.get("price") or {}).get("id") == price_id:
+            return jsonify({"error": "VPN is already on your plan"}), 400
+
+    form = {"proration_behavior": "always_invoice"}
+    for i, item in enumerate(existing_items):
+        form[f"items[{i}][id]"] = item["id"]
+    form[f"items[{len(existing_items)}][price]"] = price_id
+    # Only set discounts[] if a code was actually typed -- omitting the field
+    # entirely (the no-promo case) leaves whatever discount already exists on
+    # the subscription untouched. Sending an empty/absent discounts[] here
+    # would NOT clear it either, but being explicit about only touching this
+    # when there's a real code avoids ever having to reason about that.
+    if promo:
+        try:
+            pr = _req.get("https://api.stripe.com/v1/promotion_codes",
+                          params={"code": promo, "active": "true"}, auth=(secret, ""), timeout=10)
+            matches = pr.json().get("data", [])
+        except Exception:
+            matches = []
+        if matches:
+            form["discounts[0][promotion_code]"] = matches[0]["id"]
+        else:
+            return jsonify({"error": "That coupon code isn't valid."}), 400
+    try:
+        r = _req.post(f"https://api.stripe.com/v1/subscriptions/{sub['id']}",
                       data=form, auth=(secret, ""), timeout=20)
         j = r.json()
     except Exception as e:
         return jsonify({"error": str(e)}), 502
-    if r.status_code >= 400 or "client_secret" not in j:
+    if r.status_code >= 400:
         msg = (j.get("error") or {}).get("message", "stripe error")
         return jsonify({"error": msg}), 400
-    return jsonify({"client_secret": j["client_secret"]})
+    return jsonify({"ok": True})
 
 
 @app.route("/api/decal-request", methods=["POST", "OPTIONS"])

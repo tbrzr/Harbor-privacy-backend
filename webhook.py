@@ -32,6 +32,20 @@ HARBOR_DNS_PRICE_IDS = {
     "price_1TB7VeCOrGNrBgIfmGYCyBpx",  # Harbor Remote Monthly Service (legacy price)
 }
 
+# Unambiguous price ID -> plan_type, checked before the interval-based guess
+# in the customer.subscription.updated handler below. Interval alone can't
+# tell Light-monthly apart from Remote-monthly (both interval="month",
+# interval_count=1) -- that ambiguity used to silently misclassify every
+# Light subscription as "remote" on any subscription update. Matches
+# ADBLOCK_PLANS in dashboard.py's "harbor-remote-light" plan_type string.
+PLAN_TYPE_BY_PRICE_ID = {
+    "price_1TE36NCOrGNrBgIf2T8ApaAG": "harbor-remote-light",  # Harbor Light
+    "price_1TCTlYCOrGNrBgIf4euUONmf": "remote",  # Harbor Remote monthly, archived $5.99 price
+    "price_1TxpJzCOrGNrBgIfGrU6tqzW": "remote",  # Harbor Remote monthly, current $3.99
+    "price_1TB7VeCOrGNrBgIfmGYCyBpx": "remote",  # Harbor Remote Monthly Service, legacy price
+    "price_1TenLxCOrGNrBgIfCi4l3lU3": "annual",  # Harbor Remote annual
+}
+
 def load_customers():
     try:
         with open(CUSTOMERS_LOG) as f:
@@ -1442,9 +1456,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     stripe_id = sub.get("customer", "")
                     items = sub.get("items", {}).get("data", [])
                     if items:
+                        price_id = items[0].get("price", {}).get("id", "")
                         interval = items[0].get("price", {}).get("recurring", {}).get("interval", "")
                         interval_count = items[0].get("price", {}).get("recurring", {}).get("interval_count", 1)
-                        if interval == "year":
+                        if price_id in PLAN_TYPE_BY_PRICE_ID:
+                            new_plan_type = PLAN_TYPE_BY_PRICE_ID[price_id]
+                        elif interval == "year":
                             new_plan_type = "annual"
                         elif interval == "month" and interval_count == 6:
                             new_plan_type = "6month"
