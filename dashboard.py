@@ -308,6 +308,7 @@ from harbor_lib.agh import (
     save_profile_snapshot, save_active_profile,
     set_client_blocked_services,
     add_custom_rule, get_client_rules, remove_custom_rule,
+    _doh_query_count,
 )
 from harbor_lib.config import AGH_TIMEOUT, AGH_SNAPSHOT_FILE
 
@@ -549,6 +550,8 @@ STYLE = """<!DOCTYPE html>
   .stat{background:var(--surface);padding:24px;}
   .stat-num{font-family:'DM Serif Display',serif;font-size:40px;color:var(--accent);line-height:1;margin-bottom:6px;}
   .stat-num.muted{color:var(--border);}
+  .stat-num-sm{font-size:26px;}
+  .stat-lifetime{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.05em;margin-top:4px;}
   .stat-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;}
   .toggle-row{display:flex;justify-content:space-between;align-items:center;padding:16px 0;border-bottom:1px solid var(--border);}
   .toggle-row:last-child{border-bottom:none;}
@@ -591,7 +594,7 @@ STYLE = """<!DOCTYPE html>
   .locked-text{font-size:14px;color:var(--muted);}
   .locked-text strong{color:var(--text);display:block;margin-bottom:4px;}
   .customer-grid{display:grid;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
-  .customer-row{background:var(--surface);padding:18px 24px;display:grid;grid-template-columns:1fr 140px 110px 80px 100px;gap:16px;align-items:center;transition:background 0.15s;}
+  .customer-row{background:var(--surface);padding:18px 24px;display:grid;grid-template-columns:1fr 160px 110px 80px 100px;gap:16px;align-items:center;transition:background 0.15s;}
   .customer-row:hover{background:var(--surface-2);}
   .customer-header{background:var(--bg) !important;border-bottom:1px solid var(--border);}
   @media(max-width:768px){
@@ -603,7 +606,10 @@ STYLE = """<!DOCTYPE html>
     .wrap{padding:32px 20px 60px;}
     .wrap-sm{padding:40px 20px;}
     nav{padding:14px 20px;}
-    .customer-row{grid-template-columns:1fr 80px;}
+    .customer-header{display:none;}
+    .customer-row{grid-template-columns:1fr;gap:10px;padding:20px;}
+    .customer-row > div[data-label]::before{content:attr(data-label);display:block;font-family:'DM Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:4px;}
+    .cust-cid{word-break:break-all;font-size:13px;}
   }
 </style>
 <script>
@@ -1388,13 +1394,16 @@ def dashboard():
 
     # Stats - per client
     if is_active and client_id:
-        client_stats = get_client_stats(client_id)
+        client_stats = get_client_stats_real(client_id)
         total = client_stats["total"]
         blocked = client_stats["blocked"]
         pct = client_stats["pct"]
+        blocked_month = client_stats["month_label"]
+        lifetime = client_stats["lifetime"]
         top_blocked = client_stats["top_blocked"]
     else:
-        total = blocked = pct = 0
+        total = blocked = pct = lifetime = 0
+        blocked_month = "this month"
         top_blocked = []
 
     rules = get_client_rules(client_id) if client_id else []
@@ -1477,12 +1486,13 @@ def dashboard():
   <!-- STATS -->
   <div class="stat-grid">
     <div class="stat">
-      <div class="stat-num">{{ total }}</div>
+      <div class="stat-num stat-num-sm">{{ total }}</div>
       <div class="stat-label">Queries (7 Days)</div>
+      <div class="stat-lifetime">{{ lifetime }} lifetime</div>
     </div>
     <div class="stat">
-      <div class="stat-num">{{ blocked }}</div>
-      <div class="stat-label">Blocked (7 Days)</div>
+      <div class="stat-num stat-num-sm">{{ blocked }}</div>
+      <div class="stat-label" title="Rate from {{ blocked_month }}">Blocked (7 Days)</div>
     </div>
   </div>
 
@@ -1552,7 +1562,7 @@ def dashboard():
 </div>
 """ + VPN_CHECKOUT_MODAL + """
 </html>"""
-        return render_template_string(html, name=name, client_id=client_id, total=total, blocked=blocked, active="dashboard", light_theme=True, vpn_status=vpn_status)
+        return render_template_string(html, name=name, client_id=client_id, total=total, blocked=blocked, blocked_month=blocked_month, lifetime=lifetime, active="dashboard", light_theme=True, vpn_status=vpn_status)
     if plan_type == "harbor-remote-light": plan_badge = "LIGHT"
     elif plan_type == "3month": plan_badge = "3-MONTH"
     elif plan_type == "6month": plan_badge = "6-MONTH"
@@ -1611,12 +1621,13 @@ def dashboard():
   <!-- STATS -->
   <div class="stat-grid">
     <div class="stat">
-      <div class="stat-num {% if not is_active %}muted{% endif %}">{{ total if is_active else '—' }}</div>
+      <div class="stat-num stat-num-sm {% if not is_active %}muted{% endif %}">{{ total if is_active else '—' }}</div>
       <div class="stat-label">Queries (7 Days)</div>
+      {% if is_active %}<div class="stat-lifetime">{{ lifetime }} lifetime</div>{% endif %}
     </div>
     <div class="stat">
-      <div class="stat-num {% if not is_active %}muted{% endif %}">{{ blocked if is_active else '—' }}</div>
-      <div class="stat-label">Blocked (7 Days)</div>
+      <div class="stat-num stat-num-sm {% if not is_active %}muted{% endif %}">{{ blocked if is_active else '—' }}</div>
+      <div class="stat-label" title="Rate from {{ blocked_month }}">Blocked (7 Days)</div>
     </div>
   </div>
 
@@ -1959,7 +1970,7 @@ async function removeRule(rule){
     service_groups = get_all_blocked_services() if is_active else {}
     blocked_services = get_client_blocked_services(client_id) if is_active and client_id else []
     return render_template_string(html, name=name, client_id=client_id,
-        is_active=is_active, total=total, blocked=blocked, pct=pct,
+        is_active=is_active, total=total, blocked=blocked, pct=pct, blocked_month=blocked_month, lifetime=lifetime,
         rules=rules, family_safe=family_safe, has_family=has_family, harbor_kids=harbor_kids, kids_eligible=kids_eligible, kids_profiles=get_kids_profiles(client_id),
         active_profile=customer.get("active_profile", "custom") if customer else "custom",
         user_email=email, is_trial=is_trial, plan_badge=plan_badge, has_family_badge=has_family_badge, vpn_status=vpn_status,
@@ -2045,15 +2056,15 @@ def admin():
       {% for c in customers %}
       {% set cl = clients_map.get(c.client_id, {}) %}
       <div class="customer-row" {% if c.status == 'failed' %}style="border-left:3px solid #ff4e4e;background:rgba(255,78,78,0.05);"{% endif %}>
-        <div>
+        <div data-label="Customer">
           <div class="cust-name">{{ c.name }}{% if c.status == 'failed' %} <span style="font-family:'DM Mono',monospace;font-size:10px;color:#ff4e4e;letter-spacing:0.1em;">&#9888; PROVISION FAILED</span>{% endif %}</div>
           <div class="cust-sub">{{ c.email }}</div>
           {% if c.last_seen %}<div class="cust-seen">Last seen: {{ c.last_seen[:16].replace('T',' ') }} UTC</div>{% endif %}
         </div>
-        <div class="cust-cid">{{ c.client_id }}</div>
-        <div class="cust-plan">{{ c.plan }}</div>
-        <div><span class="badge {% if cl and cl.parental_enabled %}badge-on{% else %}badge-off{% endif %}">{% if cl and cl.parental_enabled %}ON{% else %}OFF{% endif %}</span></div>
-        <div style="display:flex;gap:6px;align-items:center;">
+        <div class="cust-cid" data-label="Client ID">{{ c.client_id }}</div>
+        <div class="cust-plan" data-label="Plan">{{ c.plan }}</div>
+        <div data-label="Family"><span class="badge {% if cl and cl.parental_enabled %}badge-on{% else %}badge-off{% endif %}">{% if cl and cl.parental_enabled %}ON{% else %}OFF{% endif %}</span></div>
+        <div data-label="Actions" style="display:flex;gap:6px;align-items:center;">
           <a href="/admin/customer/{{ c.client_id }}" class="btn btn-sm view-btn">View &rarr;</a>
           {% if c.client_id not in ["harbor7066", "admintim1003"] and c.email not in ["admin@harborprivacy.com", "tim@harborprivacy.com"] %}
           <button class="cust-del" onclick="deleteCustomer('{{ c.client_id }}','{{ c.name }}',this)">&#10005;</button>
@@ -2273,6 +2284,57 @@ def _standalone_vpn_status(email):
     except Exception:
         pass
     return None
+
+
+def _adblock_vpn_item(stripe_customer_id):
+    """Looks at the customer's active Adblock Stripe subscription and
+    returns (subscription, vpn_line_item) -- vpn_line_item is None unless
+    Harbor VPN is riding on the SAME subscription as Adblock (the
+    vpn-addon-checkout path that attaches VPN as a second line item rather
+    than starting its own subscription). Distinguishing this shared case is
+    the whole reason cancellation can't just be "call Stripe delete": you
+    can cancel a shared subscription outright (kills both), but cancelling
+    just one product on it means removing one line item and leaving the
+    other, and cancelling Adblock while VPN is still attached would strand
+    the VPN line item on a subscription nothing is tracking anymore."""
+    secret = os.environ.get("STRIPE_SECRET", "")
+    if not secret or not stripe_customer_id:
+        return None, None
+    import requests as _req
+    try:
+        r = _req.get("https://api.stripe.com/v1/subscriptions",
+                     params={"customer": stripe_customer_id, "status": "active", "limit": 1},
+                     auth=(secret, ""), timeout=20)
+        subs = r.json().get("data", [])
+    except Exception:
+        return None, None
+    if not subs:
+        return None, None
+    sub = subs[0]
+    for item in sub.get("items", {}).get("data", []):
+        if (item.get("price") or {}).get("id") in VPN_ADDON_PLANS.values():
+            return sub, item
+    return sub, None
+
+
+def _vpn_internal_cancel(email, mode):
+    """Calls harbor-vpn-portal's internal cancel endpoint. mode="db_only"
+    when the caller already removed the VPN Stripe line item itself (shared
+    subscription case) and this just needs to zero out local entitlement;
+    mode="stripe" when the portal should cancel its own dedicated
+    stripe_subscription_id (safe only when VPN is NOT sharing a subscription
+    with Adblock)."""
+    import requests as _req
+    secret = os.environ.get("DASHBOARD_SECRET", "")
+    if not secret:
+        return False
+    try:
+        r = _req.post("http://127.0.0.1:8600/api/internal/vpn-cancel",
+                      json={"email": email, "mode": mode},
+                      headers={"X-Internal-Secret": secret}, timeout=10)
+        return r.status_code == 200 and r.json().get("ok", False)
+    except Exception:
+        return False
 
 
 # Harbor VPN sold as an Adblock addon. Prices not created yet (see
@@ -3024,7 +3086,7 @@ def admin_customer(client_id):
     is_active = customer.get("status", "") == "active" if customer else False
     harbor_kids = customer.get("harbor_kids", False) if customer else False
     is_founder = customer.get("is_founder", False) if customer else False
-    cstats = get_client_stats(client_id)
+    cstats = get_client_stats_real(client_id)
 
     html = STYLE + NAV_ADMIN + """
 <div class="wrap" style="max-width:720px;">
@@ -3035,9 +3097,9 @@ def admin_customer(client_id):
   </div>
 
   <div class="stat-grid" style="margin-bottom:20px;">
-    <div class="stat"><div class="stat-num">{{ cstats.total }}</div><div class="stat-label">Queries (7 Days)</div></div>
-    <div class="stat"><div class="stat-num">{{ cstats.blocked }}</div><div class="stat-label">Blocked (7 Days)</div></div>
-    <div class="stat"><div class="stat-num">{{ cstats.pct }}%</div><div class="stat-label">Network Block Rate</div></div>
+    <div class="stat"><div class="stat-num stat-num-sm">{{ cstats.total }}</div><div class="stat-label">Queries (7 Days)</div><div class="stat-lifetime">{{ cstats.lifetime }} lifetime</div></div>
+    <div class="stat"><div class="stat-num stat-num-sm">{{ cstats.blocked }}</div><div class="stat-label" title="Rate from {{ cstats.month_label }}">Blocked (7 Days)</div></div>
+    <div class="stat"><div class="stat-num stat-num-sm">{{ cstats.pct }}%</div><div class="stat-label">Network Block Rate</div></div>
   </div>
 
   <div class="card">
@@ -3415,6 +3477,18 @@ def settings():
         users[email].pop("2fa_reset", None)
         save_users(users)
 
+    adblock_active, vpn_active, vpn_shared = False, False, False
+    if not is_admin:
+        customer = find_customer(email)
+        adblock_active = bool(customer and customer.get("status") == "active")
+        vpn_shared = bool(customer and customer.get("stripe_customer_id") and
+                           _adblock_vpn_item(customer["stripe_customer_id"])[1])
+        if vpn_shared:
+            vpn_active = True
+        else:
+            _sv = _standalone_vpn_status(email)
+            vpn_active = bool(_sv and _sv.get("active"))
+
     NAV = NAV_ADMIN if is_admin else NAV_CUSTOMER
 
     html = STYLE + NAV + """
@@ -3491,6 +3565,28 @@ def settings():
   </div>
 
   <div class="card">
+    <div class="set-head"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Manage Subscription</div>
+    <p class="note" style="margin-bottom:16px;">Cancel billing without deleting your account, DNS profile, or login. {% if vpn_shared %}Harbor VPN is billed together with Adblock on one subscription, so it has to be cancelled first.{% endif %}</p>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      {% if vpn_active %}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <span style="font-family:'DM Mono',monospace;font-size:12px;">Harbor VPN <span class="badge badge-on">ACTIVE</span></span>
+        <button onclick="cancelSub('vpn')" id="cancel-vpn-btn" class="btn btn-outline" style="margin:0;">Cancel Harbor VPN</button>
+      </div>
+      {% endif %}
+      {% if adblock_active %}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <span style="font-family:'DM Mono',monospace;font-size:12px;">Adblock Plan <span class="badge badge-on">ACTIVE</span></span>
+        <button onclick="cancelSub('adblock')" id="cancel-adblock-btn" class="btn btn-outline" {% if vpn_shared %}disabled title="Cancel Harbor VPN first"{% endif %} style="margin:0;">Cancel Adblock</button>
+      </div>
+      {% endif %}
+      {% if not vpn_active and not adblock_active %}
+      <p class="note">No active subscription found.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
     <div class="set-head"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>Your Data</div>
     <p class="note" style="margin-bottom:16px;">Request a report of everything Harbor Privacy holds about you. We'll email it within 24 hours.</p>
     <div style="display:flex;gap:12px;flex-wrap:wrap;">
@@ -3529,6 +3625,27 @@ async function toggleWeeklyEmail(enabled){
   const d = await r.json();
   if(!d.ok) alert('Error updating preference');
 }
+async function cancelSub(product){
+  const labels = {vpn:'Harbor VPN', adblock:'your Adblock plan', all:'your subscription'};
+  if(!confirm('Cancel ' + labels[product] + '? You will not be billed again for it. This does not delete your account.')) return;
+  const btn = document.getElementById('cancel-' + product + '-btn');
+  const original = btn.textContent;
+  btn.textContent = '...'; btn.disabled = true;
+  try {
+    const r = await fetch('/api/account/cancel-subscription',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({product})});
+    const d = await r.json();
+    if(d.ok){
+      alert(d.message || 'Cancelled.');
+      window.location.reload();
+    } else {
+      btn.textContent = original; btn.disabled = false;
+      alert(d.error || 'Something went wrong. Contact support@harborprivacy.com');
+    }
+  } catch(e) {
+    btn.textContent = original; btn.disabled = false;
+    alert('Something went wrong. Contact support@harborprivacy.com');
+  }
+}
 async function deleteMyAccount(){
   const myEmail = {{ email|tojson }};
   const typed = prompt('This permanently deletes your Harbor Privacy account: your DNS profile, dashboard login, and account record, and cancels your subscription immediately. You will not be billed again. This cannot be undone.\\n\\nType your account email to confirm:');
@@ -3559,7 +3676,8 @@ async function deleteMyAccount(){
     user = get_user(request.user_email)
     weekly_email = user.get("weekly_email", False) if user else False
     return render_template_string(html, has_2fa=has_2fa, is_admin=is_admin, weekly_email=weekly_email,
-        msg=msg, msg_ok=msg_ok, email=email, active="settings", show_2fa_reset=show_2fa_reset, light_theme=True)
+        msg=msg, msg_ok=msg_ok, email=email, active="settings", show_2fa_reset=show_2fa_reset, light_theme=True,
+        adblock_active=adblock_active, vpn_active=vpn_active, vpn_shared=vpn_shared)
 
 @app.route("/settings/password", methods=["POST"])
 @login_required
@@ -4143,6 +4261,90 @@ def api_account_delete_self():
     resp.set_cookie("hp_token", "", expires=0, path="/")
     resp.set_cookie("hp_token", "", expires=0, path="/", domain=".harborprivacy.com")
     return resp
+
+@app.route("/api/account/cancel-subscription", methods=["POST"])
+@login_required
+def cancel_subscription():
+    """Self-service cancellation, distinct from /api/account/delete: stops
+    billing without wiping the AGH client, DNS profile, or login. Handles
+    Adblock and Harbor VPN separately because VPN bought as an addon can be
+    riding as a second line item on the SAME Stripe subscription as Adblock
+    -- see _adblock_vpn_item's docstring. In that shared case, VPN must be
+    cancelled (line item removed) before Adblock, otherwise cancelling
+    Adblock's subscription outright would take VPN down with it silently,
+    and removing Adblock's item while leaving VPN's would strand a VPN
+    entitlement with nothing left tracking or billing it."""
+    if request.is_admin:
+        return jsonify({"ok": False, "error": "Admin accounts have no billing to cancel."}), 400
+    email = request.user_email
+    customer = find_customer(email)
+    if not customer:
+        return jsonify({"ok": False, "error": "Account not found"}), 404
+    product = (request.get_json(silent=True) or {}).get("product", "")
+    if product not in ("vpn", "adblock", "all"):
+        return jsonify({"ok": False, "error": "Invalid product"}), 400
+
+    secret = os.environ.get("STRIPE_SECRET", "")
+    stripe_customer_id = customer.get("stripe_customer_id")
+    adblock_sub, vpn_item = _adblock_vpn_item(stripe_customer_id) if stripe_customer_id else (None, None)
+    standalone_active = False
+    if not vpn_item:
+        _sv = _standalone_vpn_status(email)
+        standalone_active = bool(_sv and _sv.get("active"))
+
+    import requests as _req
+
+    if product == "vpn":
+        if vpn_item:
+            try:
+                r = _req.post(f"https://api.stripe.com/v1/subscriptions/{adblock_sub['id']}",
+                             data={"items[0][id]": vpn_item["id"], "items[0][deleted]": "true",
+                                   "proration_behavior": "create_prorations"},
+                             auth=(secret, ""), timeout=20)
+                if r.status_code >= 400:
+                    return jsonify({"ok": False, "error": "Stripe error removing Harbor VPN"}), 400
+            except Exception as e:
+                return jsonify({"ok": False, "error": str(e)}), 502
+            _vpn_internal_cancel(email, "db_only")
+            return jsonify({"ok": True, "message": "Harbor VPN cancelled. Your Adblock plan is unaffected."})
+        elif standalone_active:
+            if not _vpn_internal_cancel(email, "stripe"):
+                return jsonify({"ok": False, "error": "Could not cancel Harbor VPN. Contact support@harborprivacy.com"}), 502
+            return jsonify({"ok": True, "message": "Harbor VPN subscription cancelled."})
+        else:
+            return jsonify({"ok": False, "error": "No active Harbor VPN subscription found."}), 400
+
+    if product == "adblock":
+        if vpn_item:
+            return jsonify({"ok": False, "error": "Harbor VPN is billed on the same subscription as Adblock. Cancel Harbor VPN first, then cancel Adblock."}), 400
+        if not adblock_sub:
+            return jsonify({"ok": False, "error": "No active Adblock subscription found."}), 400
+        try:
+            r = _req.delete(f"https://api.stripe.com/v1/subscriptions/{adblock_sub['id']}",
+                            auth=(secret, ""), timeout=20)
+            if r.status_code >= 400:
+                return jsonify({"ok": False, "error": "Stripe error cancelling Adblock"}), 400
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)}), 502
+        return jsonify({"ok": True, "message": "Your Adblock plan is cancelled. You will not be billed again."})
+
+    # product == "all" -- deleting a shared subscription takes VPN down with
+    # it (Stripe's deleted-subscription event still carries the full item
+    # list, which harbor-vpn-portal's own webhook already matches correctly),
+    # so only a truly separate/dedicated VPN subscription needs its own call.
+    cancelled_any = False
+    if adblock_sub:
+        try:
+            r = _req.delete(f"https://api.stripe.com/v1/subscriptions/{adblock_sub['id']}",
+                            auth=(secret, ""), timeout=20)
+            cancelled_any = r.status_code < 400
+        except Exception:
+            pass
+    if standalone_active:
+        cancelled_any = _vpn_internal_cancel(email, "stripe") or cancelled_any
+    if not cancelled_any:
+        return jsonify({"ok": False, "error": "No active subscription found to cancel."}), 400
+    return jsonify({"ok": True, "message": "Your subscription(s) are cancelled. You will not be billed again."})
 
 @app.route("/api/admin/resend-welcome", methods=["POST"])
 @authentik_admin_required
@@ -8710,6 +8912,56 @@ def get_client_monthly(client_id, months=12):
     except Exception as e:
         log.warning(f"get_client_monthly {client_id} doh fallback failed: {e}")
     return []
+
+
+def get_client_stats_real(client_id):
+    """total: AGH's own real per-client query count for its configured
+    rolling stats window (7 days), summed across every id alias this client
+    has (e.g. a re-provisioned or renamed client can be split across more
+    than one AGH id, and undercounts badly if only one alias is checked).
+
+    blocked/pct: AGH's querylog is off (the product's no-logs policy --
+    confirmed live, /control/querylog 404s), so there is no real per-client
+    blocked COUNT for that same 7-day window -- AGH's /control/stats only
+    exposes a per-client TOTAL (top_clients), nothing per-client-blocked at
+    rolling-window granularity. What IS real is a per-client block RATE
+    from HAB's persisted monthly aggregate counters. Applying that real
+    rate to the real 7-day total keeps blocked mathematically bounded by
+    total (a raw monthly blocked count doesn't belong next to a 7-day
+    total -- a full month has more queries than 7 days, so it can and does
+    exceed it) while still being a genuinely observed rate, not a
+    heuristic guess based on which toggles are enabled."""
+    client = get_client(client_id)
+    ids = client.get("ids", [client_id]) if client else [client_id]
+
+    stats = agh_get("/control/stats")
+    total = 0
+    for entry in stats.get("top_clients", []):
+        for cid in ids:
+            if cid in entry:
+                total += entry[cid]
+    if total == 0:
+        total = _doh_query_count(client_id)
+
+    per_id_monthly = {cid: get_client_monthly(cid, months=24) for cid in ids}
+    month_label = None
+    for months in per_id_monthly.values():
+        for m in months:
+            if m.get("total") and (month_label is None or m["month"] > month_label):
+                month_label = m["month"]
+    month_blocked = month_total = 0
+    if month_label:
+        for months in per_id_monthly.values():
+            for m in months:
+                if m["month"] == month_label:
+                    month_blocked += m.get("blocked") or 0
+                    month_total += m.get("total") or 0
+    pct = round(month_blocked / max(month_total, 1) * 100, 1) if month_total else 0.0
+    blocked = round(total * pct / 100)
+    lifetime = sum(m.get("total") or 0 for months in per_id_monthly.values() for m in months)
+    return {"total": total, "blocked": blocked, "pct": pct, "lifetime": lifetime,
+            "month_label": month_label or "this month", "top_blocked": []}
+
 
 @app.route("/dashboard/adblock")
 @login_required

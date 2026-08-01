@@ -576,6 +576,39 @@ def cancel_wipe(client_id):
     except Exception as e:
         log.error(f"Error cancelling wipe: {e}")
 
+def _customer_has_active_subscription(client_id):
+    """Live re-check against Stripe, called only right before a wipe
+    actually executes. Trial customers have no stripe_customer_id at all --
+    for them this returns False immediately and the trial-expiry wipe
+    proceeds as normal, untouched by this check. For a paid customer whose
+    wipe was scheduled off a subscription.deleted event, this catches the
+    case where the subscription was re-created since (an accidental
+    cancellation that got fixed, a re-subscribe, a billing retry that
+    succeeded) -- without this, a fixed cancellation still silently wipes
+    the account days later since nothing else cancels the pending wipe."""
+    if not STRIPE_SECRET:
+        return False
+    try:
+        stripe_customer_id = None
+        with open(CUSTOMERS_LOG) as f:
+            for line in f:
+                try:
+                    rec = json.loads(line.strip())
+                except Exception:
+                    continue
+                if rec.get("client_id") == client_id:
+                    stripe_customer_id = rec.get("stripe_customer_id")
+                    break
+        if not stripe_customer_id:
+            return False
+        resp = requests.get("https://api.stripe.com/v1/subscriptions",
+                             params={"customer": stripe_customer_id, "status": "active", "limit": 1},
+                             auth=(STRIPE_SECRET, ""), timeout=10)
+        return bool(resp.json().get("data"))
+    except Exception as e:
+        log.error(f"_customer_has_active_subscription error for {client_id}: {e}")
+        return False
+
 def process_pending_wipes():
     """Check pending wipes file and execute any that are due"""
     import time
@@ -589,6 +622,10 @@ def process_pending_wipes():
         executed = []
         for client_id, wipe_at in pending.items():
             if now >= wipe_at:
+                if _customer_has_active_subscription(client_id):
+                    log.info(f"Skipping scheduled wipe for {client_id} -- an active subscription exists now")
+                    executed.append(client_id)
+                    continue
                 log.info(f"Executing scheduled wipe for {client_id}")
                 wipe_customer(client_id)
                 executed.append(client_id)
@@ -600,7 +637,15 @@ def process_pending_wipes():
     except Exception as e:
         log.error(f"Error processing pending wipes: {e}")
 
-def deactivate_after_grace(client_id, delay=3600):
+# 30 days -- matches the paid-customer post-cancellation retention clock
+# already publicly committed for Harbor Scan/Help (harbor_data_retention_policy).
+# This used to be 1 hour, which is what turned an accidental Stripe
+# cancellation into a near-total-data-loss incident on 2026-08-01: barely
+# any time to notice and fix a mistake before the wipe ran. 30 days plus the
+# live re-check in process_pending_wipes() above keeps the actual deletion
+# commitment (still deletes, still prompt) while making that failure mode
+# very hard to repeat.
+def deactivate_after_grace(client_id, delay=30 * 24 * 3600):
     schedule_wipe(client_id, delay)
 
 TRIAL_EVENTS_FILE = "/var/log/harbor-trial-events.json"
@@ -1201,12 +1246,14 @@ def send_cancellation_email(email, name):
     html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
 <h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Subscription Ended</h1>
 <p>Hi {name},</p>
-<p>Your Harbor Privacy subscription has been cancelled. DNS access will be deactivated in 1 hour.</p>
+<p>Your Harbor Privacy subscription has been cancelled. You will not be charged again.</p>
+<p>DNS filtering keeps working for now. In line with our <a href="https://harborprivacy.com/privacy#retention" style="color:#1f5d6b;">published data retention policy</a>, your account and DNS profile are permanently deleted 30 days after cancellation. If this was a mistake, just resubscribe any time before then and everything picks back up automatically -- nothing else to do.</p>
 <h2 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Remove Harbor Privacy from your devices</h2>
+<p style="color:#6b7a72;font-size:13px;">If you're cancelling for good, you can remove the DNS profile now rather than waiting:</p>
 <p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">iPhone/iPad:</strong> Settings > General > VPN and Device Management > Harbor Privacy DNS > Remove Profile</p>
 <p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">Android/Pixel:</strong> Settings > Network and Internet > Private DNS > set to Off or Automatic</p>
 <p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">Other Routers:</strong> Router admin panel > DNS settings > set to Automatic > save and reboot</p>
-<p style="margin-top:16px;color:#6b7a72;">Need help? Reply to this email and I will walk you through it.</p>
+<p style="margin-top:16px;color:#6b7a72;">Need help, or didn't mean to cancel? Just reply to this email.</p>
 <p>Resubscribe at <a href="https://harborprivacy.com/pricing" style="color:#1f5d6b;">harborprivacy.com/pricing</a></p>
 <p style="border-top:1px solid #e6dfd2;padding-top:24px;color:#6b7a72;">- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
 </div>'''
@@ -1499,8 +1546,8 @@ class WebhookHandler(BaseHTTPRequestHandler):
                         log.info(f"Harbor Kids cancelled for {cid}")
                     else:
                         send_cancellation_email(customer.get("email", ""), customer.get("name", ""))
-                        deactivate_after_grace(cid, delay=3600)
-                        log.info(f"Cancellation received for {cid} - grace period 1hr")
+                        deactivate_after_grace(cid)
+                        log.info(f"Cancellation received for {cid} - grace period 30d")
 
             self.send_response(200); self.end_headers(); self.wfile.write(b"ok")
         except Exception as e:
