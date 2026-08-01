@@ -97,6 +97,21 @@ def estimate_client_pct(client, global_pct):
     return round(min(pct, 99.9), 1)
 
 
+DOH_STATS_PATH = "/home/ubuntu/harbor-shield-backend/doh_stats.json"
+
+
+def _doh_query_count(client_id):
+    """Traffic through the gated DoH proxy never reaches AGH with client
+    attribution (nginx strips the client_id before forwarding), so
+    top_clients has nothing for those customers. This reads the same
+    nginx-log-based tally that backs Harbor Shield's own query counter."""
+    try:
+        with open(DOH_STATS_PATH) as f:
+            return json.load(f).get(client_id, 0)
+    except Exception:
+        return 0
+
+
 def get_client_stats(client_id):
     try:
         stats = agh_get("/control/stats")
@@ -112,6 +127,8 @@ def get_client_stats(client_id):
         global_blocked = stats.get("num_blocked_filtering", 0) + stats.get("num_replaced_safebrowsing", 0) + stats.get("num_replaced_parental", 0)
         global_pct = round(global_blocked / max(global_total, 1) * 100, 1)
         pct = estimate_client_pct(client, global_pct)
+        if total == 0:
+            total = _doh_query_count(client_id)
         blocked = round(total * pct / 100)
         return {"total": total, "blocked": blocked, "pct": pct, "top_blocked": []}
     except Exception:
