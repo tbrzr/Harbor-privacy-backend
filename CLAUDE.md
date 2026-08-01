@@ -45,19 +45,13 @@ sudo systemctl restart brazer-dashboard
 sudo systemctl restart nginx
 ```
 
-Brazer dashboard is NOT managed by systemd — it runs as a background process:
-```bash
-kill $(ps aux | grep brazer-dashboard | grep python | awk '{print $2}') 2>/dev/null
-sleep 1 && /home/ubuntu/harbor-booking/venv/bin/python3 /home/ubuntu/brazer-dashboard.py > /tmp/brazer.log 2>&1 &
-```
-
 ## Credentials & Env Vars
 
 Stored in systemd override files, not in code:
 - `/etc/systemd/system/harbor-dashboard.service.d/override.conf`
 - `/etc/systemd/system/harbor-webhook.service`
 
-AGH credentials: `admin` / `Harbor2026!` (also in override.conf as `ADGUARD_PASS`)
+AGH credentials: see harbor-vault (vault.harborprivacy.com) — never store live credentials in this file.
 
 ## AGH Stats
 

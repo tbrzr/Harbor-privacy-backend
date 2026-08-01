@@ -773,6 +773,12 @@ def unsubscribe():
 
 
 NAV_CUSTOMER = """
+{% if request.cookies.get('hp_view_as') %}
+<div style="position:sticky;top:0;z-index:10000;background:#a64a40;color:#ffffff;padding:10px 24px;display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.03em;">
+  <span>Viewing as {{ request.cookies.get('hp_view_as') }}</span>
+  <a href="/admin/exit-view-as" style="color:#ffffff;text-decoration:underline;font-weight:600;">Return to Admin Dashboard</a>
+</div>
+{% endif %}
 <div id="timeout-warning" style="display:none;position:fixed;bottom:24px;right:24px;background:#f4eee2;border:1px solid #1f5d6b;padding:20px 24px;z-index:9999;font-family:monospace;font-size:12px;color:#1a2420;flex-direction:column;gap:12px;max-width:300px;"><span>You will be logged out in 5 minutes due to inactivity.</span><button onclick="resetTimer()" style="background:#1f5d6b;color:#ffffff;border:none;padding:8px 16px;cursor:pointer;font-family:monospace;font-size:11px;">Stay Logged In</button></div>
 <nav style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 24px;border-bottom:1px solid var(--border);">
   <div style="display:flex;align-items:center;gap:20px;min-width:0;">
@@ -1404,6 +1410,12 @@ def dashboard():
     # when a VPN addon subscription activates. Not the entitlement source of
     # truth -- vpn.harborprivacy.com's own vpn_customers table is.
     vpn_status = customer.get("vpn_status", False) if customer else False
+    if customer and not vpn_status:
+        # Not on their Adblock record -- check for a standalone VPN
+        # subscription bought before they ever had an Adblock account.
+        _sv = _standalone_vpn_status(email)
+        if _sv and _sv.get("active"):
+            vpn_status = True
     personal_promo_code = None
 
     # Trial expired (day 31) — force upgrade before showing any account data.
@@ -1515,7 +1527,7 @@ def dashboard():
     <div class="card-label">Harbor VPN {% if vpn_status %}<span class="badge badge-on">ACTIVE</span>{% endif %}</div>
     <p class="note" style="margin-bottom:16px;">WireGuard, OpenVPN &amp; AmneziaWG tunnels with the same DNS-layer blocking, added to any plan.</p>
     {% if vpn_status %}
-    <a href="https://vpn.harborprivacy.com" target="_blank" class="btn" style="background:transparent;border-color:var(--accent);color:var(--accent);">Manage Devices →</a>
+    <a href="/vpn-sso" target="_blank" class="btn" style="background:transparent;border-color:var(--accent);color:var(--accent);">Manage Devices →</a>
     {% else %}
     <button onclick="openVpnAddonCheckout('monthly')" class="btn" style="background:transparent;border-color:var(--accent);color:var(--accent);cursor:pointer;">Add Harbor VPN — $4.99/mo →</button>
     <button onclick="openVpnAddonCheckout('annual')" style="background:none;border:none;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;text-decoration:underline;cursor:pointer;margin-left:10px;">or $49/yr</button>
@@ -1741,7 +1753,7 @@ def dashboard():
           <div class="toggle-desc">WireGuard, OpenVPN &amp; AmneziaWG tunnels with the same DNS-layer blocking</div>
         </div>
         {% if vpn_status %}
-        <a href="https://vpn.harborprivacy.com" target="_blank" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);border:1px solid var(--accent);padding:8px 14px;text-decoration:none;white-space:nowrap;">Manage Devices &#8594;</a>
+        <a href="/vpn-sso" target="_blank" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);border:1px solid var(--accent);padding:8px 14px;text-decoration:none;white-space:nowrap;">Manage Devices &#8594;</a>
         {% else %}
         <span style="white-space:nowrap;">
           <button onclick="openVpnAddonCheckout('monthly')" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);background:none;border:1px solid var(--accent);padding:8px 14px;cursor:pointer;white-space:nowrap;">Add — $4.99/mo &#8594;</button>
@@ -2184,9 +2196,17 @@ VPN_CHECKOUT_MODAL = """
     </div>
   </div>
 </div>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 <script>
 (function(){
   var VPN_PLAN_LABEL={monthly:'$4.99/mo',annual:'$49/yr'};
+  var tsWidgetId=null;
+  function renderVpnTurnstile(tries){
+    tries=tries||0;
+    if(!document.getElementById('vpn-ts-widget')) return;
+    if(!window.turnstile){ if(tries<30) setTimeout(function(){renderVpnTurnstile(tries+1);},150); return; }
+    tsWidgetId=turnstile.render('#vpn-ts-widget',{sitekey:'0x4AAAAAADMxTv4Gen_OFaKO'});
+  }
   window.closeVpnAddonCheckout=function(){
     document.getElementById('vpnPayModal').style.display='none';
     document.body.style.overflow='';
@@ -2195,30 +2215,64 @@ VPN_CHECKOUT_MODAL = """
     var m=document.getElementById('vpnPayModal');
     var err=document.getElementById('vpn-pay-err'); err.style.display='none';
     var box=document.getElementById('vpn-pay-container');
+    tsWidgetId=null;
     box.innerHTML=''
       +'<p style="font-family:\\'DM Mono\\',monospace;font-size:13px;color:var(--text,#e6edf3);margin-bottom:8px;">Add Harbor VPN &mdash; '+(VPN_PLAN_LABEL[plan]||plan)+'</p>'
       +'<p style="font-family:\\'DM Sans\\',sans-serif;font-size:13px;color:var(--text,#e8f0ef);line-height:1.6;margin-bottom:16px;">Charged today: a prorated amount for the rest of your current billing cycle. From your next renewal on, VPN bills alongside the rest of your plan on your card on file &mdash; one subscription, one invoice.</p>'
       +'<label style="display:block;font-family:\\'DM Mono\\',monospace;font-size:11px;color:var(--muted,#8b949e);letter-spacing:0.06em;margin-bottom:6px;">COUPON CODE (OPTIONAL)</label>'
       +'<input id="vpn-promo-input" type="text" placeholder="e.g. HARBOR25" style="width:100%;box-sizing:border-box;background:var(--bg,#0d1117);border:1px solid var(--border,#30363d);color:var(--text,#e6edf3);font-family:\\'DM Mono\\',monospace;font-size:13px;padding:10px 12px;border-radius:6px;margin-bottom:16px;">'
+      +'<label style="display:flex;align-items:flex-start;justify-content:flex-start;width:100%;box-sizing:border-box;text-align:left;gap:8px;font-family:\\'DM Sans\\',sans-serif;font-size:12px;color:var(--text,#e8f0ef);line-height:1.5;margin-bottom:16px;cursor:pointer;"><input id="vpn-agree-check" type="checkbox" style="flex:0 0 auto;width:16px;height:16px;margin:2px 0 0 0;"><span style="flex:1 1 auto;">I agree to the <a href="https://harborprivacy.com/terms" target="_blank" rel="noopener" style="color:var(--accent,#00e5c0);">Terms of Service</a>, <a href="https://harborprivacy.com/privacy" target="_blank" rel="noopener" style="color:var(--accent,#00e5c0);">Privacy Policy</a>, and <a href="https://harborprivacy.com/nologs" target="_blank" rel="noopener" style="color:var(--accent,#00e5c0);">No-Logs Policy</a>.</span></label>'
+      +'<div id="vpn-ts-widget" style="margin-bottom:16px;"></div>'
       +'<button onclick="confirmVpnAddon(\\''+plan+'\\')" style="width:100%;background:var(--accent,#00e5c0);color:#04120f;border:none;padding:12px;font-family:\\'DM Mono\\',monospace;font-size:13px;font-weight:600;letter-spacing:0.06em;border-radius:6px;cursor:pointer;">Confirm &mdash; Add VPN</button>';
     m.style.display='flex'; document.body.style.overflow='hidden';
+    renderVpnTurnstile();
   };
   window.confirmVpnAddon=async function(plan){
     var err=document.getElementById('vpn-pay-err'); err.style.display='none';
     var box=document.getElementById('vpn-pay-container');
     var promo=(document.getElementById('vpn-promo-input')||{}).value||'';
+    var agreed=(document.getElementById('vpn-agree-check')||{}).checked;
+    if(!agreed){ err.textContent='You must agree to the Terms of Service, Privacy Policy, and No-Logs Policy.'; err.style.display='block'; return; }
+    var tsToken=(window.turnstile && tsWidgetId!==null) ? turnstile.getResponse(tsWidgetId) : '';
+    if(!tsToken){ err.textContent='Please complete the CAPTCHA.'; err.style.display='block'; return; }
     box.innerHTML='<p style="font-family:\\'DM Mono\\',monospace;font-size:13px;color:var(--muted,#8b949e);">Adding Harbor VPN to your plan&hellip;</p>';
     try{
-      var r=await fetch('/api/vpn-addon-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan:plan,promo:promo})});
+      var r=await fetch('/api/vpn-addon-checkout',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan:plan,promo:promo,agree_terms:true,cf_turnstile_response:tsToken})});
       var d=await r.json();
       if(!d.ok) throw new Error(d.error||'Could not add VPN to your plan.');
-      box.innerHTML='<p style="font-family:\\'DM Mono\\',monospace;font-size:13px;color:var(--text,#e6edf3);">Harbor VPN added to your plan. The prorated charge for the rest of this billing cycle has been applied to your card on file &mdash; it\\'ll renew with the rest of your plan from here on. <a href="https://vpn.harborprivacy.com" style="color:var(--accent,#00e5c0);">Set up your first device &rarr;</a></p>';
+      if(d.checkout_url){ window.location.href=d.checkout_url; return; }
+      box.innerHTML='<p style="font-family:\\'DM Mono\\',monospace;font-size:13px;color:var(--text,#e6edf3);">Harbor VPN added to your plan. The prorated charge for the rest of this billing cycle has been applied to your card on file &mdash; it\\'ll renew with the rest of your plan from here on. <a href="/vpn-sso" style="color:var(--accent,#00e5c0);">Set up your first device &rarr;</a></p>';
     }catch(e){ box.innerHTML=''; err.textContent=(e&&e.message)||'Could not add VPN to your plan. Please try again.'; err.style.display='block'; }
   };
   document.addEventListener('keydown',function(e){ if(e.key==='Escape') window.closeVpnAddonCheckout(); });
 })();
 </script>
 """
+
+
+def _standalone_vpn_status(email):
+    """Live check against harbor-vpn-portal for an existing standalone VPN
+    entitlement under this email. Covers the customer who bought VPN
+    standalone BEFORE they ever had an Adblock account -- vpn_status on their
+    Adblock record is only ever written by the addon-checkout webhook path,
+    so it stays stale/False for them until something asks the portal
+    directly. Internal-only call over loopback, shared-secret authed (same
+    DASHBOARD_SECRET both services already have). Fails closed (None) on any
+    error -- callers should treat that the same as "no standalone VPN found"
+    rather than block on it."""
+    import requests as _req
+    secret = os.environ.get("DASHBOARD_SECRET", "")
+    if not secret:
+        return None
+    try:
+        r = _req.get("http://127.0.0.1:8600/api/internal/vpn-status",
+                     params={"email": email},
+                     headers={"X-Internal-Secret": secret}, timeout=3)
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        pass
+    return None
 
 
 # Harbor VPN sold as an Adblock addon. Prices not created yet (see
@@ -2244,14 +2298,66 @@ def vpn_addon_checkout():
     body = request.json or {}
     plan = (body.get("plan") or "").strip().lower()
     promo = (body.get("promo") or "").strip().upper()
+    if not body.get("agree_terms"):
+        return jsonify({"error": "You must agree to the Terms of Service, Privacy Policy, and No-Logs Policy."}), 400
+    ts_token = body.get("cf_turnstile_response", "")
+    ip = request.headers.get("X-Real-IP", request.remote_addr or "")
+    if not _verify_turnstile(ts_token, ip):
+        return jsonify({"error": "CAPTCHA verification failed. Please try again."}), 400
+    _sv = _standalone_vpn_status(request.user_email)
+    if _sv and _sv.get("active"):
+        return jsonify({"error": "You already have an active Harbor VPN subscription. Manage it at vpn.harborprivacy.com instead of adding a second one."}), 400
     price_id = VPN_ADDON_PLANS.get(plan)
     if not price_id:
         return jsonify({"error": "plan not available yet"}), 503
-    stripe_customer_id = customer.get("stripe_customer_id")
-    if not stripe_customer_id:
-        return jsonify({"error": "No billing account on file"}), 400
 
     import requests as _req
+    stripe_customer_id = customer.get("stripe_customer_id")
+    if not stripe_customer_id:
+        # Trial customers (and any other active customer with no Stripe
+        # record yet) have no existing subscription to attach a line item
+        # to. Start a standalone VPN subscription instead -- runs alongside
+        # the trial on its own invoice. harbor-vpn-portal's webhook grants
+        # vpn_status the same way either path (price-ID match), so no
+        # webhook changes needed for this branch.
+        form = {
+            "mode": "subscription",
+            "customer_email": request.user_email,
+            "line_items[0][price]": price_id,
+            "line_items[0][quantity]": "1",
+            "success_url": "https://dashboard.harborprivacy.com/dashboard?vpn=success",
+            "cancel_url": "https://dashboard.harborprivacy.com/dashboard",
+            "metadata[harbor_product]": "vpn",
+            "metadata[plan_type]": "vpn-addon",
+            "metadata[email]": request.user_email,
+            "subscription_data[metadata][harbor_product]": "vpn",
+            "subscription_data[metadata][plan_type]": "vpn-addon",
+            "subscription_data[metadata][email]": request.user_email,
+        }
+        if promo:
+            try:
+                pr = _req.get("https://api.stripe.com/v1/promotion_codes",
+                              params={"code": promo, "active": "true"}, auth=(secret, ""), timeout=10)
+                matches = pr.json().get("data", [])
+            except Exception:
+                matches = []
+            if matches:
+                form["discounts[0][promotion_code]"] = matches[0]["id"]
+            else:
+                return jsonify({"error": "That coupon code isn't valid."}), 400
+        else:
+            form["allow_promotion_codes"] = "true"
+        try:
+            r = _req.post("https://api.stripe.com/v1/checkout/sessions",
+                          data=form, auth=(secret, ""), timeout=20)
+            j = r.json()
+        except Exception as e:
+            return jsonify({"error": str(e)}), 502
+        if r.status_code >= 400 or "url" not in j:
+            msg = (j.get("error") or {}).get("message", "stripe error")
+            return jsonify({"error": msg}), 400
+        return jsonify({"ok": True, "checkout_url": j["url"]})
+
     # Attach VPN as a second line item on the customer's EXISTING Adblock
     # subscription rather than starting a separate one -- same renewal date,
     # one invoice. proration_behavior=always_invoice charges the prorated
@@ -2305,6 +2411,38 @@ def vpn_addon_checkout():
         msg = (j.get("error") or {}).get("message", "stripe error")
         return jsonify({"error": msg}), 400
     return jsonify({"ok": True})
+
+
+@app.route("/sso")
+def sso():
+    # Inbound counterpart to vpn_sso() below -- lets vpn.harborprivacy.com
+    # hand an authed customer back into the dashboard when the shared
+    # hp_token cookie doesn't cross storage contexts (PWA vs regular browser).
+    token = request.args.get("t", "")
+    payload = verify_token(token)
+    if not payload or not payload.get("email"):
+        return redirect("/login")
+    email = payload["email"].strip().lower()
+    resp = make_response(redirect("/dashboard"))
+    resp.set_cookie("hp_token", "", expires=0, path="/")
+    resp.set_cookie("hp_token", "", expires=0, path="/", domain=".harborprivacy.com")
+    resp.set_cookie("hp_token", make_token(email, is_admin=payload.get("admin", False)),
+                     httponly=True, secure=True, samesite="Lax", max_age=86400, domain=".harborprivacy.com")
+    return resp
+
+
+@app.route("/vpn-sso")
+@login_required
+def vpn_sso():
+    # Bridges an authed dashboard session into vpn.harborprivacy.com. The
+    # shared hp_token cookie is set on domain=".harborprivacy.com", which
+    # normally covers every subdomain in one browser -- but a customer using
+    # the dashboard as an installed PWA and vpn.harborprivacy.com in their
+    # regular browser (or vice versa) gets two separate cookie jars on iOS,
+    # so the cookie alone doesn't cross. A short-lived token in the URL does,
+    # regardless of which storage context it lands in.
+    token = make_token(request.user_email, is_admin=request.is_admin)
+    return redirect(f"https://vpn.harborprivacy.com/sso?t={token}")
 
 
 @app.route("/api/decal-request", methods=["POST", "OPTIONS"])
@@ -2957,6 +3095,7 @@ def admin_customer(client_id):
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
       <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;">Update Email</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a href="/admin/customer/{{ customer.client_id }}/view-as" target="_blank" class="btn btn-sm" style="background:transparent;border-color:var(--accent);color:var(--accent);text-decoration:none;">View as Customer &rarr;</a>
         <button onclick="resendWelcome('{{ customer.client_id }}')" class="btn btn-sm" style="background:transparent;border-color:var(--accent);color:var(--accent);">Resend Welcome</button>
         <button onclick="sendReferral('{{ customer.client_id }}')" class="btn btn-sm" style="background:transparent;border-color:var(--accent);color:var(--accent);">Send Referral Link</button>
         {% if customer.is_trial %}
@@ -3212,6 +3351,48 @@ async function removeRule(rule){
         rules=rules, family_safe=family_safe, harbor_kids=harbor_kids, kids_profiles=get_kids_profiles(client_id), cstats=cstats,
         service_groups=service_groups, blocked_services=blocked_services,
         code_valid=code_valid, active="admin")
+
+
+@app.route("/admin/customer/<client_id>/view-as")
+def admin_view_as(client_id):
+    # Deliberately NOT @authentik_admin_required: that decorator re-stamps an
+    # ADMIN hp_token on every response after the view returns (so admins keep
+    # customer-page access after Authentik alone), which clobbered the
+    # customer cookie this route sets before the browser ever saw it --
+    # /dashboard would see is_admin=True and bounce straight back to /admin.
+    # nginx's auth_request already gates all of /admin/* on Authentik, so
+    # checking the header directly here (same trust model, no decorator
+    # side effects) is enough.
+    admin_email = request.headers.get("X-authentik-email", "").strip()
+    if not admin_email:
+        return redirect("/dashboard")
+    customers = load_customers()
+    customer = next((c for c in customers if c.get("client_id") == client_id), None)
+    if not customer:
+        return redirect("/admin")
+    email = customer.get("email", "")
+    print(f"admin_view_as: {admin_email} viewing as {email} ({client_id})", flush=True)
+    token = make_token(email, is_admin=False)
+    resp = make_response(redirect("/dashboard"))
+    resp.set_cookie("hp_token", "", expires=0, path="/")
+    resp.set_cookie("hp_token", "", expires=0, path="/", domain=".harborprivacy.com")
+    resp.set_cookie("hp_token", token, httponly=True, secure=True,
+                     samesite="Lax", max_age=86400, domain=".harborprivacy.com")
+    # Marker only (not trusted for auth) -- domain-wide so the red banner also
+    # shows on vpn.harborprivacy.com when this session follows /vpn-sso there.
+    resp.set_cookie("hp_view_as", email, httponly=True, secure=True,
+                     samesite="Lax", max_age=86400, domain=".harborprivacy.com")
+    return resp
+
+
+@app.route("/admin/exit-view-as")
+def admin_exit_view_as():
+    # Visiting /admin re-mints a real admin hp_token via authentik_admin_required
+    # (as long as the Authentik session is still live) -- this just drops the
+    # marker cookie so the red banner clears too.
+    resp = make_response(redirect("/admin"))
+    resp.set_cookie("hp_view_as", "", expires=0, path="/", domain=".harborprivacy.com")
+    return resp
 
 # ════════════════════════════════════════════════════════════
 # SECTION 13 — ROUTES: SETTINGS
