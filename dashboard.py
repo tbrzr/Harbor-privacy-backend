@@ -546,8 +546,14 @@ STYLE = """<!DOCTYPE html>
   .btn-danger{background:var(--danger);}
   .btn-danger:hover{background:#ff6b6b;}
   .btn-disabled{background:var(--border);color:var(--muted);cursor:not-allowed;pointer-events:none;}
-  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px;box-shadow:var(--shadow);}
-  .stat{background:var(--surface);padding:24px;}
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px;box-shadow:var(--shadow);position:relative;}
+  .stat{background:var(--surface);padding:24px;position:relative;}
+  .stat-refresh-row{display:flex;justify-content:flex-end;margin-bottom:8px;}
+  .stat-refresh{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 12px;cursor:pointer;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.05em;}
+  .stat-refresh:hover{border-color:var(--accent);color:var(--accent);}
+  .stat-refresh svg{width:13px;height:13px;flex:none;}
+  .stat-refresh.spinning svg{animation:stat-spin 0.7s linear infinite;}
+  @keyframes stat-spin{to{transform:rotate(360deg);}}
   .stat-num{font-family:'DM Serif Display',serif;font-size:40px;color:var(--accent);line-height:1;margin-bottom:6px;}
   .stat-num.muted{color:var(--border);}
   .stat-num-sm{font-size:26px;}
@@ -633,6 +639,16 @@ STYLE = """<!DOCTYPE html>
   };
 })();
 function toggleGroup(btn){var body=btn.nextElementSibling;var arrow=btn.querySelector('.group-arrow');if(body.style.display==='none'){body.style.display='block';arrow.innerHTML='&#9650;';}else{body.style.display='none';arrow.innerHTML='&#9660;';}}
+function refreshStats(url,btn){
+  if(btn) btn.classList.add('spinning');
+  fetch(url).then(function(r){return r.json();}).then(function(d){
+    var t=document.getElementById('stat-total'); if(t) t.textContent=d.total;
+    var b=document.getElementById('stat-blocked'); if(b) b.textContent=d.blocked;
+    var l=document.getElementById('stat-lifetime'); if(l) l.textContent=d.lifetime+' lifetime';
+    var p=document.getElementById('stat-pct'); if(p) p.textContent=d.pct+'%';
+    var bl=document.getElementById('stat-blocked-label'); if(bl) bl.title='Rate from '+d.month_label;
+  }).catch(function(){}).finally(function(){if(btn) btn.classList.remove('spinning');});
+}
 var TIMEOUT=30*60*1000,WARNING=25*60*1000,timer,warnTimer,warned=false;
 // Skip the inactivity auto-logout for admin in installed PWAs; a parked app
 // icon would otherwise always reopen on the login page.
@@ -1484,15 +1500,18 @@ def dashboard():
   </div>
 
   <!-- STATS -->
+  <div class="stat-refresh-row">
+    <button class="stat-refresh" onclick="refreshStats('/api/client-stats',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Refresh</button>
+  </div>
   <div class="stat-grid">
     <div class="stat">
-      <div class="stat-num stat-num-sm">{{ total }}</div>
+      <div class="stat-num stat-num-sm" id="stat-total">{{ total }}</div>
       <div class="stat-label">Queries (7 Days)</div>
-      <div class="stat-lifetime">{{ lifetime }} lifetime</div>
+      <div class="stat-lifetime" id="stat-lifetime">{{ lifetime }} lifetime</div>
     </div>
     <div class="stat">
-      <div class="stat-num stat-num-sm">{{ blocked }}</div>
-      <div class="stat-label" title="Rate from {{ blocked_month }}">Blocked (7 Days)</div>
+      <div class="stat-num stat-num-sm" id="stat-blocked">{{ blocked }}</div>
+      <div class="stat-label" id="stat-blocked-label" title="Rate from {{ blocked_month }}">Blocked (7 Days)</div>
     </div>
   </div>
 
@@ -1619,15 +1638,20 @@ def dashboard():
   {% endif %}
 
   <!-- STATS -->
+  {% if is_active %}
+  <div class="stat-refresh-row">
+    <button class="stat-refresh" onclick="refreshStats('/api/client-stats',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Refresh</button>
+  </div>
+  {% endif %}
   <div class="stat-grid">
     <div class="stat">
-      <div class="stat-num stat-num-sm {% if not is_active %}muted{% endif %}">{{ total if is_active else '—' }}</div>
+      <div class="stat-num stat-num-sm {% if not is_active %}muted{% endif %}" id="stat-total">{{ total if is_active else '—' }}</div>
       <div class="stat-label">Queries (7 Days)</div>
-      {% if is_active %}<div class="stat-lifetime">{{ lifetime }} lifetime</div>{% endif %}
+      {% if is_active %}<div class="stat-lifetime" id="stat-lifetime">{{ lifetime }} lifetime</div>{% endif %}
     </div>
     <div class="stat">
-      <div class="stat-num stat-num-sm {% if not is_active %}muted{% endif %}">{{ blocked if is_active else '—' }}</div>
-      <div class="stat-label" title="Rate from {{ blocked_month }}">Blocked (7 Days)</div>
+      <div class="stat-num stat-num-sm {% if not is_active %}muted{% endif %}" id="stat-blocked">{{ blocked if is_active else '—' }}</div>
+      <div class="stat-label" id="stat-blocked-label" title="Rate from {{ blocked_month }}">Blocked (7 Days)</div>
     </div>
   </div>
 
@@ -3096,10 +3120,13 @@ def admin_customer(client_id):
     <p class="note" style="margin-top:8px;">{{ customer.email }} &nbsp;&middot;&nbsp; {{ customer.plan }} &nbsp;&middot;&nbsp; ID: {{ client_id }}</p>
   </div>
 
+  <div class="stat-refresh-row">
+    <button class="stat-refresh" onclick="refreshStats('/api/admin/client-stats/{{ client_id }}',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Refresh</button>
+  </div>
   <div class="stat-grid" style="margin-bottom:20px;">
-    <div class="stat"><div class="stat-num stat-num-sm">{{ cstats.total }}</div><div class="stat-label">Queries (7 Days)</div><div class="stat-lifetime">{{ cstats.lifetime }} lifetime</div></div>
-    <div class="stat"><div class="stat-num stat-num-sm">{{ cstats.blocked }}</div><div class="stat-label" title="Rate from {{ cstats.month_label }}">Blocked (7 Days)</div></div>
-    <div class="stat"><div class="stat-num stat-num-sm">{{ cstats.pct }}%</div><div class="stat-label">Network Block Rate</div></div>
+    <div class="stat"><div class="stat-num stat-num-sm" id="stat-total">{{ cstats.total }}</div><div class="stat-label">Queries (7 Days)</div><div class="stat-lifetime" id="stat-lifetime">{{ cstats.lifetime }} lifetime</div></div>
+    <div class="stat"><div class="stat-num stat-num-sm" id="stat-blocked">{{ cstats.blocked }}</div><div class="stat-label" id="stat-blocked-label" title="Rate from {{ cstats.month_label }}">Blocked (7 Days)</div></div>
+    <div class="stat"><div class="stat-num stat-num-sm" id="stat-pct">{{ cstats.pct }}%</div><div class="stat-label">Network Block Rate</div></div>
   </div>
 
   <div class="card">
@@ -8961,6 +8988,21 @@ def get_client_stats_real(client_id):
     lifetime = sum(m.get("total") or 0 for months in per_id_monthly.values() for m in months)
     return {"total": total, "blocked": blocked, "pct": pct, "lifetime": lifetime,
             "month_label": month_label or "this month", "top_blocked": []}
+
+
+@app.route("/api/client-stats")
+@login_required
+def api_client_stats():
+    customer = find_customer(request.user_email)
+    if not customer or not customer.get("client_id"):
+        return jsonify({"total": 0, "blocked": 0, "pct": 0, "lifetime": 0, "month_label": "this month"})
+    return jsonify(get_client_stats_real(customer["client_id"]))
+
+
+@app.route("/api/admin/client-stats/<client_id>")
+@authentik_admin_required
+def api_admin_client_stats(client_id):
+    return jsonify(get_client_stats_real(client_id))
 
 
 @app.route("/dashboard/adblock")
