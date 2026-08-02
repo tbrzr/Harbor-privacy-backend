@@ -839,8 +839,9 @@ NAV_ADMIN = """
     <a href="/leads" class="{{ 'active' if active == 'leads' else '' }}">Leads</a>
     <a href="/linkedin" class="{{ 'active' if active == 'linkedin' else '' }}">LinkedIn</a>
     <div class="nav-drop">
-      <a href="#" onclick="this.parentNode.classList.toggle('open');return false;" class="{% if active in ('links','analytics','logs','scan','etsy','marketing') %}active{% endif %}">Tools &#9662;</a>
+      <a href="#" onclick="this.parentNode.classList.toggle('open');return false;" class="{% if active in ('links','analytics','logs','scan','etsy','marketing','kpi') %}active{% endif %}">Tools &#9662;</a>
       <div class="nav-drop-menu">
+        <a href="/admin/kpi" class="{{ 'active' if active == 'kpi' else '' }}">Business Pulse</a>
         <a href="/admin/links" class="{{ 'active' if active == 'links' else '' }}">Link Manager</a>
         <a href="/etsy" class="{{ 'active' if active == 'etsy' else '' }}">Etsy Listings</a>
         <a href="/admin/analytics" class="{{ 'active' if active == 'analytics' else '' }}">DNS Analytics</a>
