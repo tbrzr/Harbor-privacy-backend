@@ -2010,6 +2010,21 @@ async function removeRule(rule){
 # CRITICAL: plan_type before harbor_kids in admin_customer too
 # ════════════════════════════════════════════════════════════
 
+KPI_REPORT_PATH = "/home/ubuntu/harbor-backend/kpi_report.html"
+
+@app.route("/admin/kpi")
+@authentik_admin_required
+def admin_kpi():
+    try:
+        with open(KPI_REPORT_PATH) as f:
+            html = f.read()
+    except FileNotFoundError:
+        return "KPI report hasn't run yet -- check kpi-report-refresh.py / cron.", 503
+    resp = make_response(html)
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
+
+
 @app.route("/admin")
 @authentik_admin_required
 def admin():
