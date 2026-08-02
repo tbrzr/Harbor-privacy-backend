@@ -318,7 +318,7 @@ from harbor_lib.config import AGH_TIMEOUT, AGH_SNAPSHOT_FILE
 # Uses JWT signed with SECRET_KEY, session cookie + bearer
 # ════════════════════════════════════════════════════════════
 
-from harbor_lib.auth import make_token, verify_token
+from harbor_lib.auth import make_token, verify_token, make_sso_token, verify_sso_token
 
 def _setup_token_for(email):
     """Stateless HMAC setup token bound to a customer record.
@@ -2515,14 +2515,33 @@ def vpn_addon_checkout():
     return jsonify({"ok": True})
 
 
+# Single-process app (see systemd unit -- no gunicorn/multiple workers), so
+# an in-memory set is a valid single-use guard for inbound SSO handoff
+# tokens. Bounded by the 2-minute token TTL: entries past their own exp are
+# swept on each check rather than growing forever.
+_sso_jti_seen = {}
+
+
+def _sso_jti_consume(jti, exp):
+    now = _time.time()
+    for k in [k for k, v in _sso_jti_seen.items() if v < now]:
+        _sso_jti_seen.pop(k, None)
+    if jti in _sso_jti_seen:
+        return False
+    _sso_jti_seen[jti] = exp
+    return True
+
+
 @app.route("/sso")
 def sso():
     # Inbound counterpart to vpn_sso() below -- lets vpn.harborprivacy.com
     # hand an authed customer back into the dashboard when the shared
     # hp_token cookie doesn't cross storage contexts (PWA vs regular browser).
+    # Verifies a short-lived, single-use "sso" token, not an ordinary
+    # session token -- see make_sso_token's docstring.
     token = request.args.get("t", "")
-    payload = verify_token(token)
-    if not payload or not payload.get("email"):
+    payload = verify_sso_token(token)
+    if not payload or not payload.get("email") or not _sso_jti_consume(payload["jti"], payload["exp"]):
         return redirect("/login")
     email = payload["email"].strip().lower()
     resp = make_response(redirect("/dashboard"))
@@ -2541,9 +2560,11 @@ def vpn_sso():
     # normally covers every subdomain in one browser -- but a customer using
     # the dashboard as an installed PWA and vpn.harborprivacy.com in their
     # regular browser (or vice versa) gets two separate cookie jars on iOS,
-    # so the cookie alone doesn't cross. A short-lived token in the URL does,
-    # regardless of which storage context it lands in.
-    token = make_token(request.user_email, is_admin=request.is_admin)
+    # so the cookie alone doesn't cross. A short-lived, single-use token in
+    # the URL does, regardless of which storage context it lands in -- and
+    # unlike a real session token, one leaked into an nginx access log is
+    # worthless within minutes of being issued.
+    token = make_sso_token(request.user_email, is_admin=request.is_admin)
     return redirect(f"https://vpn.harborprivacy.com/sso?t={token}")
 
 
