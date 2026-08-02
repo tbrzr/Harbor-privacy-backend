@@ -2011,7 +2011,7 @@ async function removeRule(rule){
 # CRITICAL: plan_type before harbor_kids in admin_customer too
 # ════════════════════════════════════════════════════════════
 
-KPI_REPORT_PATH = "/home/ubuntu/harbor-backend/kpi_report.html"
+KPI_REPORT_PATH = "/home/ubuntu/harbor-kpi-data/kpi_report.html"
 
 @app.route("/admin/kpi")
 @authentik_admin_required
