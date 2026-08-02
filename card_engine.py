@@ -643,6 +643,75 @@ def render(stem, *, brand="harbor", headline="", subhead="", eyebrow="", url="",
     return pngp
 
 
+# ── hook_reveal_fix format: dark bold-caps slides ─────────────────────────────
+# Deliberately its own template, not drawn from build_svg's rotation, so the
+# format reads as visually distinct in-feed (bold sans caps vs the serif house
+# style used everywhere else).
+def _shout_wrap(text, fs):
+    # Bold ALL-CAPS DM Sans runs much wider per character than mixed-case body
+    # text (no ascender/descender variance, every glyph is a wide capital) --
+    # measured empirically after real renders clipped the canvas edge at the
+    # old 0.62 factor. 0.80 plus a narrower usable-width budget leaves a real
+    # right margin instead of running text to the edge.
+    cpl = max(6, int(800 / (fs * 0.80)))
+    return textwrap.wrap((text or "").strip().upper(), width=cpl)
+
+def _shout_lines(text, x, y, fs, lh, max_lines, fill=BG, anchor="start", weight="800"):
+    lines = _shout_wrap(text, fs)
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+        lines[-1] = lines[-1].rstrip(".,;: ") + "…"
+    svg = "".join(f'<text x="{x}" y="{y+i*lh}" font-family="DM Sans, sans-serif" font-size="{fs}" '
+                  f'font-weight="{weight}" fill="{fill}" text-anchor="{anchor}" letter-spacing="1">{html.escape(l)}</text>'
+                  for i, l in enumerate(lines))
+    return svg, len(lines)
+
+def layout_shout(text, eyebrow, url, *, kind="hook"):
+    """Dark bg, bold ALL-CAPS sans, one big text block. kind='cta' adds a down
+    arrow pointing at the comments, per the hook_reveal_fix CTA slide spec.
+    Picks the largest font size whose FULL text fits within the vertical budget
+    with no truncation -- long reveal text gets smaller type instead of an
+    ellipsis, so the whole line always lands in the one slide."""
+    # (font size, max lines) tiers, largest first. CTA reserves extra room below
+    # the text for the "see the fix" label + arrow, so its tiers hold less text
+    # at each size than hook/reveal, which use the full slide height.
+    tiers = [(92, 5), (74, 6), (60, 7), (50, 9)] if kind == "cta" else \
+            [(92, 7), (74, 9), (60, 11), (50, 13)]
+    fs, max_lines = tiers[-1]
+    for cand_fs, cand_max in tiers:
+        if len(_shout_wrap(text, cand_fs)) <= cand_max:
+            fs, max_lines = cand_fs, cand_max
+            break
+    lh = int(fs * 1.14)
+    body_svg, n = _shout_lines(text, 80, 420, fs, lh, max_lines)
+    deco = _eyebrow(80, 220, eyebrow, fill=SAGE)
+    foot = (f'<text x="80" y="{H-70}" font-family="DM Mono, monospace" font-size="24" fill="{SAGE}" '
+            f'letter-spacing="2">{html.escape(url)}</text>')
+    arrow = ""
+    if kind == "cta":
+        ay = 420 + n*lh + 70
+        label = (f'<text x="{W//2}" y="{ay-14}" font-family="DM Mono, monospace" font-size="26" '
+                 f'fill="{SAGE}" letter-spacing="4" text-anchor="middle">SEE THE FIX IN COMMENTS</text>')
+        arrow = (label +
+                 f'<path d="M{W//2} {ay} v90 M{W//2-26} {ay+58} l26 32 l26 -32" '
+                 f'stroke="{SAGE}" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>')
+    return _base_color(DARK, deco + body_svg + arrow + foot, grid=SAGE, grid_op=0.06) + "</svg>"
+
+def render_hrf_slides(stem, *, brand="harbor", hook="", reveal="", cta="", eyebrow="", url="", out_dir):
+    """Render the 3 slides of the hook_reveal_fix format to <out_dir>/<stem>-1.png
+    (hook), -2.png (reveal), -3.png (CTA). Returns the list of png Paths."""
+    out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
+    paths = []
+    for i, (text, kind) in enumerate([(hook, "hook"), (reveal, "reveal"), (cta, "cta")], start=1):
+        svg = layout_shout(text, eyebrow, url, kind=kind)
+        svgp = out / f"{stem}-{i}.svg"; pngp = out / f"{stem}-{i}.png"
+        svgp.write_text(svg)
+        subprocess.run(["rsvg-convert","-w",str(W),"-h",str(H),str(svgp),"-o",str(pngp)],
+                       check=True, timeout=40)
+        paths.append(pngp)
+    return paths
+
+
 if __name__ == "__main__":
     import sys
     d = sys.argv[1] if len(sys.argv) > 1 else "/tmp"

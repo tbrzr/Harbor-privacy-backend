@@ -5040,6 +5040,10 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
         <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="2.2"/><line x1="7" y1="3" x2="7" y2="21"/><line x1="17" y1="3" x2="17" y2="21"/><polygon points="11,9 15,12 11,15"/></svg>
         Cards reel
       </button>
+      <button class="btn alt" onclick="genHrf(this)" title="Auto-generate a hook/reveal/CTA carousel from a random privacy tip, fix steps and subscribe CTA as two pinned comments">
+        <svg viewBox="0 0 24 24"><path d="M12 3v14"/><path d="M6 11l6 6 6-6"/><rect x="4" y="19" width="16" height="2" rx="1"/></svg>
+        Hook-Reveal-Fix
+      </button>
     </div>
   </div>
   <a class="btn alt" href="/social/pages">Apex pages</a>
@@ -5098,6 +5102,15 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
 <script>
 var CSRF="{{ csrf_token }}";
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},1800);}
+async function genHrf(b){
+  var label=b.textContent.trim(); b.disabled=true; b.textContent='Generating...';
+  try{
+    var r=await fetch('/api/social/generate-hrf-auto',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({})});
+    var j=await r.json();
+    if(j.ok){toast('Added to review queue'); setTimeout(function(){location.reload();},900);}
+    else{toast(j.error||'Generation failed'); b.disabled=false; b.textContent=label;}
+  }catch(e){toast('Generation failed'); b.disabled=false; b.textContent=label;}
+}
 // render scheduled times in the viewer's local timezone
 document.querySelectorAll('#schedq [data-when]').forEach(function(el){
   var ep=parseInt(el.dataset.when,10);
@@ -5333,11 +5346,66 @@ def _post_fb_comment(post_id, message):
         log.error("FB first-comment failed for %s: %s", post_id, e)
 
 
+def _fb_carousel_upload(pid, n):
+    """Upload the n local hook_reveal_fix slide PNGs as unpublished FB photos.
+    Returns their photo ids (for attached_media) or None on any failure."""
+    import requests as _req
+    ids = []
+    for i in range(1, n + 1):
+        img = f"{SOCIAL_PUBLIC_BASE}/{pid}-{i}.png"
+        try:
+            r = _req.post(f"https://graph.facebook.com/v21.0/{META_PAGE_ID}/photos",
+                          data={"url": img, "published": "false", "access_token": META_PAGE_TOKEN},
+                          timeout=40).json()
+        except Exception as e:
+            log.error("FB carousel upload failed for %s slide %d: %s", pid, i, e)
+            return None
+        if not r.get("id"):
+            log.error("FB carousel upload failed for %s slide %d: %s", pid, i, r.get("error", {}))
+            return None
+        ids.append(r["id"])
+    return ids
+
+
+def _publish_fb_hrf(pid, entry):
+    """Publish a hook_reveal_fix entry: the 3 slides as one FB carousel post,
+    then the fix-steps comment and the subscribe comment, in that order (the
+    fix comment is the format's actual value, so it goes first)."""
+    import time as _time, json as _json, requests as _req
+    if not (META_PAGE_ID and META_PAGE_TOKEN):
+        return False, "Facebook Page not configured"
+    photo_ids = _fb_carousel_upload(pid, 3)
+    if not photo_ids:
+        return False, "could not upload carousel slides"
+    data = {"message": entry.get("body", ""), "access_token": META_PAGE_TOKEN}
+    for i, mid in enumerate(photo_ids):
+        data[f"attached_media[{i}]"] = _json.dumps({"media_fbid": mid})
+    try:
+        r = _req.post(f"https://graph.facebook.com/v21.0/{META_PAGE_ID}/feed", data=data, timeout=40).json()
+    except Exception as e:
+        return False, f"request failed: {e}"
+    if not r.get("id"):
+        return False, (r.get("error", {}) or {}).get("message", "carousel publish failed")
+    post_id = r["id"]
+    posted = _load_posted()
+    posted[pid] = int(_time.time())
+    _save_posted(posted)
+    fix_steps = entry.get("fix_steps") or []
+    if fix_steps:
+        _post_fb_comment(post_id, "The fix:\n\n" + "\n\n".join(fix_steps))
+    sub = (entry.get("subscribe_comment") or "").strip()
+    if sub:
+        _post_fb_comment(post_id, sub)
+    return True, post_id
+
+
 def _publish_fb(pid, entry):
     """Publish an entry's image + caption to the FB Page. Returns (ok, msg) where
     msg is the post id on success or an error string. Marks posted on success.
     Shared by the one-tap route and the scheduler runner."""
     import time as _time, requests as _req, pathlib
+    if entry.get("source") == "hrf":
+        return _publish_fb_hrf(pid, entry)
     if not (META_PAGE_ID and META_PAGE_TOKEN):
         return False, "Facebook Page not configured"
     if not (pathlib.Path("/home/ubuntu/harbor-design-system/assets/social") / f"{pid}.png").exists():
@@ -5710,11 +5778,99 @@ def _ig_caption(body):
     return _IG_URL_RE.sub("Link in bio \U0001F517", body).strip()
 
 
+def _post_ig_comment(media_id, message):
+    """Add a comment to a published IG media object. Best-effort, non-fatal,
+    mirrors _post_fb_comment. Instagram has no public API for pinning a comment
+    (that's manual, in-app only) -- these just post in order."""
+    import requests as _req
+    if not (media_id and message and META_PAGE_TOKEN):
+        return
+    try:
+        r = _req.post(f"https://graph.facebook.com/v21.0/{media_id}/comments",
+                      data={"message": message, "access_token": META_PAGE_TOKEN}, timeout=20)
+        j = r.json()
+        if r.status_code != 200 or "error" in j:
+            log.error("IG comment failed for %s: %s", media_id, j.get("error", {}))
+    except Exception as e:
+        log.error("IG comment failed for %s: %s", media_id, e)
+
+
+def _ig_carousel_children(pid, n):
+    """Create n IG carousel-item media containers from the local hrf slide JPEGs.
+    Returns their container ids, or None on any failure."""
+    import requests as _req
+    base = f"https://graph.facebook.com/v21.0/{META_IG_ID}"
+    children = []
+    for i in range(1, n + 1):
+        jpg = _ensure_jpeg(f"{pid}-{i}")
+        if not jpg:
+            return None
+        try:
+            c = _req.post(f"{base}/media",
+                          data={"image_url": jpg, "is_carousel_item": "true", "access_token": META_PAGE_TOKEN},
+                          timeout=60).json()
+        except Exception as e:
+            log.error("IG carousel child failed for %s slide %d: %s", pid, i, e)
+            return None
+        if not c.get("id"):
+            log.error("IG carousel child failed for %s slide %d: %s", pid, i, c.get("error", {}))
+            return None
+        children.append(c["id"])
+    return children
+
+
+def _publish_ig_hrf(pid, entry):
+    """Publish a hook_reveal_fix entry as an IG carousel post, then the fix-steps
+    comment and the subscribe comment, in that order."""
+    import time as _time, requests as _req
+    if not (META_IG_ID and META_PAGE_TOKEN):
+        return False, "Instagram not configured"
+    base = f"https://graph.facebook.com/v21.0/{META_IG_ID}"
+    children = _ig_carousel_children(pid, 3)
+    if not children:
+        return False, "could not build carousel slides"
+    caption = _ig_caption(entry.get("body", ""))
+    try:
+        c = _req.post(f"{base}/media", data={"media_type": "CAROUSEL", "children": ",".join(children),
+                      "caption": caption, "access_token": META_PAGE_TOKEN}, timeout=60).json()
+    except Exception as e:
+        return False, f"request failed: {e}"
+    cid = c.get("id")
+    if not cid:
+        return False, (c.get("error", {}) or {}).get("message", "carousel container failed")
+    status = ""
+    for _ in range(15):
+        s = _req.get(f"https://graph.facebook.com/v21.0/{cid}",
+                     params={"fields": "status_code", "access_token": META_PAGE_TOKEN}, timeout=30).json()
+        status = s.get("status_code", "")
+        if status in ("FINISHED", "ERROR", "EXPIRED"):
+            break
+        _time.sleep(2)
+    if status != "FINISHED":
+        return False, f"media not ready (status {status or 'unknown'})"
+    p = _req.post(f"{base}/media_publish",
+                  data={"creation_id": cid, "access_token": META_PAGE_TOKEN}, timeout=60).json()
+    if not p.get("id"):
+        return False, (p.get("error", {}) or {}).get("message", "publish failed")
+    posted = _load_posted()
+    posted[pid] = int(_time.time())
+    _save_posted(posted)
+    fix_steps = entry.get("fix_steps") or []
+    if fix_steps:
+        _post_ig_comment(p["id"], "The fix:\n\n" + "\n\n".join(fix_steps))
+    sub = (entry.get("subscribe_comment") or "").strip()
+    if sub:
+        _post_ig_comment(p["id"], sub)
+    return True, p["id"]
+
+
 def _publish_ig(pid, entry):
     """Publish an entry to the linked Instagram Business account. Returns (ok, msg)
     where msg is the IG post id on success or an error string. Marks posted on
     success. Shared by the one-tap route and the scheduler runner."""
     import time as _time, requests as _req
+    if entry.get("source") == "hrf":
+        return _publish_ig_hrf(pid, entry)
     if not (META_IG_ID and META_PAGE_TOKEN):
         return False, "Instagram not configured"
     base = f"https://graph.facebook.com/v21.0/{META_IG_ID}"
@@ -6305,6 +6461,223 @@ def social_generate_cards_reel():
     return jsonify({"ok": True, "id": parts[1] if len(parts) > 1 else ""})
 
 
+HRF_BRAND_URL = {
+    "harbor": "harborprivacy.com", "career": "harborprivacy.com/career",
+    "fax": "harborprivacy.com/fax", "booking": "harborprivacy.com/booking",
+    "money": "harborprivacy.com/money", "scan": "scan.harborprivacy.com",
+    "burn": "burn.harborprivacy.com",
+}
+
+def _hrf_quality_ok(hook, reveal, fix_steps, caption):
+    """House rules for the hook_reveal_fix format. Only the mechanically
+    checkable half of the ACCURACY RULE lives here (the banned false-consent
+    framing named in the spec) -- whether the underlying claim is literally
+    true is Tim's judgment call when he writes hook_text/reveal_text, not
+    something code can verify."""
+    if not hook or len(hook) > 90:
+        return "hook_text missing or too long"
+    if not reveal or len(reveal) > 200:
+        return "reveal_text missing or too long"
+    if not fix_steps:
+        return "fix_steps must have at least one step"
+    blob = f"{hook} {reveal} {caption}".lower()
+    if "—" in blob:
+        return "em dash"
+    for phrase in ("without your consent", "without your permission", "without you knowing"):
+        if phrase in blob:
+            return (f'banned phrase "{phrase}" -- per the accuracy rule, prefer '
+                    f'"you may have turned this on and forgotten" framing unless the '
+                    f'feature truly requires no opt-in')
+    return None
+
+
+def _hrf_create_entry(brand, hook, reveal, cta, fix_steps, subscribe_comment, caption):
+    """Render the 3 slides and append a pending hook_reveal_fix manifest entry.
+    Shared by the manual-input route and the auto-generate route. Returns the
+    new entry's id."""
+    import time as _time, json as _json, tempfile as _tf, shutil as _sh, card_engine
+    url = HRF_BRAND_URL[brand]
+    ts = int(_time.time())
+    stem = f"hrf-{brand}-{ts}"
+    social_dir = "/home/ubuntu/harbor-design-system/assets/social"
+    card_engine.render_hrf_slides(stem, brand=brand, hook=hook, reveal=reveal, cta=cta,
+                                  eyebrow="HARBOR / PRIVACY", url=url, out_dir=social_dir)
+    # /social/img/<id> (the review-queue thumbnail) looks for a bare <id>.png,
+    # same convention every other post type uses. render_hrf_slides only
+    # writes the suffixed -1/-2/-3 slides, so mirror the hook slide to the
+    # bare filename as the thumbnail.
+    _sh.copyfile(f"{social_dir}/{stem}-1.png", f"{social_dir}/{stem}.png")
+    asset_base = "https://assets.harborprivacy.com/raw/social"
+    entry = {
+        "id": stem, "category": "Hook-Reveal-Fix", "source": "hrf", "brand": brand,
+        "created": ts, "head": hook,
+        "hdr": f"HOOK-REVEAL-FIX / {hook} -> {url}",
+        "img": f"{asset_base}/{stem}-1.png",
+        "images": [f"{asset_base}/{stem}-{i}.png" for i in (1, 2, 3)],
+        "link": f"https://{url}", "tags": "lightbulb,shield",
+        "body": caption, "fix_steps": fix_steps, "subscribe_comment": subscribe_comment,
+        "status": "pending",  # new format, always lands in review, never autoposts
+    }
+    try:
+        with open(SOCIAL_MANIFEST) as _f:
+            man = _json.load(_f)
+    except Exception:
+        man = {"version": 1, "entries": []}
+    man.setdefault("entries", []).append(entry)
+    fd, tmp = _tf.mkstemp(dir=os.path.dirname(SOCIAL_MANIFEST), prefix=".manifest-", suffix=".tmp")
+    with os.fdopen(fd, "w") as _f:
+        _json.dump(man, _f, indent=2, ensure_ascii=False)
+    os.replace(tmp, SOCIAL_MANIFEST)
+    return stem
+
+
+@app.route("/api/social/generate-hrf", methods=["POST"])
+@authentik_admin_required
+def social_generate_hrf():
+    """Create a hook_reveal_fix post from manually-supplied text. Land in the
+    review queue as one FB/IG carousel entry. On approve, _publish_fb/_publish_ig
+    post the carousel then two comments: the fix steps (the format's actual
+    value), then the subscribe CTA, in that order."""
+    d = request.json or {}
+    brand = d.get("brand") or "harbor"
+    if brand not in HRF_BRAND_URL:
+        return jsonify({"ok": False, "error": "unknown brand"}), 400
+    hook = (d.get("hook_text") or "").strip()
+    reveal = (d.get("reveal_text") or "").strip()
+    cta = (d.get("cta_text") or "Here's how to check and turn it off").strip()
+    fix_steps = [s.strip() for s in (d.get("fix_steps") or []) if isinstance(s, str) and s.strip()]
+    subscribe_comment = (d.get("subscribe_comment") or "").strip()
+    caption = (d.get("caption") or hook).strip()
+    why = _hrf_quality_ok(hook, reveal, fix_steps, caption)
+    if why:
+        return jsonify({"ok": False, "error": why}), 400
+    try:
+        stem = _hrf_create_entry(brand, hook, reveal, cta, fix_steps, subscribe_comment, caption)
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"card render failed: {e}"}), 500
+    return jsonify({"ok": True, "id": stem})
+
+
+# Tip topics the auto-generator draws from -- Harbor's own curated, verified
+# tip bank (tip-bank.json "harbor" + "tips" keys), the same source social-refresh.py
+# uses for the regular post rotation. Reusing it means every hook_reveal_fix claim
+# traces back to a real, checked setting instead of the model inventing one.
+def _hrf_tip_pool():
+    import json as _json
+    try:
+        bank = _json.load(open("/home/ubuntu/tip-bank.json"))
+    except Exception:
+        return []
+    return (bank.get("harbor") or []) + (bank.get("tips") or [])
+
+
+def _hrf_pick_seed(man):
+    pool = _hrf_tip_pool()
+    if not pool:
+        return None
+    used = set(man.get("used_hrf_seeds", []))
+    fresh = [s for s in pool if s.get("id") not in used]
+    if not fresh:                       # cycle once every tip has been used
+        used = set()
+        fresh = pool
+    import random as _random
+    seed = _random.choice(fresh)
+    used.add(seed.get("id"))
+    man["used_hrf_seeds"] = sorted(used)
+    return seed
+
+
+def _hrf_draft_from_seed(idea):
+    """Ask Claude to expand one verified tip-bank idea into the hook_reveal_fix
+    shape. Mirrors ai_post() in social-refresh.py: same model, same plain/no-hype
+    voice, but a 3-slide + fix-steps + subscribe-comment JSON shape instead of a
+    single card. The ACCURACY RULE's banned false-consent phrasing is enforced
+    afterward by _hrf_quality_ok, not trusted from the model."""
+    import json as _json, requests as _req
+    key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not key:
+        return None
+    prompt = f"""You write the "hook, reveal, fix" format for Harbor Privacy's social posts.
+Base it on this verified tip, keep every concrete detail (settings, menu names, numbers) exactly
+as given, do not invent anything beyond it: {idea}
+
+Voice: plain, direct, no hype, no em dashes, no emoji.
+
+Return ONLY a JSON object with these keys:
+  "hook": the hook slide, max 90 chars, states the problem in a way that stops a scroller,
+          ends on a cliffhanger with NO resolution. If the tip describes a feature that is on
+          by default, say so plainly (e.g. "your TV is already doing this"); if it is opt-in,
+          say "you may have turned this on" -- never claim something happens without consent
+          when it does not.
+  "reveal": 1-2 sentences explaining the mechanism/why, same voice, max 200 chars
+  "cta": CTA slide text, e.g. "Here's how to check and turn it off"
+  "fix_steps": array of 2-5 short plain-text steps, ONE action per step, using the exact
+               menu names from the tip
+  "subscribe_comment": one short line inviting a follow for more tips like this, no links
+  "caption": one short teaser sentence for the post caption (not the full tip, just a hook)"""
+    body = _json.dumps({"model": "claude-sonnet-4-6", "max_tokens": 500,
+                        "messages": [{"role": "user", "content": prompt}]}).encode()
+    try:
+        r = _req.post("https://api.anthropic.com/v1/messages", data=body, timeout=40,
+                      headers={"x-api-key": key, "anthropic-version": "2023-06-01",
+                               "content-type": "application/json"})
+        rj = r.json()
+        txt = rj["content"][0]["text"].strip()
+        txt = txt[txt.find("{"): txt.rfind("}") + 1]
+        return _json.loads(txt)
+    except Exception as e:
+        print(f"generate-hrf-auto: draft failed: {e!r}", flush=True)
+        return None
+
+
+@app.route("/api/social/generate-hrf-auto", methods=["POST"])
+@authentik_admin_required
+def social_generate_hrf_auto():
+    """One-click hook_reveal_fix: pick an unused tip from the curated bank
+    (rotates through all platforms -- TVs, phones, browsers, routers, accounts,
+    not just one topic), have Claude expand it into the 3-slide + fix-steps +
+    subscribe-comment shape, quality-gate it, and drop it in the review queue."""
+    import json as _json
+    try:
+        with open(SOCIAL_MANIFEST) as _f:
+            man = _json.load(_f)
+    except Exception:
+        man = {"version": 1, "entries": []}
+    seed = _hrf_pick_seed(man)
+    if not seed:
+        return jsonify({"ok": False, "error": "tip bank is empty or unreadable"}), 500
+    draft, why = None, "no draft produced"
+    for _attempt in range(3):
+        cand = _hrf_draft_from_seed(seed["idea"])
+        if not cand:
+            why = "draft generation failed"
+            continue
+        hook = (cand.get("hook") or "").strip()
+        reveal = (cand.get("reveal") or "").strip()
+        cta = (cand.get("cta") or "Here's how to check and turn it off").strip()
+        fix_steps = [s.strip() for s in (cand.get("fix_steps") or []) if isinstance(s, str) and s.strip()]
+        subscribe_comment = (cand.get("subscribe_comment") or "").strip()
+        caption = (cand.get("caption") or hook).strip()
+        why = _hrf_quality_ok(hook, reveal, fix_steps, caption)
+        if why is None:
+            draft = (hook, reveal, cta, fix_steps, subscribe_comment, caption)
+            break
+    if not draft:
+        return jsonify({"ok": False, "error": why}), 502
+    # Persist used_hrf_seeds now that a draft cleared quality gate for this seed;
+    # _hrf_create_entry does its own separate atomic write of the entry itself.
+    import tempfile as _tf
+    fd, tmp = _tf.mkstemp(dir=os.path.dirname(SOCIAL_MANIFEST), prefix=".manifest-", suffix=".tmp")
+    with os.fdopen(fd, "w") as _f:
+        _json.dump(man, _f, indent=2, ensure_ascii=False)
+    os.replace(tmp, SOCIAL_MANIFEST)
+    try:
+        stem = _hrf_create_entry("harbor", *draft)
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"card render failed: {e}"}), 500
+    return jsonify({"ok": True, "id": stem})
+
+
 # ════════════════════════════════════════════════════════════
 # LinkedIn personal-post generator
 # Drafts a post (hook -> take -> tie-back -> question) for a chosen persona.
@@ -6690,6 +7063,29 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
   </div>
 </div>
 
+{% if e.source == 'hrf' %}
+<div class="card">
+  <div class="eyebrow" style="margin-bottom:8px;">Reveal + CTA slides (post 2 and 3 of the carousel)</div>
+  <div class="row" style="gap:10px;">
+    <img class="preview" src="/social/img/{{ e.id }}?slide=2" alt="Reveal slide" style="width:50%;">
+    <img class="preview" src="/social/img/{{ e.id }}?slide=3" alt="CTA slide" style="width:50%;">
+  </div>
+</div>
+<div class="card">
+  <div class="eyebrow" style="margin-bottom:8px;">Pinned comment 1: the fix (posts automatically on approve)</div>
+  <textarea readonly style="min-height:140px;">The fix:
+
+{{ e.fix_steps|join('\n\n') }}</textarea>
+</div>
+{% if e.subscribe_comment %}
+<div class="card">
+  <div class="eyebrow" style="margin-bottom:8px;">Pinned comment 2: subscribe CTA</div>
+  <textarea readonly style="min-height:60px;">{{ e.subscribe_comment }}</textarea>
+</div>
+{% endif %}
+<div class="eyebrow" style="margin:-8px 0 14px;">Neither Facebook nor Instagram lets an app pin a comment -- these two post in order (fix first) but you'll need to tap Pin yourself in the app if you want the badge.</div>
+{% endif %}
+
 {% if e.source == 'reel' %}
 <div class="card">
   <div class="eyebrow" style="margin-bottom:8px;">Reel video</div>
@@ -6939,8 +7335,9 @@ def social_post_img(post_id):
     if not entry:
         return "not found", 404
     sq = bool(request.args.get("sq"))
-    suffix = "-sq" if sq else ""
-    remote = (entry.get("img_square") if sq else entry.get("img")) or ""
+    slide = request.args.get("slide", "")
+    suffix = f"-{slide}" if slide.isdigit() else ("-sq" if sq else "")
+    remote = "" if slide else ((entry.get("img_square") if sq else entry.get("img")) or "")
     local = pathlib.Path("/home/ubuntu/harbor-design-system/assets/social") / (post_id + suffix + ".png")
     if local.exists():
         return send_file(str(local), mimetype="image/png")
