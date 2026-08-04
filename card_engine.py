@@ -695,6 +695,17 @@ def layout_shout(text, eyebrow, url, *, kind="hook"):
         arrow = (label +
                  f'<path d="M{W//2} {ay} v90 M{W//2-26} {ay+58} l26 32 l26 -32" '
                  f'stroke="{SAGE}" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>')
+    elif kind in ("hook", "reveal"):
+        # Carousel has more slides after this one -- IG/FB give no built-in
+        # swipe affordance on static images, so bottom-right "SWIPE" + chevron
+        # is the de facto standard (same spot Instagram itself uses for its
+        # own multi-image indicator).
+        ax, ay = W - 80, H - 70
+        label = (f'<text x="{ax-46}" y="{ay-8}" font-family="DM Mono, monospace" font-size="22" '
+                 f'fill="{SAGE}" letter-spacing="3" text-anchor="end">SWIPE</text>')
+        arrow = (label +
+                 f'<path d="M{ax-40} {ay-18} h56 M{ax-2} {ay-40} l26 22 l-26 22" '
+                 f'stroke="{SAGE}" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>')
     return _base_color(DARK, deco + body_svg + arrow + foot, grid=SAGE, grid_op=0.06) + "</svg>"
 
 def render_hrf_slides(stem, *, brand="harbor", hook="", reveal="", cta="", eyebrow="", url="", out_dir):
