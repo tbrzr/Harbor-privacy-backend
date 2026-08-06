@@ -396,6 +396,11 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated
 
+def is_light_theme():
+    # Admin sidebar theme toggle sets this cookie client-side (hp-sidebar
+    # JS in NAV_ADMIN); pages render server-side so we read it per-request.
+    return request.cookies.get("hp_theme") == "light"
+
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -494,7 +499,7 @@ STYLE = """<!DOCTYPE html>
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>{% block title %}Harbor Privacy Dashboard{% endblock %}</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
 <style>
   :root{--bg:#0a0e0f;--surface:#111618;--surface-2:#151c1e;--border:#1e2a2d;--border-soft:#192325;--accent:#00e5c0;--accent-dim:rgba(0,229,192,0.10);--text:#e8f0ef;--muted:#6b8a87;--danger:#ff4e4e;--radius:14px;--radius-sm:10px;--shadow:0 1px 2px rgba(0,0,0,0.3),0 10px 28px -14px rgba(0,0,0,0.55);}
   /* Cream/gold theme matching breach.harborprivacy.com, opt-in per page via
@@ -505,7 +510,7 @@ STYLE = """<!DOCTYPE html>
   html.light .btn{color:#ffffff;}
   html.light .card{background:linear-gradient(180deg,var(--surface),var(--surface-2));}
   *{margin:0;padding:0;box-sizing:border-box;}
-  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-weight:300;line-height:1.7;min-height:100vh;}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-weight:400;line-height:1.65;min-height:100vh;}
   body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:60px 60px;opacity:0.3;pointer-events:none;z-index:0;}
   nav{padding:14px 32px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:28px;position:sticky;top:0;z-index:10;background:linear-gradient(180deg,#111618 0%,#0c1213 100%);backdrop-filter:saturate(140%) blur(4px);}
   .logo{font-family:'DM Mono',monospace;font-size:14px;color:var(--accent);letter-spacing:0.1em;text-decoration:none;white-space:nowrap;flex-shrink:0;}
@@ -546,8 +551,9 @@ STYLE = """<!DOCTYPE html>
   .btn-danger{background:var(--danger);}
   .btn-danger:hover{background:#ff6b6b;}
   .btn-disabled{background:var(--border);color:var(--muted);cursor:not-allowed;pointer-events:none;}
-  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px;box-shadow:var(--shadow);position:relative;}
-  .stat{background:var(--surface);padding:24px;position:relative;}
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow);position:relative;transition:border-color 0.15s;}
+  .stat:hover{border-color:var(--accent);}
   .stat-refresh-row{display:flex;justify-content:flex-end;margin-bottom:8px;}
   .stat-refresh{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 12px;cursor:pointer;color:var(--text);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.05em;}
   .stat-refresh:hover{border-color:var(--accent);color:var(--accent);}
@@ -599,10 +605,10 @@ STYLE = """<!DOCTYPE html>
   .locked-icon{font-size:24px;flex-shrink:0;}
   .locked-text{font-size:14px;color:var(--muted);}
   .locked-text strong{color:var(--text);display:block;margin-bottom:4px;}
-  .customer-grid{display:grid;gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
-  .customer-row{background:var(--surface);padding:18px 24px;display:grid;grid-template-columns:1fr 160px 110px 80px 100px;gap:16px;align-items:center;transition:background 0.15s;}
-  .customer-row:hover{background:var(--surface-2);}
-  .customer-header{background:var(--bg) !important;border-bottom:1px solid var(--border);}
+  .customer-grid{display:flex;flex-direction:column;gap:14px;}
+  .customer-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 18px;display:grid;grid-template-columns:1fr 160px 80px 100px;gap:14px;align-items:center;box-shadow:var(--shadow);transition:background 0.15s,border-color 0.15s;}
+  .customer-row:hover{background:var(--surface-2);border-color:var(--accent);}
+  .customer-header{background:transparent !important;border:none !important;box-shadow:none !important;padding:0 26px 10px !important;}
   @media(max-width:768px){
     nav{flex-wrap:wrap;gap:8px;padding:12px 16px;}
     .nav-links{gap:2px;font-size:10px;}
@@ -830,35 +836,94 @@ NAV_CUSTOMER = """
 </nav>"""
 
 NAV_ADMIN = """
-<div id="timeout-warning" style="display:none;position:fixed;bottom:24px;right:24px;background:#f4eee2;border:1px solid #1f5d6b;padding:20px 24px;z-index:9999;font-family:monospace;font-size:12px;color:#1a2420;flex-direction:column;gap:12px;max-width:300px;"><span>You will be logged out in 5 minutes due to inactivity.</span><button onclick="resetTimer()" style="background:#1f5d6b;color:#ffffff;border:none;padding:8px 16px;cursor:pointer;font-family:monospace;font-size:11px;">Stay Logged In</button></div>
-<nav>
+<style>
+:root{--hp-side-w:220px;}
+.hp-sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--hp-side-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:50;padding:calc(18px + env(safe-area-inset-top)) 12px 18px;overflow-y:auto;transform:translateX(0);transition:transform .2s;}
+.hp-sidebar .logo{font-family:'DM Mono',monospace;font-size:14px;color:var(--accent);letter-spacing:0.1em;text-decoration:none;padding:2px 10px 10px;display:block;}
+.hp-sidebar .logo span{color:var(--muted);}
+.hp-badge-admin{display:inline-block;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;color:var(--accent);background:var(--accent-dim);border-radius:6px;padding:3px 8px;margin:0 10px 16px;width:fit-content;}
+.hp-nav-group{display:flex;flex-direction:column;gap:2px;margin-bottom:16px;}
+.hp-nav-group-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.14em;text-transform:uppercase;padding:8px 10px 4px;}
+.hp-sidebar a.hp-link,.hp-theme-btn{display:flex;align-items:center;gap:10px;font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);text-decoration:none;letter-spacing:0.04em;padding:9px 10px;border-radius:8px;transition:color .15s,background .15s;white-space:nowrap;}
+.hp-sidebar a.hp-link svg,.hp-theme-btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}
+.hp-sidebar a.hp-link:hover,.hp-sidebar a.hp-link.active,.hp-theme-btn:hover{color:var(--accent);background:var(--accent-dim);}
+.hp-sidebar a.hp-link.active{box-shadow:inset 3px 0 0 var(--accent);font-weight:500;}
+.hp-sidebar-footer{margin-top:auto;display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--border-soft);padding-top:10px;}
+.hp-theme-btn{width:100%;background:none;border:none;cursor:pointer;text-align:left;font:inherit;}
+.hp-menu-btn{display:none;position:fixed;top:calc(14px + env(safe-area-inset-top));left:14px;z-index:60;width:38px;height:38px;border-radius:8px;background:var(--surface);border:1px solid var(--border);color:var(--text);align-items:center;justify-content:center;cursor:pointer;box-shadow:var(--shadow);}
+.hp-menu-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;}
+.hp-sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:45;}
+@media (max-width:900px){
+  .hp-sidebar{transform:translateX(-100%);}
+  .hp-sidebar.open{transform:translateX(0);}
+  .hp-menu-btn{display:flex;}
+  .hp-sidebar-overlay.open{display:block;}
+  body{padding-top:calc(62px + env(safe-area-inset-top));}
+}
+</style>
+<div id="timeout-warning" style="display:none;position:fixed;bottom:24px;right:24px;background:var(--surface);border:1px solid var(--border);padding:20px 24px;z-index:9999;font-family:monospace;font-size:12px;color:var(--text);flex-direction:column;gap:12px;max-width:300px;box-shadow:var(--shadow);"><span>You will be logged out in 5 minutes due to inactivity.</span><button onclick="resetTimer()" style="background:var(--accent);color:var(--bg);border:none;padding:8px 16px;cursor:pointer;font-family:monospace;font-size:11px;border-radius:var(--radius-sm);">Stay Logged In</button></div>
+<button class="hp-menu-btn" onclick="hpSidebarToggle()" aria-label="Menu"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+<div class="hp-sidebar-overlay" id="hp-sidebar-overlay" onclick="hpSidebarToggle()"></div>
+<aside class="hp-sidebar" id="hp-sidebar">
   <a href="/admin" class="logo">harbor<span>/</span>privacy</a>
-  <div class="nav-links">
-    <a href="/admin" class="{{ 'active' if active == 'admin' else '' }}">Customers</a>
-    <a href="/social" class="{{ 'active' if active == 'social' else '' }}">Social</a>
-    <a href="/leads" class="{{ 'active' if active == 'leads' else '' }}">Leads</a>
-    <a href="/linkedin" class="{{ 'active' if active == 'linkedin' else '' }}">LinkedIn</a>
-    <div class="nav-drop">
-      <a href="#" onclick="this.parentNode.classList.toggle('open');return false;" class="{% if active in ('links','analytics','logs','scan','etsy','marketing','kpi') %}active{% endif %}">Tools &#9662;</a>
-      <div class="nav-drop-menu">
-        <a href="/admin/kpi" class="{{ 'active' if active == 'kpi' else '' }}">Business Pulse</a>
-        <a href="/admin/links" class="{{ 'active' if active == 'links' else '' }}">Link Manager</a>
-        <a href="/etsy" class="{{ 'active' if active == 'etsy' else '' }}">Etsy Listings</a>
-        <a href="/admin/analytics" class="{{ 'active' if active == 'analytics' else '' }}">DNS Analytics</a>
-        <a href="/admin/logs" class="{{ 'active' if active == 'logs' else '' }}">Live Logs</a>
-        <a href="/admin/scan" class="{{ 'active' if active == 'scan' else '' }}">Harbor Scan</a>
-        <a href="/admin/marketing" class="{{ 'active' if active == 'marketing' else '' }}">Marketing</a>
-      </div>
-    </div>
+  <span class="hp-badge-admin">ADMIN</span>
+  <div class="hp-nav-group">
+    <a href="/admin" class="hp-link {{ 'active' if active == 'admin' else '' }}"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Customers</a>
+    <a href="/social" class="hp-link {{ 'active' if active == 'social' else '' }}"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Social</a>
+    <a href="/leads" class="hp-link {{ 'active' if active == 'leads' else '' }}"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>Leads</a>
+    <a href="/linkedin" class="hp-link {{ 'active' if active == 'linkedin' else '' }}"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>LinkedIn</a>
   </div>
-  <div class="nav-utility">
-    <span class="badge badge-admin">ADMIN</span>
-    <a href="https://harborprivacy.com" target="_blank" rel="noopener" class="nav-icon-btn" title="View site"><svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>
-    <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener" class="nav-icon-btn" title="Assets"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></a>
-    <a href="/settings" class="nav-icon-btn {{ 'active' if active == 'settings' else '' }}" title="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></a>
-    <a href="/logout" class="nav-icon-btn" title="Sign out"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></a>
+  <div class="hp-nav-group">
+    <div class="hp-nav-group-label">Tools</div>
+    <a href="/admin/kpi" class="hp-link {{ 'active' if active == 'kpi' else '' }}"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l3-3 4 4 5-6"/></svg>Business Pulse</a>
+    <a href="/admin/links" class="hp-link {{ 'active' if active == 'links' else '' }}"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Link Manager</a>
+    <a href="/etsy" class="hp-link {{ 'active' if active == 'etsy' else '' }}"><svg viewBox="0 0 24 24"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>Etsy Listings</a>
+    <a href="/admin/analytics" class="hp-link {{ 'active' if active == 'analytics' else '' }}"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l3-3 4 4 5-6"/></svg>DNS Analytics</a>
+    <a href="/admin/logs" class="hp-link {{ 'active' if active == 'logs' else '' }}"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Live Logs</a>
+    <a href="/admin/scan" class="hp-link {{ 'active' if active == 'scan' else '' }}"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Harbor Scan</a>
+    <a href="/admin/marketing" class="hp-link {{ 'active' if active == 'marketing' else '' }}"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>Marketing</a>
   </div>
-</nav>"""
+  <div class="hp-sidebar-footer">
+    <a href="https://harborprivacy.com" target="_blank" rel="noopener" class="hp-link"><svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>View site</a>
+    <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener" class="hp-link"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>Assets</a>
+    <a href="/settings" class="hp-link {{ 'active' if active == 'settings' else '' }}"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</a>
+    <button class="hp-theme-btn" onclick="hpToggleTheme()" id="hp-theme-btn">
+      <svg id="hp-theme-icon-sun" viewBox="0 0 24 24" style="display:none;"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg id="hp-theme-icon-moon" viewBox="0 0 24 24" style="display:none;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <span id="hp-theme-label">Theme</span>
+    </button>
+    <a href="/logout" class="hp-link"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>Sign out</a>
+  </div>
+</aside>
+<script>
+(function(){
+  var sb=document.getElementById('hp-sidebar');
+  var ov=document.getElementById('hp-sidebar-overlay');
+  var menuBtn=document.querySelector('.hp-menu-btn');
+  function applyLayout(){
+    document.body.style.paddingLeft = window.matchMedia('(min-width:901px)').matches ? '252px' : '0';
+  }
+  applyLayout();
+  window.addEventListener('resize',applyLayout);
+  window.hpSidebarToggle=function(){
+    var isOpen=sb.classList.toggle('open');
+    ov.classList.toggle('open');
+    menuBtn.style.visibility=isOpen?'hidden':'visible';
+  };
+  function syncThemeIcon(){
+    var isLight=document.documentElement.classList.contains('light');
+    document.getElementById('hp-theme-icon-sun').style.display=isLight?'block':'none';
+    document.getElementById('hp-theme-icon-moon').style.display=isLight?'none':'block';
+    document.getElementById('hp-theme-label').textContent=isLight?'Dark mode':'Light mode';
+  }
+  window.hpToggleTheme=function(){
+    var isLight=document.documentElement.classList.toggle('light');
+    document.cookie='hp_theme='+(isLight?'light':'dark')+';path=/;max-age=31536000;samesite=lax';
+    syncThemeIcon();
+  };
+  syncThemeIcon();
+})();
+</script>"""
 
 # Shared topnav + PWA bottom tabs for the light (cream) admin pages:
 # /social, /social/sent, /social/pages, /leads, /linkedin.
@@ -2053,11 +2118,10 @@ def admin():
 .qa:active{transform:translateY(1px);}
 .qa.primary{border-color:var(--accent);color:var(--accent);}
 .qa svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
-.cust-name{font-size:14px;color:var(--text);}
-.cust-sub{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:2px;}
+.cust-name{font-family:'DM Sans',sans-serif;font-size:15px;font-weight:500;color:var(--text);}
+.cust-sub{font-family:'DM Sans',sans-serif;font-size:13px;color:var(--muted);margin-top:3px;}
 .cust-seen{font-family:'DM Mono',monospace;font-size:10px;color:#4a6a67;margin-top:2px;}
 .cust-cid{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);}
-.cust-plan{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-transform:capitalize;}
 .cust-del{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:rgba(255,107,107,0.10);color:#ff6b6b;border:1px solid rgba(255,107,107,0.25);cursor:pointer;font-size:12px;line-height:1;transition:background .15s;}
 .cust-del:hover{background:rgba(255,107,107,0.22);}
 .view-btn{padding:5px 12px;font-size:10px;}
@@ -2089,7 +2153,6 @@ def admin():
       <div class="customer-row customer-header" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:0.1em;">
         <span>CUSTOMER</span>
         <span>CLIENT ID</span>
-        <span>PLAN</span>
         <span>FAMILY</span>
         <span>ACTIONS</span>
       </div>
@@ -2102,7 +2165,6 @@ def admin():
           {% if c.last_seen %}<div class="cust-seen">Last seen: {{ c.last_seen[:16].replace('T',' ') }} UTC</div>{% endif %}
         </div>
         <div class="cust-cid" data-label="Client ID">{{ c.client_id }}</div>
-        <div class="cust-plan" data-label="Plan">{{ c.plan }}</div>
         <div data-label="Family"><span class="badge {% if cl and cl.parental_enabled %}badge-on{% else %}badge-off{% endif %}">{% if cl and cl.parental_enabled %}ON{% else %}OFF{% endif %}</span></div>
         <div data-label="Actions" style="display:flex;gap:6px;align-items:center;">
           <a href="/admin/customer/{{ c.client_id }}" class="btn btn-sm view-btn">View &rarr;</a>
@@ -2145,7 +2207,7 @@ async function deleteCustomer(cid, name, btn){
     return render_template_string(html, customers=customers,
         total_queries=total_queries, total_queries_display=f"{total_queries:,}",
         block_pct=block_pct,
-        clients_map=clients_map, get_client=get_client, active="admin")
+        clients_map=clients_map, get_client=get_client, active="admin", light_theme=is_light_theme())
 
 
 # ── Adblock embedded Stripe Checkout (no payment links) ──────
@@ -2887,7 +2949,7 @@ def admin_analytics():
   </div>
   <a href="/admin" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;">← Back to Admin</a>
 </div></html>"""
-    return render_template_string(html, active="analytics")
+    return render_template_string(html, active="analytics", light_theme=is_light_theme())
 
 @app.route("/admin/marketing", methods=["GET"])
 @authentik_admin_required
@@ -2965,7 +3027,7 @@ async function unsuppressEmail(email, rowId){
   if(d.ok) document.getElementById(rowId).remove(); else alert(d.error || 'Something went wrong');
 }
 </script>"""
-    return render_template_string(html, active="marketing", sent_rows=sent_rows, suppressed=suppressed)
+    return render_template_string(html, active="marketing", sent_rows=sent_rows, suppressed=suppressed, light_theme=is_light_theme())
 
 
 def _save_suppressions(suppressed):
@@ -3098,7 +3160,7 @@ async function moveLink(i, dir){
 }
 </script>
 </html>"""
-    return render_template_string(html, links=enumerate(links), active="links")
+    return render_template_string(html, links=enumerate(links), active="links", light_theme=is_light_theme())
 
 @app.route("/api/admin/links", methods=["POST"])
 @authentik_admin_required
@@ -3476,7 +3538,7 @@ async function removeRule(rule){
     return render_template_string(html, customer=customer, client_id=client_id,
         rules=rules, family_safe=family_safe, harbor_kids=harbor_kids, kids_profiles=get_kids_profiles(client_id), cstats=cstats,
         service_groups=service_groups, blocked_services=blocked_services,
-        code_valid=code_valid, active="admin")
+        code_valid=code_valid, active="admin", light_theme=is_light_theme())
 
 
 @app.route("/admin/customer/<client_id>/view-as")
@@ -3740,7 +3802,8 @@ async function deleteMyAccount(){
     user = get_user(request.user_email)
     weekly_email = user.get("weekly_email", False) if user else False
     return render_template_string(html, has_2fa=has_2fa, is_admin=is_admin, weekly_email=weekly_email,
-        msg=msg, msg_ok=msg_ok, email=email, active="settings", show_2fa_reset=show_2fa_reset, light_theme=True,
+        msg=msg, msg_ok=msg_ok, email=email, active="settings", show_2fa_reset=show_2fa_reset,
+        light_theme=is_light_theme() if is_admin else True,
         adblock_active=adblock_active, vpn_active=vpn_active, vpn_shared=vpn_shared)
 
 @app.route("/settings/password", methods=["POST"])
@@ -3799,7 +3862,7 @@ def setup_2fa():
   <div style="margin-top:16px;"><a href="{{ cancel_url }}" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">← Cancel</a></div>
 </div>
 </html>"""
-    return render_template_string(html, qr=qr_b64, secret=secret, active="settings", next_url=next_url, cancel_url=cancel_url)
+    return render_template_string(html, qr=qr_b64, secret=secret, active="settings", next_url=next_url, cancel_url=cancel_url, light_theme=is_light_theme())
 
 @app.route("/settings/2fa/enable", methods=["POST"])
 @login_required
@@ -8453,6 +8516,7 @@ def api_contact():
 _SYS_CACHE = {"ts": 0, "data": None}
 
 @app.route("/api/system-info")
+@authentik_admin_required
 def api_system_info():
     import time as _t, os as _os, shutil as _sh, subprocess as _sp
     now = _t.time()
@@ -8513,6 +8577,7 @@ def api_system_info():
 _INTEG_CACHE = {"ts": 0, "data": None}
 
 @app.route("/api/integrity")
+@authentik_admin_required
 def api_integrity():
     import time as _t, os as _os, json as _j
     now = _t.time()
@@ -8990,14 +9055,14 @@ _HS_OVERVIEW_TMPL = """<div class="wrap">
 @authentik_admin_required
 def admin_scan_overview():
     data = _hs_summary()
-    return render_template_string(STYLE + NAV_ADMIN + _HS_OVERVIEW_TMPL, data=data, active="scan")
+    return render_template_string(STYLE + NAV_ADMIN + _HS_OVERVIEW_TMPL, data=data, active="scan", light_theme=is_light_theme())
 
 @app.route("/admin/scan/profile/<int:profile_id>")
 @authentik_admin_required
 def admin_scan_profile(profile_id):
     data = _hs_summary(profile_id=profile_id)
     return render_template_string(STYLE + NAV_ADMIN + _HS_PROFILE_TMPL,
-                                  data=data, pid=profile_id, active="scan")
+                                  data=data, pid=profile_id, active="scan", light_theme=is_light_theme())
 
 # ════════════════════════════════════════════════════════════
 # /etsy — listing staging page (mockup image + title/tags/description

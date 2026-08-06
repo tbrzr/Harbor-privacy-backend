@@ -1268,7 +1268,7 @@ def verify_sig(payload, sig_header, secret):
         t = parts.get("t", "")
         sigs = [v for k, v in parts.items() if k == "v1"]
         expected = hmac.new(secret.encode(), f"{t}.{payload.decode()}".encode(), hashlib.sha256).hexdigest()
-        return expected in sigs
+        return any(hmac.compare_digest(expected, s) for s in sigs)
     except:
         return False
 
