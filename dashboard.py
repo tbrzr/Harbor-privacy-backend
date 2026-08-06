@@ -1840,7 +1840,7 @@ def dashboard():
       {% if customer.last_seen %}
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">LAST ACTIVE</span>
-        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);">{{ customer.last_seen[:16].replace("T"," ") }} UTC</span>
+        <span id="last-active-local" data-utc="{{ customer.last_seen }}" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);">{{ customer.last_seen[:16].replace("T"," ") }} UTC</span>
       </div>
       {% endif %}
       {% endif %}
@@ -2149,6 +2149,15 @@ def dashboard():
 
 </div>
 <script>
+(function(){
+  var el = document.getElementById('last-active-local');
+  if(!el) return;
+  var raw = el.getAttribute('data-utc');
+  if(!raw) return;
+  var d = new Date(raw + 'Z');
+  if(isNaN(d)) return;
+  el.textContent = d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
+})();
 async function togglePause(pause){
   if(pause && !confirm('This will disable all ad blocking and filtering. Continue?')) return;
   const r=await fetch('/api/pause',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paused:pause})});
