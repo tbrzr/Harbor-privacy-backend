@@ -2102,7 +2102,7 @@ def dashboard():
       <button onclick="toggleGroup(this)" style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface);border:none;cursor:pointer;text-align:left;">
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;">{{ group_name.replace("_"," ") }}</span>
-          {% if blocked_in_group %}<span style="font-family:'DM Mono',monospace;font-size:9px;background:var(--accent);color:var(--bg);padding:2px 6px;">{{ blocked_in_group|length }} BLOCKED</span>{% endif %}
+          <span style="font-family:'DM Mono',monospace;font-size:9px;{% if blocked_in_group %}background:var(--accent);color:var(--bg);{% else %}background:var(--border);color:var(--muted);{% endif %}padding:2px 6px;">{{ blocked_in_group|length }}/{{ services|length }} BLOCKED</span>
         </div>
         <span class="group-arrow" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">&#9660;</span>
       </button>
@@ -3509,7 +3509,7 @@ def admin_customer(client_id):
       <button onclick="toggleGroup(this)" style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface);border:none;cursor:pointer;text-align:left;">
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;">{{ group_name.replace("_"," ") }}</span>
-          {% if blocked_in_group %}<span style="font-family:'DM Mono',monospace;font-size:9px;background:var(--accent);color:var(--bg);padding:2px 6px;">{{ blocked_in_group|length }} BLOCKED</span>{% endif %}
+          <span style="font-family:'DM Mono',monospace;font-size:9px;{% if blocked_in_group %}background:var(--accent);color:var(--bg);{% else %}background:var(--border);color:var(--muted);{% endif %}padding:2px 6px;">{{ blocked_in_group|length }}/{{ services|length }} BLOCKED</span>
         </div>
         <span class="group-arrow" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">&#9660;</span>
       </button>
