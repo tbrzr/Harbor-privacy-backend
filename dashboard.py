@@ -615,6 +615,9 @@ STYLE = """<!DOCTYPE html>
     .nav-links a{padding:6px 9px;}
     .badge{font-size:8px;padding:2px 6px;}
     .stat-grid{grid-template-columns:1fr;}
+    .stat-grid-2{grid-template-columns:repeat(2,1fr) !important;gap:8px;}
+    .stat-grid-2 .stat{padding:14px 10px;}
+    .stat-grid-2 .stat-num{font-size:26px;}
     .wrap{padding:32px 20px 60px;}
     .wrap-sm{padding:40px 20px;}
     nav{padding:14px 20px;}
@@ -1649,7 +1652,7 @@ def dashboard():
   <div class="stat-refresh-row">
     <button class="stat-refresh" onclick="refreshStats('/api/client-stats',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Refresh</button>
   </div>
-  <div class="stat-grid">
+  <div class="stat-grid stat-grid-2">
     <div class="stat">
       <div class="stat-num stat-num-sm" id="stat-total">{{ total }}</div>
       <div class="stat-label">Queries (7 Days)</div>
@@ -1789,7 +1792,7 @@ def dashboard():
     <button class="stat-refresh" onclick="refreshStats('/api/client-stats',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Refresh</button>
   </div>
   {% endif %}
-  <div class="stat-grid">
+  <div class="stat-grid stat-grid-2">
     <div class="stat">
       <div class="stat-num stat-num-sm {% if not is_active %}muted{% endif %}" id="stat-total">{{ total if is_active else '—' }}</div>
       <div class="stat-label">Queries (7 Days)</div>
