@@ -581,7 +581,7 @@ STYLE = """<!DOCTYPE html>
   .row:last-child{border-bottom:none;}
   .rule-block{color:var(--danger);font-family:'DM Mono',monospace;font-size:12px;}
   .rule-allow{color:var(--accent);font-family:'DM Mono',monospace;font-size:12px;}
-  .badge{font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:999px;letter-spacing:0.1em;font-weight:500;vertical-align:middle;}
+  .badge{font-family:'DM Mono',monospace;font-size:9px;padding:3px 9px;border-radius:999px;letter-spacing:0.1em;font-weight:500;vertical-align:middle;white-space:nowrap;flex-shrink:0;text-align:center;}
   .badge-on{background:var(--accent);color:var(--bg);}
   .badge-off{background:var(--border);color:var(--muted);}
   .badge-admin{background:#7c3aed;color:#fff;}
@@ -695,6 +695,7 @@ html.light nav.hp-bottom-tabs .hp-bottom-tab.active{color:var(--accent);}
 /* hp-hm-zoom-lift: lift native .hm-zoom above .hp-bottom-tabs in PWA standalone on phones */
 @media all and (display-mode:standalone) and (max-width:768px){
   .hm-zoom{bottom:calc(108px + env(safe-area-inset-bottom)) !important;}
+  .wrap,.wrap-sm{padding-bottom:calc(108px + env(safe-area-inset-bottom)) !important;}
 }
 </style>
 <script id="hp-injected-scripts">
