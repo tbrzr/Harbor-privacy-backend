@@ -529,7 +529,8 @@ STYLE = """<!DOCTYPE html>
   .wrap{max-width:960px;margin:0 auto;padding:48px 32px 80px;position:relative;z-index:1;}
   .wrap-sm{max-width:500px;margin:0 auto;padding:60px 32px;position:relative;z-index:1;}
   .card{background:linear-gradient(180deg,var(--surface),#0f1517);border:1px solid var(--border);border-radius:var(--radius);padding:32px;margin-bottom:20px;box-shadow:var(--shadow);}
-  .card-label{font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;}
+  .card-label{display:flex;align-items:center;gap:10px;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:16px;}
+  .card-label::before{content:'';width:3px;height:14px;background:var(--accent);border-radius:2px;flex-shrink:0;}
   h1{font-family:'DM Serif Display',serif;font-size:40px;font-weight:400;line-height:1.1;}
   h2{font-family:'DM Serif Display',serif;font-size:26px;font-weight:400;margin-bottom:12px;}
   input,select{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:12px 16px;outline:none;width:100%;margin-bottom:12px;transition:border 0.2s,box-shadow 0.2s;}
