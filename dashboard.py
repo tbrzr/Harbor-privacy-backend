@@ -1568,7 +1568,7 @@ def dashboard():
   </div>
 
   <div class="card">
-    <div class="sec-head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Your DoH Address{% if uptime_pct %}<span class="badge badge-on" style="float:right;" title="Resolver uptime, last 30 days">{{ uptime_pct }}% uptime</span>{% endif %}</div>
+    <div class="sec-head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Your DoH Address{% if uptime_pct %}<span class="badge badge-on" style="float:right;letter-spacing:normal;" title="Resolver uptime, last 30 days">{{ uptime_pct }}% uptime</span>{% endif %}</div>
     <div class="doh-box" id="doh-address">https://doh.harborprivacy.com/dns-query/{{ client_id }}</div>
     <button onclick="copyDoH()" class="ghost" style="margin-top:8px;" id="copy-btn">Copy Address</button>
     <script>
@@ -1854,7 +1854,7 @@ def dashboard():
 
   <!-- DOH ADDRESS -->
   <div class="card">
-    <div class="sec-head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Your Private DNS Address{% if uptime_pct %}<span class="badge badge-on" style="float:right;" title="Resolver uptime, last 30 days">{{ uptime_pct }}% uptime</span>{% endif %}</div>
+    <div class="sec-head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Your Private DNS Address{% if uptime_pct %}<span class="badge badge-on" style="float:right;letter-spacing:normal;" title="Resolver uptime, last 30 days">{{ uptime_pct }}% uptime</span>{% endif %}</div>
     {% if is_active %}
     <div class="doh-box" id="doh-address">https://doh.harborprivacy.com/dns-query/{{ client_id }}</div>
     <button onclick="copyDoH()" class="ghost" style="margin-top:8px;" id="copy-btn">Copy Address</button>
