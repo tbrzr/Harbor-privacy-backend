@@ -1735,8 +1735,17 @@ def dashboard():
     elif plan_type == "3month": plan_badge = "3-MONTH"
     elif plan_type == "6month": plan_badge = "6-MONTH"
     elif plan_type == "annual": plan_badge = "ANNUAL"
-    elif is_active and not is_trial: plan_badge = "MONTHLY"
+    elif is_trial: plan_badge = "TRIAL"
+    elif is_active: plan_badge = "MONTHLY"
     has_family_badge = family_safe
+
+    # Display-only "Plan Type" label for the Account Info card, read-only off plan_type/is_trial
+    if is_trial: plan_type_display = "Remote Trial"
+    elif plan_type == "annual": plan_type_display = "Remote Yearly"
+    elif plan_type == "3month": plan_type_display = "Remote 3-Month"
+    elif plan_type == "6month": plan_type_display = "Remote 6-Month"
+    elif plan_type == "harbor-remote-light": plan_type_display = "Light Monthly"
+    else: plan_type_display = "Remote Monthly"
 
 
     html = STYLE + NAV_CUSTOMER + """
@@ -1820,7 +1829,7 @@ def dashboard():
       {% if customer and customer.plan_type %}
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">PLAN TYPE</span>
-        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">{{ customer.plan_type }}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">{{ plan_type_display }}</span>
       </div>
       {% endif %}
       <div style="display:flex;justify-content:space-between;align-items:center;">
@@ -2202,7 +2211,7 @@ async function removeRule(rule){
         is_active=is_active, total=total, blocked=blocked, pct=pct, blocked_month=blocked_month, lifetime=lifetime,
         rules=rules, family_safe=family_safe, has_family=has_family, harbor_kids=harbor_kids, kids_eligible=kids_eligible, kids_profiles=get_kids_profiles(client_id),
         active_profile=customer.get("active_profile", "custom") if customer else "custom",
-        user_email=email, is_trial=is_trial, plan_badge=plan_badge, has_family_badge=has_family_badge, vpn_status=vpn_status,
+        user_email=email, is_trial=is_trial, plan_badge=plan_badge, plan_type_display=plan_type_display, has_family_badge=has_family_badge, vpn_status=vpn_status,
         personal_promo_code=personal_promo_code,
         filtering_paused=filtering_paused,
         is_founder=is_founder, top_blocked=top_blocked, customer=customer,
