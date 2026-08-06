@@ -499,7 +499,7 @@ STYLE = """<!DOCTYPE html>
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>{% block title %}Harbor Privacy Dashboard{% endblock %}</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,300&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
 <style>
   :root{--bg:#0a0e0f;--surface:#111618;--surface-2:#151c1e;--border:#1e2a2d;--border-soft:#192325;--accent:#00e5c0;--accent-dim:rgba(0,229,192,0.10);--text:#e8f0ef;--muted:#6b8a87;--danger:#ff4e4e;--radius:14px;--radius-sm:10px;--shadow:0 1px 2px rgba(0,0,0,0.3),0 10px 28px -14px rgba(0,0,0,0.55);}
   /* Cream/gold theme matching breach.harborprivacy.com, opt-in per page via
@@ -529,8 +529,8 @@ STYLE = """<!DOCTYPE html>
   .wrap{max-width:960px;margin:0 auto;padding:48px 32px 80px;position:relative;z-index:1;}
   .wrap-sm{max-width:500px;margin:0 auto;padding:60px 32px;position:relative;z-index:1;}
   .card{background:linear-gradient(180deg,var(--surface),#0f1517);border:1px solid var(--border);border-radius:var(--radius);padding:32px;margin-bottom:20px;box-shadow:var(--shadow);}
-  .card-label{display:flex;align-items:center;gap:10px;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;margin-bottom:16px;}
-  .card-label::before{content:'';width:3px;height:14px;background:var(--accent);border-radius:2px;flex-shrink:0;}
+  .card-label{display:flex;align-items:center;gap:12px;font-family:'DM Sans',sans-serif;font-size:17px;font-weight:700;color:var(--text);letter-spacing:0;text-transform:none;margin-bottom:16px;}
+  .card-label::before{content:'';width:4px;height:20px;background:var(--accent);border-radius:2px;flex-shrink:0;}
   h1{font-family:'DM Serif Display',serif;font-size:40px;font-weight:400;line-height:1.1;}
   h2{font-family:'DM Serif Display',serif;font-size:26px;font-weight:400;margin-bottom:12px;}
   input,select{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:12px 16px;outline:none;width:100%;margin-bottom:12px;transition:border 0.2s,box-shadow 0.2s;}
@@ -544,8 +544,8 @@ STYLE = """<!DOCTYPE html>
   .ghost:hover{background:var(--accent-dim);}
   .ghost.dim{border-color:var(--border);color:var(--muted);}
   .ghost.dim:hover{border-color:var(--accent);color:var(--accent);background:transparent;}
-  .sec-head{display:flex;align-items:center;gap:9px;font-family:'DM Mono',monospace;font-size:11px;font-weight:700;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;}
-  .sec-head svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .sec-head{display:flex;align-items:center;gap:10px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:var(--text);letter-spacing:0;text-transform:none;margin-bottom:16px;}
+  .sec-head svg{width:18px;height:18px;stroke:var(--accent);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}
   .btn-sm{padding:6px 14px;font-size:10px;}
   .btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted);}
   .btn-outline:hover{border-color:var(--accent);color:var(--accent);background:transparent;}
