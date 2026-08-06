@@ -1461,6 +1461,27 @@ def logout():
 # CRITICAL: plan_type must be set before harbor_kids (~line 1700)
 # ════════════════════════════════════════════════════════════
 
+KUMA_DB_PATH = "/home/ubuntu/uptime-kuma/data/kuma.db"
+DOH_MONITOR_ID = 8
+
+def get_doh_uptime_pct(days=30):
+    import sqlite3
+    try:
+        con = sqlite3.connect(f"file:{KUMA_DB_PATH}?mode=ro", uri=True, timeout=3)
+        row = con.execute(
+            "select sum(case when status=1 then 1 else 0 end), count(*) "
+            "from heartbeat where monitor_id=? and time >= datetime('now', ?)",
+            (DOH_MONITOR_ID, f"-{days} days"),
+        ).fetchone()
+        con.close()
+        up, total = row
+        if not total:
+            return None
+        return round(100.0 * up / total, 2)
+    except Exception as e:
+        log.warning(f"get_doh_uptime_pct failed: {e}")
+        return None
+
 @app.route("/dashboard")
 @login_required
 def dashboard():
@@ -1483,10 +1504,12 @@ def dashboard():
         blocked_month = client_stats["month_label"]
         lifetime = client_stats["lifetime"]
         top_blocked = client_stats["top_blocked"]
+        uptime_pct = get_doh_uptime_pct()
     else:
         total = blocked = pct = lifetime = 0
         blocked_month = "this month"
         top_blocked = []
+        uptime_pct = None
 
     rules = get_client_rules(client_id) if client_id else []
     family_safe = client.get("parental_enabled", False) if client else False
@@ -1545,7 +1568,7 @@ def dashboard():
   </div>
 
   <div class="card">
-    <div class="sec-head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Your DoH Address</div>
+    <div class="sec-head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Your DoH Address{% if uptime_pct %}<span class="badge badge-on" style="float:right;" title="Resolver uptime, last 30 days">{{ uptime_pct }}% uptime</span>{% endif %}</div>
     <div class="doh-box" id="doh-address">https://doh.harborprivacy.com/dns-query/{{ client_id }}</div>
     <button onclick="copyDoH()" class="ghost" style="margin-top:8px;" id="copy-btn">Copy Address</button>
     <script>
@@ -1564,6 +1587,63 @@ def dashboard():
     </div>
     <p class="note" style="margin-top:12px;">Add this to your iPhone under Settings → General → VPN & Device Management, or Android under Settings → Private DNS.</p>
   </div>
+
+
+  {% if client_id %}
+  <div class="card">
+    <div class="sec-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="9 12 12 15 16 9"/></svg>Connection Check</div>
+    <p class="note" style="margin-bottom:12px;">Confirm this device is actually using your Harbor DNS right now.</p>
+    <button onclick="quickDnsCheck()" class="ghost" id="quick-dns-btn">Check My Connection</button>
+    <div id="quick-dns-result" style="margin-top:12px;font-family:'DM Mono',monospace;font-size:12px;"></div>
+  </div>
+  <script>
+  async function quickDnsCheck(){
+    var btn = document.getElementById('quick-dns-btn');
+    var out = document.getElementById('quick-dns-result');
+    btn.disabled = true;
+    btn.innerText = 'Checking...';
+    out.innerHTML = '';
+    try {
+      var token = Math.random().toString(36).substring(2, 12) + Date.now().toString(36);
+      var img = new Image();
+      img.src = 'https://' + token + '.whoami.harborprivacy.com/pixel.png?t=' + Date.now();
+      try { fetch('https://' + token + '.whoami.harborprivacy.com/', {mode:'no-cors', cache:'no-store'}); } catch(e) {}
+      await new Promise(function(r){ setTimeout(r, 1500); });
+      var ip = null;
+      for (var i = 0; i < 8; i++) {
+        try {
+          var r = await fetch('/dns-whoami/' + token, {cache:'no-store'});
+          if (r.ok) {
+            var data = await r.json();
+            if (data.found && data.ip) { ip = data.ip; break; }
+          }
+        } catch(e) {}
+        await new Promise(function(r){ setTimeout(r, 800); });
+      }
+      var isHarbor = false;
+      if (ip) {
+        if (ip === '129.80.154.105' || ip.indexOf('129.80.') === 0 || ip.indexOf('152.70.') === 0 ||
+            ip.indexOf('129.146.') === 0 || ip.indexOf('132.145.') === 0 || ip.indexOf('140.91.') === 0 ||
+            ip.indexOf('192.29.') === 0) {
+          isHarbor = true;
+        }
+      }
+      if (isHarbor) {
+        out.innerHTML = '<span class="badge badge-on">PROTECTED</span> This device is resolving through Harbor Privacy.';
+      } else if (ip) {
+        out.innerHTML = '<span class="badge badge-off">NOT PROTECTED</span> Detected resolver ' + ip + ' -- not Harbor Privacy. Check your DNS/DoH setup.';
+      } else {
+        out.innerHTML = '<span class="badge badge-off">UNKNOWN</span> Could not detect a resolver. Try again in a few seconds.';
+      }
+    } catch(e) {
+      out.innerHTML = '<span class="badge badge-off">ERROR</span> Check failed, try again.';
+    } finally {
+      btn.disabled = false;
+      btn.innerText = 'Check My Connection';
+    }
+  }
+  </script>
+  {% endif %}
 
   <!-- STATS -->
   <div class="stat-refresh-row">
@@ -1647,7 +1727,7 @@ def dashboard():
 </div>
 """ + VPN_CHECKOUT_MODAL + """
 </html>"""
-        return render_template_string(html, name=name, client_id=client_id, total=total, blocked=blocked, blocked_month=blocked_month, lifetime=lifetime, active="dashboard", light_theme=True, vpn_status=vpn_status)
+        return render_template_string(html, name=name, client_id=client_id, total=total, blocked=blocked, blocked_month=blocked_month, lifetime=lifetime, active="dashboard", light_theme=True, vpn_status=vpn_status, uptime_pct=uptime_pct)
     if plan_type == "harbor-remote-light": plan_badge = "LIGHT"
     elif plan_type == "3month": plan_badge = "3-MONTH"
     elif plan_type == "6month": plan_badge = "6-MONTH"
@@ -1774,7 +1854,7 @@ def dashboard():
 
   <!-- DOH ADDRESS -->
   <div class="card">
-    <div class="sec-head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Your Private DNS Address</div>
+    <div class="sec-head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Your Private DNS Address{% if uptime_pct %}<span class="badge badge-on" style="float:right;" title="Resolver uptime, last 30 days">{{ uptime_pct }}% uptime</span>{% endif %}</div>
     {% if is_active %}
     <div class="doh-box" id="doh-address">https://doh.harborprivacy.com/dns-query/{{ client_id }}</div>
     <button onclick="copyDoH()" class="ghost" style="margin-top:8px;" id="copy-btn">Copy Address</button>
@@ -1798,6 +1878,62 @@ def dashboard():
     <p class="note">Your personal DNS address will appear here once your subscription is active.</p>
     {% endif %}
   </div>
+  {% if client_id %}
+  <div class="card">
+    <div class="sec-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="9 12 12 15 16 9"/></svg>Connection Check</div>
+    <p class="note" style="margin-bottom:12px;">Confirm this device is actually using your Harbor DNS right now.</p>
+    <button onclick="quickDnsCheck()" class="ghost" id="quick-dns-btn">Check My Connection</button>
+    <div id="quick-dns-result" style="margin-top:12px;font-family:'DM Mono',monospace;font-size:12px;"></div>
+  </div>
+  <script>
+  async function quickDnsCheck(){
+    var btn = document.getElementById('quick-dns-btn');
+    var out = document.getElementById('quick-dns-result');
+    btn.disabled = true;
+    btn.innerText = 'Checking...';
+    out.innerHTML = '';
+    try {
+      var token = Math.random().toString(36).substring(2, 12) + Date.now().toString(36);
+      var img = new Image();
+      img.src = 'https://' + token + '.whoami.harborprivacy.com/pixel.png?t=' + Date.now();
+      try { fetch('https://' + token + '.whoami.harborprivacy.com/', {mode:'no-cors', cache:'no-store'}); } catch(e) {}
+      await new Promise(function(r){ setTimeout(r, 1500); });
+      var ip = null;
+      for (var i = 0; i < 8; i++) {
+        try {
+          var r = await fetch('/dns-whoami/' + token, {cache:'no-store'});
+          if (r.ok) {
+            var data = await r.json();
+            if (data.found && data.ip) { ip = data.ip; break; }
+          }
+        } catch(e) {}
+        await new Promise(function(r){ setTimeout(r, 800); });
+      }
+      var isHarbor = false;
+      if (ip) {
+        if (ip === '129.80.154.105' || ip.indexOf('129.80.') === 0 || ip.indexOf('152.70.') === 0 ||
+            ip.indexOf('129.146.') === 0 || ip.indexOf('132.145.') === 0 || ip.indexOf('140.91.') === 0 ||
+            ip.indexOf('192.29.') === 0) {
+          isHarbor = true;
+        }
+      }
+      if (isHarbor) {
+        out.innerHTML = '<span class="badge badge-on">PROTECTED</span> This device is resolving through Harbor Privacy.';
+      } else if (ip) {
+        out.innerHTML = '<span class="badge badge-off">NOT PROTECTED</span> Detected resolver ' + ip + ' -- not Harbor Privacy. Check your DNS/DoH setup.';
+      } else {
+        out.innerHTML = '<span class="badge badge-off">UNKNOWN</span> Could not detect a resolver. Try again in a few seconds.';
+      }
+    } catch(e) {
+      out.innerHTML = '<span class="badge badge-off">ERROR</span> Check failed, try again.';
+    } finally {
+      btn.disabled = false;
+      btn.innerText = 'Check My Connection';
+    }
+  }
+  </script>
+  {% endif %}
+
 
   <!-- UPGRADE EARLY CARD — trial only, disappears the moment they upgrade -->
   {% if is_trial and personal_promo_code %}
@@ -2067,7 +2203,7 @@ async function removeRule(rule){
         personal_promo_code=personal_promo_code,
         filtering_paused=filtering_paused,
         is_founder=is_founder, top_blocked=top_blocked, customer=customer,
-        service_groups=service_groups, blocked_services=blocked_services, active="dashboard", light_theme=True)
+        service_groups=service_groups, blocked_services=blocked_services, active="dashboard", light_theme=True, uptime_pct=uptime_pct)
 
 # ════════════════════════════════════════════════════════════
 # SECTION 12 — ROUTES: ADMIN DASHBOARD
