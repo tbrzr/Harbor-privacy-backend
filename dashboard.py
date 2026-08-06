@@ -1732,8 +1732,6 @@ def dashboard():
 </html>"""
         return render_template_string(html, name=name, client_id=client_id, total=total, blocked=blocked, blocked_month=blocked_month, lifetime=lifetime, active="dashboard", light_theme=True, vpn_status=vpn_status, uptime_pct=uptime_pct)
     if plan_type == "harbor-remote-light": plan_badge = "LIGHT"
-    elif plan_type == "3month": plan_badge = "3-MONTH"
-    elif plan_type == "6month": plan_badge = "6-MONTH"
     elif plan_type == "annual": plan_badge = "ANNUAL"
     elif is_trial: plan_badge = "TRIAL"
     elif is_active: plan_badge = "MONTHLY"
@@ -1742,8 +1740,6 @@ def dashboard():
     # Display-only "Plan Type" label for the Account Info card, read-only off plan_type/is_trial
     if is_trial: plan_type_display = "Remote Trial"
     elif plan_type == "annual": plan_type_display = "Remote Yearly"
-    elif plan_type == "3month": plan_type_display = "Remote 3-Month"
-    elif plan_type == "6month": plan_type_display = "Remote 6-Month"
     elif plan_type == "harbor-remote-light": plan_type_display = "Light Monthly"
     else: plan_type_display = "Remote Monthly"
 
