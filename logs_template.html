@@ -29,6 +29,7 @@ nav{padding:16px 24px;border-bottom:1px solid #1e2a2d;display:flex;justify-conte
   <div class='filters'>
     <a class='filter-btn active' href='#' onclick='setFilter("",this);return false;'>ALL</a>
     <a class='filter-btn' href='#' onclick='setFilter("ERROR",this);return false;'>ERRORS</a>
+    <a class='filter-btn' href='#' onclick='setFilter("^\\w+ \\d+ [\\d:]+ caddy ",this);return false;'>SITE ERRORS</a>
     <a class='filter-btn' href='#' onclick='setFilter("reprovision",this);return false;'>REPROVISION</a>
     <a class='filter-btn' href='#' onclick='setFilter("email|welcome",this);return false;'>EMAIL</a>
     <a class='filter-btn' href='#' onclick='setFilter("adguard|agh|dns",this);return false;'>AGH/DNS</a>

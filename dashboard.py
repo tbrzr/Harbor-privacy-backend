@@ -482,7 +482,6 @@ STYLE = """<!DOCTYPE html>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="HP Dashboard">
 <meta name="theme-color" content="#00e5c0">
-<script defer src="/install-banner.js"></script>
 <script defer src="https://stats.harborprivacy.com/script.js" data-website-id="51ad61cf-3e3b-4d74-818b-98df4af99183"></script>
 <script>
   // SW disabled 2026-06-01 - earlier version caused a refresh loop. The
@@ -884,6 +883,7 @@ NAV_ADMIN = """
     <a href="/admin/links" class="hp-link {{ 'active' if active == 'links' else '' }}"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>Link Manager</a>
     <a href="/etsy" class="hp-link {{ 'active' if active == 'etsy' else '' }}"><svg viewBox="0 0 24 24"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>Etsy Listings</a>
     <a href="/admin/analytics" class="hp-link {{ 'active' if active == 'analytics' else '' }}"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l3-3 4 4 5-6"/></svg>DNS Analytics</a>
+    <a href="/admin/traffic" class="hp-link {{ 'active' if active == 'traffic' else '' }}"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Site Traffic</a>
     <a href="/admin/logs" class="hp-link {{ 'active' if active == 'logs' else '' }}"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Live Logs</a>
     <a href="/admin/scan" class="hp-link {{ 'active' if active == 'scan' else '' }}"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Harbor Scan</a>
     <a href="/admin/marketing" class="hp-link {{ 'active' if active == 'marketing' else '' }}"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>Marketing</a>
@@ -3106,6 +3106,102 @@ def admin_analytics():
 </div></html>"""
     return render_template_string(html, active="analytics", light_theme=is_light_theme())
 
+@app.route("/admin/traffic")
+@authentik_admin_required
+def admin_traffic():
+    import json as _json, time, subprocess
+    from zoneinfo import ZoneInfo
+    import datetime as _dt
+    ET = ZoneInfo("America/New_York")
+    CADDY_LOG = "/var/log/caddy/access.log"
+    try:
+        result = subprocess.run(["tail", "-n", "30000", CADDY_LOG], capture_output=True, text=True, timeout=10)
+        raw_lines = result.stdout.strip().split("\n") if result.stdout.strip() else []
+    except Exception:
+        raw_lines = []
+
+    records = []
+    for line in raw_lines:
+        try:
+            d = _json.loads(line)
+        except Exception:
+            continue
+        req = d.get("request", {})
+        host = req.get("host", "unknown").split(":")[0]
+        records.append({
+            "ts": d.get("ts", 0),
+            "host": host,
+            "status": d.get("status", 0),
+        })
+
+    now = time.time()
+    today = [r for r in records if r["ts"] > now - 86400]
+    this_week = [r for r in records if r["ts"] > now - 604800]
+
+    host_counts = {}
+    for r in this_week:
+        host_counts[r["host"]] = host_counts.get(r["host"], 0) + 1
+    host_sorted = sorted(host_counts.items(), key=lambda x: x[1], reverse=True)[:15]
+
+    status_buckets = {"2xx": 0, "3xx": 0, "4xx": 0, "5xx": 0, "other": 0}
+    for r in this_week:
+        s = r["status"]
+        if 200 <= s < 300: status_buckets["2xx"] += 1
+        elif 300 <= s < 400: status_buckets["3xx"] += 1
+        elif 400 <= s < 500: status_buckets["4xx"] += 1
+        elif 500 <= s < 600: status_buckets["5xx"] += 1
+        else: status_buckets["other"] += 1
+
+    hourly = [0]*24
+    for r in today:
+        hourly[_dt.datetime.fromtimestamp(r["ts"], ET).hour] += 1
+
+    daily_labels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
+    daily = [0]*7
+    for r in this_week:
+        # Python weekday() is Mon=0..Sun=6, rotate to match Sun-first labels above
+        daily[(_dt.datetime.fromtimestamp(r["ts"], ET).weekday() + 1) % 7] += 1
+
+    oldest_ts = min([r["ts"] for r in records], default=now)
+    coverage_hint = f"log covers ~{round((now - oldest_ts) / 3600, 1)}h of traffic" if records else "no log data yet"
+    tz_abbr = _dt.datetime.now(ET).strftime("%Z")
+
+    html = STYLE + NAV_ADMIN + """<div class="wrap">
+  <div style="margin-bottom:32px;">
+    <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:8px;">Admin</p>
+    <h1>Site Traffic</h1>
+    <p style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:6px;">""" + coverage_hint + """ &middot; raw Caddy requests, all hosts, includes bots/assets</p>
+  </div>
+  <div class="stat-grid" style="margin-bottom:20px;">
+    <div class="stat"><div class="stat-num">""" + str(len(today)) + """</div><div class="stat-label">Requests Today</div></div>
+    <div class="stat"><div class="stat-num">""" + str(len(this_week)) + """</div><div class="stat-label">This Week</div></div>
+    <div class="stat"><div class="stat-num" style="color:#ff4e4e;">""" + str(status_buckets["4xx"] + status_buckets["5xx"]) + """</div><div class="stat-label">Errors This Week</div></div>
+  </div>
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Requests by Host This Week</div>
+    """ + "".join([f'<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);"><span>{host}</span><span style="font-family:DM Mono,monospace;font-size:12px;color:var(--muted);">{count}</span></div>' for host,count in host_sorted]) + """
+  </div>
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Status Codes This Week</div>
+    """ + "".join([f'<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);"><span style="color:{"#ff4e4e" if bucket in ("4xx","5xx") else "var(--text)"};">{bucket}</span><span style="font-family:DM Mono,monospace;font-size:12px;color:var(--muted);">{count}</span></div>' for bucket,count in status_buckets.items() if count]) + """
+  </div>
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Requests by Hour Today (""" + tz_abbr + """)</div>
+    <div style="display:flex;align-items:flex-end;gap:3px;height:80px;margin-top:16px;">
+      """ + "".join([f'<div style="flex:1;background:{"var(--accent)" if hourly[i]==max(hourly+[1]) else "var(--border)"};height:{max(int(hourly[i]/max(max(hourly),1)*80),2)}px;" title="{i}:00 ' + tz_abbr + '"></div>' for i in range(24)]) + """
+    </div>
+    <div style="display:flex;justify-content:space-between;font-family:DM Mono,monospace;font-size:9px;color:var(--muted);margin-top:4px;"><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span></div>
+  </div>
+  <div class="card" style="margin-bottom:20px;">
+    <div class="card-label">Requests by Day This Week (""" + tz_abbr + """)</div>
+    <div style="display:flex;align-items:flex-end;gap:8px;height:80px;margin-top:16px;">
+      """ + "".join([f'<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;"><div style="width:100%;background:{"var(--accent)" if daily[i]==max(daily+[1]) else "var(--border)"};height:{max(int(daily[i]/max(max(daily),1)*60),2)}px;"></div><span style="font-family:DM Mono,monospace;font-size:9px;color:var(--muted);">{daily_labels[i]}</span></div>' for i in range(7)]) + """
+    </div>
+  </div>
+  <a href="/admin" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-decoration:none;">← Back to Admin</a>
+</div></html>"""
+    return render_template_string(html, active="traffic", light_theme=is_light_theme())
+
 @app.route("/admin/marketing", methods=["GET"])
 @authentik_admin_required
 def admin_marketing():
@@ -4939,13 +5035,57 @@ def api_admin_rule():
 @app.route("/admin/logs")
 @authentik_admin_required
 def admin_logs():
-    import subprocess
+    import subprocess, json as _json, time
+    from zoneinfo import ZoneInfo
+    import datetime as _dt
+    ET = ZoneInfo("America/New_York")
     result = subprocess.run(
         ["journalctl", "-u", "harbor-dashboard", "-n", "500", "--no-pager", "--output=short"],
         capture_output=True, text=True
     )
-    lines = result.stdout.strip().split("\n")
-    lines.reverse()
+    dash_lines = result.stdout.strip().split("\n") if result.stdout.strip() else []
+
+    this_year = time.localtime().tm_year
+    entries = []
+    for line in dash_lines:
+        ts = None
+        try:
+            # journalctl prints in the box's system tz (UTC); parse that,
+            # then re-render the leading stamp in Eastern for display below.
+            ts = time.mktime(time.strptime(f"{this_year} {line[:15]}", "%Y %b %d %H:%M:%S"))
+        except Exception:
+            pass
+        if ts is not None:
+            stamp_et = _dt.datetime.fromtimestamp(ts, ET).strftime("%b %d %H:%M:%S %Z")
+            line = stamp_et + line[15:]
+        entries.append((ts if ts is not None else 0, line))
+
+    CADDY_LOG = "/var/log/caddy/access.log"
+    try:
+        caddy_result = subprocess.run(["tail", "-n", "8000", CADDY_LOG], capture_output=True, text=True, timeout=10)
+        caddy_raw = caddy_result.stdout.strip().split("\n") if caddy_result.stdout.strip() else []
+    except Exception:
+        caddy_raw = []
+
+    for raw in caddy_raw:
+        try:
+            d = _json.loads(raw)
+        except Exception:
+            continue
+        status = d.get("status", 0)
+        if status < 400:
+            continue
+        req = d.get("request", {})
+        host = req.get("host", "unknown").split(":")[0]
+        uri = req.get("uri", "")
+        method = req.get("method", "")
+        ts = d.get("ts", 0)
+        stamp = _dt.datetime.fromtimestamp(ts, ET).strftime("%b %d %H:%M:%S %Z") if ts else "?"
+        level = "ERROR" if status >= 500 else "WARNING"
+        entries.append((ts, f"{stamp} caddy {level} {status} {host} {method} {uri}"))
+
+    entries.sort(key=lambda e: e[0], reverse=True)
+    lines = [text for ts, text in entries]
     colored = []
     for line in lines:
         if "ERROR" in line:
