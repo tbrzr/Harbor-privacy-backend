@@ -12,7 +12,7 @@ Oracle Cloud VM (Ubuntu). All services run as systemd units. No Docker.
 | Harbor Webhook | `/home/ubuntu/harbor-backend/webhook.py` | 9000 | `harbor-webhook.service` |
 | Brazer Dashboard | `/home/ubuntu/brazer-dashboard.py` | 8200 | `brazer-dashboard.service` |
 | AdGuard Home | — | 8080 (admin), 5443 (DoH/DoT) | `AdGuardHome.service` |
-| Nginx | — | 80/443 | `nginx.service` |
+| Caddy | — | 80 (ACME/HTTP redirect, public), 8444 (TLS, loopback-only behind sslh) | `caddy.service` |
 
 ## Key File Locations
 
@@ -23,13 +23,13 @@ Oracle Cloud VM (Ubuntu). All services run as systemd units. No Docker.
 - **Brazer config/data:** `/var/www/brazer/config.json`, `/var/www/brazer/reminders.json`
 - **Static customer sites:** `/var/www/network/`
 - **AGH config:** `/opt/AdGuardHome/AdGuardHome.yaml` (requires sudo)
-- **Nginx configs:** `/etc/nginx/sites-enabled/`
+- **Caddy config:** `/etc/caddy/Caddyfile` (single file, all vhosts; nginx was fully retired 2026-08-06)
 
 ## Critical Rules
 
 - NEVER modify `harbor_kids` or `plan_type` logic in `harbor-backend/dashboard.py`
 - Static sites live at `/var/www/network/` — do not move or restructure them
-- Do not touch harbor-booking or stats.harborprivacy.com nginx configs
+- Do not touch harbor-booking or stats.harborprivacy.com blocks in `/etc/caddy/Caddyfile`
 - No em dashes in code comments or string output
 - The live Brazer script is `/home/ubuntu/brazer-dashboard.py` — the repo copy at `brazer-startpage-repo/brazer-dashboard.py` must be kept in sync manually before committing
 - The live Brazer HTML template is `/var/www/brazer/index.html` — changes there also need to be synced to `brazer-startpage-repo/index.html` before committing
@@ -42,7 +42,7 @@ sudo systemctl restart harbor-booking
 sudo systemctl restart harbor-fax
 sudo systemctl restart harbor-webhook
 sudo systemctl restart brazer-dashboard
-sudo systemctl restart nginx
+sudo systemctl restart caddy   # only if EnvironmentFile changed; for a plain config edit use: sudo caddy reload --config /etc/caddy/Caddyfile
 ```
 
 ## Credentials & Env Vars
@@ -82,4 +82,4 @@ If the Gemini API key changes, update both `/var/www/brazer/config.json` AND `~/
 - harbor-booking venv: `/home/ubuntu/harbor-booking/venv/` — use this Python for brazer-dashboard too
 - Resend API for email, Telnyx for fax, Stripe for fax payments
 - Gemini 2.5 Flash (google-genai) for Benny AI in Brazer — API key stored in `/var/www/brazer/config.json`
-- AGH DoH proxied through nginx on port 5443 (TLS), nginx strips client IP so all queries appear as `127.0.0.0`
+- AGH DoH proxied through Caddy on port 5443 (TLS), Caddy strips client IP so all queries appear as `127.0.0.0`
