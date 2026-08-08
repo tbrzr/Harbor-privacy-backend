@@ -951,6 +951,11 @@ NAV_LIGHT = """
   .topnav .links{display:none;}
   body{padding-bottom:calc(80px + env(safe-area-inset-bottom));}
   .lt-tabs{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;align-items:stretch;background:#fbf7f1;border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom)) 4px;z-index:60;}
+  /* Every page's own .toast rule sits above in source order but is a plain
+     bottom:28px, which lands underneath (and at a lower z-index than) this
+     fixed bottom tab bar in standalone PWA mode. This block loads later in
+     the DOM so it wins the cascade at equal specificity without !important. */
+  .toast{bottom:calc(92px + env(safe-area-inset-bottom));z-index:70;}
 }
 </style>
 <div class="topnav">

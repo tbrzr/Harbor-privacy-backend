@@ -678,22 +678,39 @@ def main_hrf(data):
     per_fix = max(6.0, min(14.0, fix_total / n))
 
     scenes, durs = [], []
-    s0 = SOCIAL_DIR / f"{stem}.s0.png"
-    render_png(hrf_scene_svg(accent, "hook", hook=post["hook"]), s0)
-    scenes.append(s0); durs.append(HOOK_D)
-    s1 = SOCIAL_DIR / f"{stem}.s1.png"
-    render_png(hrf_scene_svg(accent, "reveal", reveal=post["reveal"]), s1)
-    scenes.append(s1); durs.append(REVEAL_D)
-    for i in range(1, n + 1):
-        sp = SOCIAL_DIR / f"{stem}.f{i}.png"
-        render_png(hrf_scene_svg(accent, "fix", steps=steps, n_steps=i), sp)
-        scenes.append(sp); durs.append(per_fix)
-    sc = SOCIAL_DIR / f"{stem}.cta.png"
-    render_png(hrf_scene_svg(accent, "cta", cta_text=post["cta"], url=HRF_URL), sc)
-    scenes.append(sc); durs.append(CTA_D)
+    mp4_path = SOCIAL_DIR / f"{stem}.mp4"
+    png_path = SOCIAL_DIR / f"{stem}.png"
+    try:
+        s0 = SOCIAL_DIR / f"{stem}.s0.png"
+        render_png(hrf_scene_svg(accent, "hook", hook=post["hook"]), s0)
+        scenes.append(s0); durs.append(HOOK_D)
+        s1 = SOCIAL_DIR / f"{stem}.s1.png"
+        render_png(hrf_scene_svg(accent, "reveal", reveal=post["reveal"]), s1)
+        scenes.append(s1); durs.append(REVEAL_D)
+        for i in range(1, n + 1):
+            sp = SOCIAL_DIR / f"{stem}.f{i}.png"
+            render_png(hrf_scene_svg(accent, "fix", steps=steps, n_steps=i), sp)
+            scenes.append(sp); durs.append(per_fix)
+        sc = SOCIAL_DIR / f"{stem}.cta.png"
+        render_png(hrf_scene_svg(accent, "cta", cta_text=post["cta"], url=HRF_URL), sc)
+        scenes.append(sc); durs.append(CTA_D)
 
-    build_reel(scenes, durs, SOCIAL_DIR / f"{stem}.mp4")
-    render_square(hrf_poster_svg(accent, post["hook"]), SOCIAL_DIR / f"{stem}.png")
+        build_reel(scenes, durs, mp4_path)
+        render_square(hrf_poster_svg(accent, post["hook"]), png_path)
+    except Exception as e:
+        # A crash here (e.g. ffmpeg hanging past build_reel's own timeout)
+        # used to leave orphaned scene pngs and a truncated mp4 sitting in the
+        # live asset dir with nothing in the manifest to explain them. Clean
+        # up everything for this stem and fail with one clear line instead of
+        # a raw traceback tail, so the dashboard shows a real error and a
+        # retry starts from a clean state.
+        for p in scenes:
+            try: p.unlink()
+            except Exception: pass
+        for p in (mp4_path, png_path):
+            try: p.unlink()
+            except Exception: pass
+        sys.exit(f"reel build failed: {e!r}")
     for p in scenes:
         try: p.unlink()
         except Exception: pass
