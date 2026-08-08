@@ -679,20 +679,16 @@ def _shout_lines(text, x, y, fs, lh, max_lines, fill=BG, anchor="start", weight=
                   for i, l in enumerate(lines))
     return svg, len(lines)
 
-def layout_shout(text, eyebrow, url, *, kind="hook", accent=SAGE):
-    """Dark bg, bold ALL-CAPS sans, one big text block. kind='cta' adds a down
-    arrow pointing at the comments, per the hook_reveal_fix CTA slide spec.
+def layout_shout(text, eyebrow, url, *, accent=SAGE):
+    """Dark bg, bold ALL-CAPS sans, one big text block -- the hook/reveal
+    slides of the hook_reveal_fix format (slide 3 is layout_fix, below).
     Picks the largest font size whose FULL text fits within the vertical budget
     with no truncation -- long reveal text gets smaller type instead of an
     ellipsis, so the whole line always lands in the one slide.
 
     accent replaces every SAGE reference below -- pass pick_accent(stem) from
     the caller so a post's 3 slides share one color but posts vary."""
-    # (font size, max lines) tiers, largest first. CTA reserves extra room below
-    # the text for the "see the fix" label + arrow, so its tiers hold less text
-    # at each size than hook/reveal, which use the full slide height.
-    tiers = [(92, 5), (74, 6), (60, 7), (50, 9)] if kind == "cta" else \
-            [(92, 7), (74, 9), (60, 11), (50, 13)]
+    tiers = [(92, 7), (74, 9), (60, 11), (50, 13)]
     fs, max_lines = tiers[-1]
     for cand_fs, cand_max in tiers:
         if len(_shout_wrap(text, cand_fs)) <= cand_max:
@@ -703,40 +699,92 @@ def layout_shout(text, eyebrow, url, *, kind="hook", accent=SAGE):
     deco = _eyebrow(80, 220, eyebrow, fill=accent)
     foot = (f'<text x="80" y="{H-70}" font-family="DM Mono, monospace" font-size="24" fill="{accent}" '
             f'letter-spacing="2">{html.escape(url)}</text>')
-    arrow = ""
-    if kind == "cta":
-        ay = 420 + n*lh + 70
-        label = (f'<text x="{W//2}" y="{ay-14}" font-family="DM Mono, monospace" font-size="26" '
-                 f'fill="{accent}" letter-spacing="4" text-anchor="middle">SEE THE FIX IN COMMENTS</text>')
-        arrow = (label +
-                 f'<path d="M{W//2} {ay} v90 M{W//2-26} {ay+58} l26 32 l26 -32" '
-                 f'stroke="{accent}" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>')
-    elif kind in ("hook", "reveal"):
-        # Carousel has more slides after this one -- IG/FB give no built-in
-        # swipe affordance on static images, so bottom-right "SWIPE" + chevron
-        # is the de facto standard (same spot Instagram itself uses for its
-        # own multi-image indicator).
-        ax, ay = W - 80, H - 70
-        label = (f'<text x="{ax-46}" y="{ay-8}" font-family="DM Mono, monospace" font-size="22" '
-                 f'fill="{accent}" letter-spacing="3" text-anchor="end">SWIPE</text>')
-        arrow = (label +
-                 f'<path d="M{ax-40} {ay-18} h56 M{ax-2} {ay-40} l26 22 l-26 22" '
-                 f'stroke="{accent}" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>')
+    # Carousel has more slides after this one -- IG/FB give no built-in swipe
+    # affordance on static images, so bottom-right "SWIPE" + chevron is the
+    # de facto standard (same spot Instagram itself uses for its own
+    # multi-image indicator).
+    ax, ay = W - 80, H - 70
+    label = (f'<text x="{ax-46}" y="{ay-8}" font-family="DM Mono, monospace" font-size="22" '
+             f'fill="{accent}" letter-spacing="3" text-anchor="end">SWIPE</text>')
+    arrow = (label +
+             f'<path d="M{ax-40} {ay-18} h56 M{ax-2} {ay-40} l26 22 l-26 22" '
+             f'stroke="{accent}" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>')
     return _base_color(DARK, deco + body_svg + arrow + foot, grid=accent, grid_op=0.06) + "</svg>"
 
-def render_hrf_slides(stem, *, brand="harbor", hook="", reveal="", cta="", eyebrow="", url="", out_dir):
+def _num_wrap(idx, text, fs):
+    cpl = max(6, int(800 / (fs * 0.80)))
+    return (textwrap.wrap(f"{idx}. {(text or '').strip()}".upper(), width=cpl, break_long_words=False)
+            or [f"{idx}."])
+
+def layout_fix(header, steps, eyebrow, url, *, accent=SAGE):
+    """hook_reveal_fix's 3rd and final slide: the actual fix, numbered and IN
+    the carousel. This used to be a CTA slide reading "SEE THE FIX IN
+    COMMENTS" with the real how-to posted as a follow-up FB/IG comment --
+    that comment call could fail, get deleted, or just never fire, so the
+    fix silently vanished. Now it's slide 3 itself and publishes atomically
+    with the rest of the post. header is the old cta line, reused as this
+    slide's instruction header; steps is fix_steps. Same shrink-to-fit
+    approach as layout_shout, applied per-step so one long step doesn't force
+    every other step to wrap early."""
+    steps = steps or []
+    tiers = [(48, 9), (40, 11), (34, 13), (28, 16)]  # (font size, max total step-lines)
+    fs, max_lines, wrapped = tiers[-1][0], tiers[-1][1], None
+    for cand_fs, cand_max in tiers:
+        w = [_num_wrap(i, s, cand_fs) for i, s in enumerate(steps, 1)]
+        if sum(len(l) for l in w) <= cand_max:
+            fs, max_lines, wrapped = cand_fs, cand_max, w
+            break
+    if wrapped is None:
+        fs = tiers[-1][0]
+        wrapped = [_num_wrap(i, s, fs) for i, s in enumerate(steps, 1)]
+        kept, total = [], 0
+        for lines in wrapped:
+            if total + len(lines) > max_lines:
+                break
+            kept.append(lines); total += len(lines)
+        kept = kept or [wrapped[0][:max_lines]]
+        kept[-1][-1] = kept[-1][-1].rstrip(".,;: ") + "…"
+        wrapped = kept
+
+    lh = int(fs * 1.2)
+    y = 400
+    body = []
+    for lines in wrapped:
+        for line in lines:
+            body.append(f'<text x="80" y="{y}" font-family="DM Sans, sans-serif" font-size="{fs}" '
+                        f'font-weight="800" fill="{BG}" letter-spacing="1">{html.escape(line)}</text>')
+            y += lh
+        y += int(lh * 0.5)
+
+    deco = _eyebrow(80, 220, eyebrow, fill=accent)
+    head_svg, _ = _shout_lines((header or "the fix").strip() + ":", 80, 300, 30, 38, 2,
+                               fill=accent, weight="700")
+    foot = (f'<text x="80" y="{H-70}" font-family="DM Mono, monospace" font-size="24" fill="{accent}" '
+            f'letter-spacing="2">{html.escape(url)}</text>')
+    return _base_color(DARK, deco + head_svg + "".join(body) + foot, grid=accent, grid_op=0.06) + "</svg>"
+
+def render_hrf_slides(stem, *, brand="harbor", hook="", reveal="", fix_steps=None, cta="",
+                      eyebrow="", url="", out_dir):
     """Render the 3 slides of the hook_reveal_fix format to <out_dir>/<stem>-1.png
-    (hook), -2.png (reveal), -3.png (CTA). Returns the list of png Paths."""
+    (hook), -2.png (reveal), -3.png (the fix itself -- cta text as the header
+    + numbered fix_steps, in the carousel, not a follow-up comment). Returns
+    the list of png Paths."""
     out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
     accent = pick_accent(stem)
     paths = []
-    for i, (text, kind) in enumerate([(hook, "hook"), (reveal, "reveal"), (cta, "cta")], start=1):
-        svg = layout_shout(text, eyebrow, url, kind=kind, accent=accent)
+    for i, text in enumerate((hook, reveal), start=1):
+        svg = layout_shout(text, eyebrow, url, accent=accent)
         svgp = out / f"{stem}-{i}.svg"; pngp = out / f"{stem}-{i}.png"
         svgp.write_text(svg)
         subprocess.run(["rsvg-convert","-w",str(W),"-h",str(H),str(svgp),"-o",str(pngp)],
                        check=True, timeout=40)
         paths.append(pngp)
+    fix_svg = layout_fix(cta, fix_steps or [], eyebrow, url, accent=accent)
+    svgp = out / f"{stem}-3.svg"; pngp = out / f"{stem}-3.png"
+    svgp.write_text(fix_svg)
+    subprocess.run(["rsvg-convert","-w",str(W),"-h",str(H),str(svgp),"-o",str(pngp)],
+                   check=True, timeout=40)
+    paths.append(pngp)
     return paths
 
 

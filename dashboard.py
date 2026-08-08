@@ -5222,7 +5222,7 @@ def _review_decision(action, entry):
 # brand -> filter category for generated sets
 SOCIAL_BRAND_CAT = {"harbor":"Harbor","career":"Career","fax":"Fax",
                     "booking":"Booking","money":"Money","scan":"Scan",
-                    "burn":"Burn","tips":"Tips"}
+                    "burn":"Burn","tips":"Tips","neighbor":"Neighbor"}
 
 SOCIAL_HISTORY_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
@@ -5417,7 +5417,7 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
         <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="2.2"/><line x1="7" y1="3" x2="7" y2="21"/><line x1="17" y1="3" x2="17" y2="21"/><polygon points="11,9 15,12 11,15"/></svg>
         Cards reel
       </button>
-      <button class="btn alt" onclick="genHrf(this)" title="Auto-generate a hook/reveal/CTA carousel: fix steps and subscribe CTA post as two pinned comments. Uses the idea box above if filled in, otherwise a random tip from the bank.">
+      <button class="btn alt" onclick="genHrf(this)" title="Auto-generate a hook/reveal/fix carousel across all Harbor topics -- the fix is slide 3, subscribe CTA posts as a comment. Uses the idea box above if filled in, otherwise a random tip from the bank.">
         <svg viewBox="0 0 24 24"><path d="M12 3v14"/><path d="M6 11l6 6 6-6"/><rect x="4" y="19" width="16" height="2" rx="1"/></svg>
         Hook-Reveal-Fix
       </button>
@@ -5754,12 +5754,21 @@ def _fb_carousel_upload(pid, n):
 
 
 def _publish_fb_hrf(pid, entry):
-    """Publish a hook_reveal_fix entry: the 3 slides as one FB carousel post,
-    then the fix-steps comment and the subscribe comment, in that order (the
-    fix comment is the format's actual value, so it goes first)."""
+    """Publish a hook_reveal_fix entry: the 3 slides (hook, reveal, fix) as one
+    FB carousel post, then the subscribe comment. The fix used to be posted as
+    a follow-up comment after the carousel; it's slide 3 now, so it publishes
+    atomically with the rest of the post -- see card_engine.layout_fix.
+    Refuses to publish (ntfy alert instead) if the caption doesn't share a
+    topic word with the hook/reveal it's paired with -- the hard gate right
+    before the webhook fires, per the caption/image mismatch fix."""
     import time as _time, json as _json, requests as _req
     if not (META_PAGE_ID and META_PAGE_TOKEN):
         return False, "Facebook Page not configured"
+    if not _hrf_topic_match(entry.get("body", ""), entry.get("head", ""), entry.get("reveal", "")):
+        log.error("hrf topic mismatch, refusing to publish %s", pid)
+        _ntfy("Post refused: caption/topic mismatch", f"{pid}\ncaption: {entry.get('body','')[:120]}",
+              tags="rotating_light", priority="high")
+        return False, "caption does not match hook/reveal topic -- refused to publish, alert sent"
     photo_ids = _fb_carousel_upload(pid, 3)
     if not photo_ids:
         return False, "could not upload carousel slides"
@@ -5776,9 +5785,6 @@ def _publish_fb_hrf(pid, entry):
     posted = _load_posted()
     posted[pid] = int(_time.time())
     _save_posted(posted)
-    fix_steps = entry.get("fix_steps") or []
-    if fix_steps:
-        _post_fb_comment(post_id, "The fix:\n\n" + "\n\n".join(fix_steps))
     sub = (entry.get("subscribe_comment") or "").strip()
     if sub:
         _post_fb_comment(post_id, sub)
@@ -6206,11 +6212,18 @@ def _ig_carousel_children(pid, n):
 
 
 def _publish_ig_hrf(pid, entry):
-    """Publish a hook_reveal_fix entry as an IG carousel post, then the fix-steps
-    comment and the subscribe comment, in that order."""
+    """Publish a hook_reveal_fix entry as an IG carousel post (hook, reveal,
+    fix), then the subscribe comment. Same publish-time topic-match gate as
+    _publish_fb_hrf -- refuses and alerts instead of posting a mismatched
+    caption/image pair."""
     import time as _time, requests as _req
     if not (META_IG_ID and META_PAGE_TOKEN):
         return False, "Instagram not configured"
+    if not _hrf_topic_match(entry.get("body", ""), entry.get("head", ""), entry.get("reveal", "")):
+        log.error("hrf topic mismatch, refusing to publish %s", pid)
+        _ntfy("Post refused: caption/topic mismatch", f"{pid}\ncaption: {entry.get('body','')[:120]}",
+              tags="rotating_light", priority="high")
+        return False, "caption does not match hook/reveal topic -- refused to publish, alert sent"
     base = f"https://graph.facebook.com/v21.0/{META_IG_ID}"
     children = _ig_carousel_children(pid, 3)
     if not children:
@@ -6241,9 +6254,6 @@ def _publish_ig_hrf(pid, entry):
     posted = _load_posted()
     posted[pid] = int(_time.time())
     _save_posted(posted)
-    fix_steps = entry.get("fix_steps") or []
-    if fix_steps:
-        _post_ig_comment(p["id"], "The fix:\n\n" + "\n\n".join(fix_steps))
     sub = (entry.get("subscribe_comment") or "").strip()
     if sub:
         _post_ig_comment(p["id"], sub)
@@ -6863,10 +6873,50 @@ HRF_BRAND_URL = {
     "harbor": "harborprivacy.com", "career": "harborprivacy.com/career",
     "fax": "harborprivacy.com/fax", "booking": "harborprivacy.com/booking",
     "money": "harborprivacy.com/money", "scan": "scan.harborprivacy.com",
-    "burn": "burn.harborprivacy.com",
+    "burn": "burn.harborprivacy.com", "neighbor": "neighbor.harborprivacy.com",
 }
 
-def _hrf_quality_ok(hook, reveal, fix_steps, caption):
+# Stopwords stripped before comparing caption words against hook/reveal words
+# in _hrf_topic_match -- keeps the overlap check on real topic nouns/verbs
+# instead of matching on "your" or "check" in every post.
+_HRF_STOPWORDS = {
+    "the", "a", "an", "and", "or", "but", "is", "are", "was", "were", "be",
+    "been", "being", "to", "of", "in", "on", "for", "with", "your", "you",
+    "it", "this", "that", "how", "heres", "check", "turn", "off", "before",
+    "after", "just", "can", "could", "not", "no", "yes", "do", "does", "did",
+    "if", "so", "up", "out", "new", "one", "its", "their", "them", "they",
+    "we", "our", "us", "at", "by", "from", "as", "into", "about", "than",
+    "then", "now", "what", "when", "where", "why", "which", "who", "will",
+    "would",
+}
+
+def _hrf_sig_words(text):
+    return {w for w in re.findall(r"[a-z']+", (text or "").lower())
+            if len(w) >= 4 and w not in _HRF_STOPWORDS}
+
+def _hrf_topic_match(caption, hook, reveal):
+    """True if caption shares at least one real topic word with hook+reveal.
+    Root cause of the dormant-account/SIM-swap mismatch: the manual hrf route
+    lets caption be typed independently of hook/reveal with no check they
+    describe the same post. Strict keyword overlap, not fuzzy/AI-judged --
+    deterministic, no extra API call on the publish path, and short teaser
+    captions rarely share more than one real keyword with their slides even
+    when genuinely on-topic, so one shared word is the right bar."""
+    cap_words = _hrf_sig_words(caption)
+    slide_words = _hrf_sig_words(f"{hook} {reveal}")
+    if not cap_words or not slide_words:
+        return False
+    return bool(cap_words & slide_words)
+
+
+# Payoff line (cta / the fix slide's header) must name a concrete time cost --
+# "here's how to check" alone undersells the format; "in under a minute"
+# is the actual hook.
+HRF_TIME_RE = re.compile(
+    r"\b(\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|fifteen|twenty|thirty)"
+    r"\s*(sec|second|min|minute|hr|hour)s?\b", re.I)
+
+def _hrf_quality_ok(hook, reveal, cta, fix_steps, caption):
     """House rules for the hook_reveal_fix format. Only the mechanically
     checkable half of the ACCURACY RULE lives here (the banned false-consent
     framing named in the spec) -- whether the underlying claim is literally
@@ -6878,7 +6928,13 @@ def _hrf_quality_ok(hook, reveal, fix_steps, caption):
         return "reveal_text missing or too long"
     if not fix_steps:
         return "fix_steps must have at least one step"
-    blob = f"{hook} {reveal} {caption}".lower()
+    if not cta:
+        return "cta_text missing"
+    if not HRF_TIME_RE.search(cta):
+        return 'cta_text needs a concrete time estimate (e.g. "in under a minute", "30 seconds")'
+    if not _hrf_topic_match(caption, hook, reveal):
+        return "caption does not share any topic word with hook/reveal -- wrong post?"
+    blob = f"{hook} {reveal} {cta} {caption}".lower()
     if "—" in blob:
         return "em dash"
     for phrase in ("without your consent", "without your permission", "without you knowing"):
@@ -6890,25 +6946,34 @@ def _hrf_quality_ok(hook, reveal, fix_steps, caption):
 
 
 def _hrf_create_entry(brand, hook, reveal, cta, fix_steps, subscribe_comment, caption):
-    """Render the 3 slides and append a pending hook_reveal_fix manifest entry.
-    Shared by the manual-input route and the auto-generate route. Returns the
-    new entry's id."""
-    import time as _time, json as _json, tempfile as _tf, shutil as _sh, card_engine
+    """Render the 3 slides (hook, reveal, fix) and append a pending
+    hook_reveal_fix manifest entry. Shared by the manual-input route and the
+    auto-generate route. Returns the new entry's id."""
+    import time as _time, json as _json, tempfile as _tf, shutil as _sh, uuid as _uuid, card_engine
     url = HRF_BRAND_URL[brand]
     ts = int(_time.time())
-    stem = f"hrf-{brand}-{ts}"
+    # uuid suffix, not just brand+second-timestamp: two rapid submits for the
+    # same brand in the same second used to collide on stem and silently
+    # overwrite each other's slide PNGs while leaving two manifest entries
+    # pointing at the same (wrong) files.
+    stem = f"hrf-{brand}-{ts}-{_uuid.uuid4().hex[:6]}"
     social_dir = "/home/ubuntu/harbor-design-system/assets/social"
-    card_engine.render_hrf_slides(stem, brand=brand, hook=hook, reveal=reveal, cta=cta,
-                                  eyebrow="HARBOR / PRIVACY", url=url, out_dir=social_dir)
+    card_engine.render_hrf_slides(stem, brand=brand, hook=hook, reveal=reveal, fix_steps=fix_steps,
+                                  cta=cta, eyebrow="HARBOR / PRIVACY", url=url, out_dir=social_dir)
     # /social/img/<id> (the review-queue thumbnail) looks for a bare <id>.png,
     # same convention every other post type uses. render_hrf_slides only
     # writes the suffixed -1/-2/-3 slides, so mirror the hook slide to the
     # bare filename as the thumbnail.
     _sh.copyfile(f"{social_dir}/{stem}-1.png", f"{social_dir}/{stem}.png")
     asset_base = "https://assets.harborprivacy.com/raw/social"
+    # Brand-specific category ("Scan HRF", "Career HRF"...) instead of one
+    # shared "Hook-Reveal-Fix" bucket -- every hrf post used to land in the
+    # same review-queue filter chip regardless of topic, so there was no way
+    # to filter or even see topic variety at a glance.
+    category = f"{SOCIAL_BRAND_CAT.get(brand, 'Harbor')} HRF"
     entry = {
-        "id": stem, "category": "Hook-Reveal-Fix", "source": "hrf", "brand": brand,
-        "created": ts, "head": hook,
+        "id": stem, "category": category, "source": "hrf", "brand": brand,
+        "created": ts, "head": hook, "reveal": reveal, "cta": cta,
         "hdr": f"HOOK-REVEAL-FIX / {hook} -> {url}",
         "img": f"{asset_base}/{stem}-1.png",
         "images": [f"{asset_base}/{stem}-{i}.png" for i in (1, 2, 3)],
@@ -6933,20 +6998,20 @@ def _hrf_create_entry(brand, hook, reveal, cta, fix_steps, subscribe_comment, ca
 @authentik_admin_required
 def social_generate_hrf():
     """Create a hook_reveal_fix post from manually-supplied text. Land in the
-    review queue as one FB/IG carousel entry. On approve, _publish_fb/_publish_ig
-    post the carousel then two comments: the fix steps (the format's actual
-    value), then the subscribe CTA, in that order."""
+    review queue as one FB/IG carousel entry (hook, reveal, fix). On approve,
+    _publish_fb/_publish_ig post the carousel -- fix included as slide 3 --
+    then just the subscribe comment."""
     d = request.json or {}
     brand = d.get("brand") or "harbor"
     if brand not in HRF_BRAND_URL:
         return jsonify({"ok": False, "error": "unknown brand"}), 400
     hook = (d.get("hook_text") or "").strip()
     reveal = (d.get("reveal_text") or "").strip()
-    cta = (d.get("cta_text") or "Here's how to check and turn it off").strip()
+    cta = (d.get("cta_text") or "Here's how to check and turn it off, in under a minute").strip()
     fix_steps = [s.strip() for s in (d.get("fix_steps") or []) if isinstance(s, str) and s.strip()]
     subscribe_comment = (d.get("subscribe_comment") or "").strip()
     caption = (d.get("caption") or hook).strip()
-    why = _hrf_quality_ok(hook, reveal, fix_steps, caption)
+    why = _hrf_quality_ok(hook, reveal, cta, fix_steps, caption)
     if why:
         return jsonify({"ok": False, "error": why}), 400
     try:
@@ -6956,17 +7021,41 @@ def social_generate_hrf():
     return jsonify({"ok": True, "id": stem})
 
 
+# tip-bank.json key -> hrf brand each seed should be created under. "tips"
+# (generic device-setting tips) and "breach" (Harbor Breach Monitor) fold into
+# the harbor brand -- neither has its own HRF_BRAND_URL page to link. "stickers"
+# is product-marketing copy, not a check-and-fix topic, so it's excluded.
+# "fax" and "booking" are excluded too (Tim's call) -- both skew B2B pitch
+# rather than an everyday consumer check-and-fix, off-tone for this format.
+# Manual /api/social/generate-hrf posts for those brands still work; they're
+# just out of the automatic rotation.
+_HRF_POOL_KEYS = {
+    "harbor": "harbor", "scan": "scan", "money": "money", "career": "career",
+    "burn": "burn", "neighbor": "neighbor",
+    "breach": "harbor", "tips": "harbor",
+}
+
 # Tip topics the auto-generator draws from -- Harbor's own curated, verified
-# tip bank (tip-bank.json "harbor" + "tips" keys), the same source social-refresh.py
-# uses for the regular post rotation. Reusing it means every hook_reveal_fix claim
-# traces back to a real, checked setting instead of the model inventing one.
+# tip bank, the same source social-refresh.py uses for the regular post
+# rotation. Reusing it means every hook_reveal_fix claim traces back to a
+# real, checked setting instead of the model inventing one.
 def _hrf_tip_pool():
+    """Every usable tip-bank seed, each tagged with the brand its hrf post
+    should be created under. Used to only pull the "harbor" + "tips" keys
+    (28 of ~85 seeds) and every auto-generated post landed under brand=
+    "harbor" regardless of topic -- the scan/money/career/fax/booking/burn/
+    neighbor seeds sat unused and every post in the review queue looked the
+    same. Now the seed's own key picks both its topic and its brand."""
     import json as _json
     try:
         bank = _json.load(open("/home/ubuntu/tip-bank.json"))
     except Exception:
         return []
-    return (bank.get("harbor") or []) + (bank.get("tips") or [])
+    pool = []
+    for key, brand in _HRF_POOL_KEYS.items():
+        for seed in (bank.get(key) or []):
+            pool.append({**seed, "brand": brand})
+    return pool
 
 
 def _hrf_pick_seed(man):
@@ -7008,7 +7097,9 @@ Return ONLY a JSON object with these keys:
           say "you may have turned this on" -- never claim something happens without consent
           when it does not.
   "reveal": 1-2 sentences explaining the mechanism/why, same voice, max 200 chars
-  "cta": CTA slide text, e.g. "Here's how to check and turn it off"
+  "cta": the fix slide's header line -- MUST name a concrete time cost for doing the fix,
+         e.g. "Here's how to check, in under a minute" or "Takes about 30 seconds to turn
+         off". Never a bare "here's how to check" with no time estimate.
   "fix_steps": array of 2-5 short plain-text steps, ONE action per step, using the exact
                menu names from the tip
   "subscribe_comment": one short line inviting a follow for more tips like this, no links
@@ -7044,8 +7135,14 @@ def social_generate_hrf_auto():
             man = _json.load(_f)
     except Exception:
         man = {"version": 1, "entries": []}
-    custom_idea = ((request.get_json(silent=True) or {}).get("idea") or "").strip()
-    seed = {"id": "adhoc", "idea": custom_idea} if custom_idea else _hrf_pick_seed(man)
+    d_in = request.get_json(silent=True) or {}
+    custom_idea = (d_in.get("idea") or "").strip()
+    custom_brand = (d_in.get("brand") or "").strip()
+    if custom_idea:
+        seed = {"id": "adhoc", "idea": custom_idea,
+                "brand": custom_brand if custom_brand in HRF_BRAND_URL else "harbor"}
+    else:
+        seed = _hrf_pick_seed(man)
     if not seed:
         return jsonify({"ok": False, "error": "tip bank is empty or unreadable"}), 500
     draft, why = None, "no draft produced"
@@ -7056,11 +7153,11 @@ def social_generate_hrf_auto():
             continue
         hook = (cand.get("hook") or "").strip()
         reveal = (cand.get("reveal") or "").strip()
-        cta = (cand.get("cta") or "Here's how to check and turn it off").strip()
+        cta = (cand.get("cta") or "Here's how to check and turn it off, in under a minute").strip()
         fix_steps = [s.strip() for s in (cand.get("fix_steps") or []) if isinstance(s, str) and s.strip()]
         subscribe_comment = (cand.get("subscribe_comment") or "").strip()
         caption = (cand.get("caption") or hook).strip()
-        why = _hrf_quality_ok(hook, reveal, fix_steps, caption)
+        why = _hrf_quality_ok(hook, reveal, cta, fix_steps, caption)
         if why is None:
             draft = (hook, reveal, cta, fix_steps, subscribe_comment, caption)
             break
@@ -7074,7 +7171,7 @@ def social_generate_hrf_auto():
         _json.dump(man, _f, indent=2, ensure_ascii=False)
     os.replace(tmp, SOCIAL_MANIFEST)
     try:
-        stem = _hrf_create_entry("harbor", *draft)
+        stem = _hrf_create_entry(seed.get("brand", "harbor"), *draft)
     except Exception as e:
         return jsonify({"ok": False, "error": f"card render failed: {e}"}), 500
     return jsonify({"ok": True, "id": stem})
