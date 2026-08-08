@@ -22,6 +22,19 @@ BG="#fbf7f1"; INK="#1a2420"; MUTE="#6b7a72"; TEAL="#1f5d6b"
 SAGE="#cdd8c8"; GREEN="#3d6b52"; LINE="#e5dfd3"; TAN="#e9e2d4"; DARK="#17424b"
 W, H = 1080, 1350
 
+# hook_reveal_fix accent rotation: SAGE was hardcoded on every slide regardless
+# of brand, so every post looked identical. These five read against DARK
+# without a brand lookup -- sky blue and warm tan per Tim's ask, plus amber and
+# coral for scroll-stopping contrast, SAGE kept as one option not the only one.
+ACCENTS = (SAGE, "#8fb8d9", TAN, "#e8a86a", "#e2836a")
+
+def pick_accent(seed):
+    """Deterministic pick from ACCENTS so every slide of one post (same stem)
+    lands on the same accent, but different posts vary. Same hash-the-id
+    approach build_svg already uses for layout variety."""
+    h = int(hashlib.md5(str(seed).encode()).hexdigest(), 16)
+    return ACCENTS[h % len(ACCENTS)]
+
 
 # ── decorative motifs ────────────────────────────────────────────────────────
 def dotgrid(x,y,cols,rows,gap=20,r=3,color=SAGE,op=0.5):
@@ -654,7 +667,7 @@ def _shout_wrap(text, fs):
     # old 0.62 factor. 0.80 plus a narrower usable-width budget leaves a real
     # right margin instead of running text to the edge.
     cpl = max(6, int(800 / (fs * 0.80)))
-    return textwrap.wrap((text or "").strip().upper(), width=cpl)
+    return textwrap.wrap((text or "").strip().upper(), width=cpl, break_long_words=False)
 
 def _shout_lines(text, x, y, fs, lh, max_lines, fill=BG, anchor="start", weight="800"):
     lines = _shout_wrap(text, fs)
@@ -666,12 +679,15 @@ def _shout_lines(text, x, y, fs, lh, max_lines, fill=BG, anchor="start", weight=
                   for i, l in enumerate(lines))
     return svg, len(lines)
 
-def layout_shout(text, eyebrow, url, *, kind="hook"):
+def layout_shout(text, eyebrow, url, *, kind="hook", accent=SAGE):
     """Dark bg, bold ALL-CAPS sans, one big text block. kind='cta' adds a down
     arrow pointing at the comments, per the hook_reveal_fix CTA slide spec.
     Picks the largest font size whose FULL text fits within the vertical budget
     with no truncation -- long reveal text gets smaller type instead of an
-    ellipsis, so the whole line always lands in the one slide."""
+    ellipsis, so the whole line always lands in the one slide.
+
+    accent replaces every SAGE reference below -- pass pick_accent(stem) from
+    the caller so a post's 3 slides share one color but posts vary."""
     # (font size, max lines) tiers, largest first. CTA reserves extra room below
     # the text for the "see the fix" label + arrow, so its tiers hold less text
     # at each size than hook/reveal, which use the full slide height.
@@ -684,17 +700,17 @@ def layout_shout(text, eyebrow, url, *, kind="hook"):
             break
     lh = int(fs * 1.14)
     body_svg, n = _shout_lines(text, 80, 420, fs, lh, max_lines)
-    deco = _eyebrow(80, 220, eyebrow, fill=SAGE)
-    foot = (f'<text x="80" y="{H-70}" font-family="DM Mono, monospace" font-size="24" fill="{SAGE}" '
+    deco = _eyebrow(80, 220, eyebrow, fill=accent)
+    foot = (f'<text x="80" y="{H-70}" font-family="DM Mono, monospace" font-size="24" fill="{accent}" '
             f'letter-spacing="2">{html.escape(url)}</text>')
     arrow = ""
     if kind == "cta":
         ay = 420 + n*lh + 70
         label = (f'<text x="{W//2}" y="{ay-14}" font-family="DM Mono, monospace" font-size="26" '
-                 f'fill="{SAGE}" letter-spacing="4" text-anchor="middle">SEE THE FIX IN COMMENTS</text>')
+                 f'fill="{accent}" letter-spacing="4" text-anchor="middle">SEE THE FIX IN COMMENTS</text>')
         arrow = (label +
                  f'<path d="M{W//2} {ay} v90 M{W//2-26} {ay+58} l26 32 l26 -32" '
-                 f'stroke="{SAGE}" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>')
+                 f'stroke="{accent}" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round"/>')
     elif kind in ("hook", "reveal"):
         # Carousel has more slides after this one -- IG/FB give no built-in
         # swipe affordance on static images, so bottom-right "SWIPE" + chevron
@@ -702,19 +718,20 @@ def layout_shout(text, eyebrow, url, *, kind="hook"):
         # own multi-image indicator).
         ax, ay = W - 80, H - 70
         label = (f'<text x="{ax-46}" y="{ay-8}" font-family="DM Mono, monospace" font-size="22" '
-                 f'fill="{SAGE}" letter-spacing="3" text-anchor="end">SWIPE</text>')
+                 f'fill="{accent}" letter-spacing="3" text-anchor="end">SWIPE</text>')
         arrow = (label +
                  f'<path d="M{ax-40} {ay-18} h56 M{ax-2} {ay-40} l26 22 l-26 22" '
-                 f'stroke="{SAGE}" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>')
-    return _base_color(DARK, deco + body_svg + arrow + foot, grid=SAGE, grid_op=0.06) + "</svg>"
+                 f'stroke="{accent}" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>')
+    return _base_color(DARK, deco + body_svg + arrow + foot, grid=accent, grid_op=0.06) + "</svg>"
 
 def render_hrf_slides(stem, *, brand="harbor", hook="", reveal="", cta="", eyebrow="", url="", out_dir):
     """Render the 3 slides of the hook_reveal_fix format to <out_dir>/<stem>-1.png
     (hook), -2.png (reveal), -3.png (CTA). Returns the list of png Paths."""
     out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
+    accent = pick_accent(stem)
     paths = []
     for i, (text, kind) in enumerate([(hook, "hook"), (reveal, "reveal"), (cta, "cta")], start=1):
-        svg = layout_shout(text, eyebrow, url, kind=kind)
+        svg = layout_shout(text, eyebrow, url, kind=kind, accent=accent)
         svgp = out / f"{stem}-{i}.svg"; pngp = out / f"{stem}-{i}.png"
         svgp.write_text(svg)
         subprocess.run(["rsvg-convert","-w",str(W),"-h",str(H),str(svgp),"-o",str(pngp)],

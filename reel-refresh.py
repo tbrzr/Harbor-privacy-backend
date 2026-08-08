@@ -442,12 +442,287 @@ def main_pets(data, niche=""):
     print(f"added {stem} | PET {seed['eyebrow']} | steps={len(steps)} | ~{secs:.1f}s | -> {seed['learn']} | reels pruned {dropped}")
 
 
+# ---------------------------------------------------------------------------
+# HOOK / REVEAL / FIX REEL: video counterpart to the dashboard's static
+# hook_reveal_fix carousel (card_engine.render_hrf_slides). Same DARK bg +
+# rotating card_engine.ACCENTS so the format reads as one thing whether it
+# lands as a carousel or a reel, and the same hook/reveal/fix_steps/cta shape
+# so Tim's existing accuracy rule and quality bar apply unchanged. Paced for
+# ~60s of hold time (vs ~14s for the tip/pet reels) since a full watch-through
+# is the point of a views metric. Invoke with `reel-refresh.py hrf`.
+# ---------------------------------------------------------------------------
+ce = sr.card_engine
+HRF_URL = "harborprivacy.com"
+HRF_EYEBROW = "HARBOR / PRIVACY"
+
+
+def hrf_tip_pool():
+    """Same curated source as the dashboard's carousel generator: tip-bank.json's
+    brand-agnostic 'harbor' + 'tips' keys, so every reel claim traces back to a
+    verified setting instead of the model inventing one."""
+    try:
+        bank = json.loads(sr.TIP_BANK.read_text())
+    except Exception:
+        return []
+    return (bank.get("harbor") or []) + (bank.get("tips") or [])
+
+
+def pick_hrf_seed(data):
+    """Least-recently-used tip; own rotation key (used_hrf_reel_seeds) so it
+    does not fight the dashboard carousel's separate used_hrf_seeds list."""
+    pool = hrf_tip_pool()
+    if not pool:
+        return None
+    used = data.get("used_hrf_reel_seeds", [])
+    last = {sid: i for i, sid in enumerate(used)}
+    return min(pool, key=lambda s: last.get(s.get("id"), -1))
+
+
+def hrf_reel_post(seed, data):
+    key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not key:
+        sys.exit("ANTHROPIC_API_KEY not set")
+    avoid = sr.recent_headlines(data["entries"], "harbor")
+    avoid_txt = ("\nDo NOT repeat these recent hooks: " + "; ".join(avoid)) if avoid else ""
+    prompt = f"""You write the "hook, reveal, fix" format for a Harbor Privacy vertical video reel.
+Base it on this verified tip, keep every concrete detail (settings, menu names, numbers) exactly
+as given, do not invent anything beyond it: {seed['idea']}
+
+Voice: plain, direct, no hype, no em dashes, no emoji.
+
+Return ONLY a JSON object with these keys:
+  "hook": the opening line, max 90 chars, states the problem in a way that stops a scroller,
+          ends on a cliffhanger with NO resolution. If the tip describes a feature that is on
+          by default, say so plainly (e.g. "Your TV is already doing this"); if it is opt-in,
+          say "You may have turned this on" -- never claim something happens without consent
+          when it does not.
+  "reveal": 1-2 sentences explaining the mechanism/why, same voice, max 200 chars
+  "fix_steps": array of 3 to 5 short plain-text steps, ONE action per step, using the exact
+               menu names from the tip (each max 60 chars, no numbering)
+  "cta": a short line inviting a follow for more tips like this, no links (max 40 chars)
+  "caption": the post caption, 2-3 short paragraphs, ending with the line {HRF_URL} then 3-4 hashtags
+Every line must be concrete and screenshot-worthy, never vague marketing.{avoid_txt}"""
+    body = json.dumps({
+        "model": "claude-haiku-4-5-20251001", "max_tokens": 700,
+        "messages": [{"role": "user", "content": prompt}],
+    }).encode()
+    req = urllib.request.Request(ANTHROPIC_URL, data=body, method="POST",
+        headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
+    with urllib.request.urlopen(req, timeout=40) as r:
+        d = json.load(r)
+    txt = d["content"][0]["text"].strip()
+    txt = txt[txt.find("{"): txt.rfind("}") + 1]
+    return json.loads(txt)
+
+
+def hrf_reel_ok(p):
+    hook   = (p.get("hook") or "").strip()
+    reveal = (p.get("reveal") or "").strip()
+    steps  = p.get("fix_steps") or []
+    cta    = (p.get("cta") or "").strip()
+    cap    = (p.get("caption") or "").strip()
+    if not hook or len(hook) > 90:                               return "bad hook"
+    if not reveal or len(reveal) > 200:                          return "bad reveal"
+    if not isinstance(steps, list) or not (3 <= len(steps) <= 5): return "bad steps count"
+    steps = [(s or "").strip() for s in steps]
+    if any(not s or len(s) > 140 for s in steps):                return "step len"
+    if not cta or len(cta) > 44:                                 return "bad cta"
+    if not (120 <= len(cap) <= 800):                             return f"caption len {len(cap)}"
+    if HRF_URL not in cap:                                       return "missing link"
+    blob = hook + reveal + cap + cta + "".join(steps)
+    if DASH in blob or ENDASH in blob:                           return "em dash"
+    low = (hook + " " + reveal + " " + cap).lower()
+    for phrase in ("without your consent", "without your permission", "without you knowing"):
+        if phrase in low:
+            return f'banned phrase "{phrase}"'
+    if any(x in low for x in ["lorem", "placeholder", "as an ai", "[insert"]):
+        return "placeholder text"
+    return None
+
+
+def _hrf_fit(text, cta=False):
+    """Largest (font-size, max-lines) tier whose full text fits, same approach
+    as card_engine.layout_shout, reusing its width-measured _shout_wrap. The
+    reel frame is 1920 tall vs the carousel's 1350, so there is room for more
+    lines than layout_shout's tiers use -- sized for the 200-char reveal cap
+    in hrf_reel_ok (a 90-char hook or 40-char cta needs far fewer lines and
+    just lands on an earlier, larger tier)."""
+    tiers = [(84, 4), (66, 5), (54, 6), (44, 8)] if cta else [(92, 6), (74, 8), (60, 11), (48, 15)]
+    fs, max_lines = tiers[-1]
+    for cand_fs, cand_max in tiers:
+        if len(ce._shout_wrap(text, cand_fs)) <= cand_max:
+            fs, max_lines = cand_fs, cand_max
+            break
+    return fs, max_lines
+
+
+# (chevron fs, text fs, wrap width, line height, gap between steps). The
+# carousel's fix_steps go in an unlimited pinned comment, but the reel draws
+# them into a fixed 1920-tall frame, so real content (multi-hop menu paths
+# like "Samsung: Settings > Support > Viewing Information Services") needs a
+# tier that shrinks instead of a hard character cap that just rejects valid
+# tips over and over.
+_FIX_TIERS = [(46, 42, 26, 54, 48), (40, 36, 30, 46, 40), (34, 30, 34, 40, 32)]
+_FIX_BUDGET = 1250  # px available below the pips row before the footer line
+
+
+def _fix_layout(steps):
+    for chev_fs, text_fs, width, lh, gap in _FIX_TIERS:
+        total = sum(len(_wrap(s, width)) * lh + gap for s in steps)
+        if total <= _FIX_BUDGET:
+            return chev_fs, text_fs, width, lh, gap
+    return _FIX_TIERS[-1]
+
+
+def hrf_scene_svg(accent, kind, hook="", reveal="", steps=None, n_steps=0, cta_text="", url=HRF_URL):
+    """kind in hook/reveal/fix/cta. DARK bg (matches the carousel's dark
+    slides) + one accent picked per-reel from card_engine.ACCENTS so hook,
+    reveal, fix, and cta scenes of one reel always match."""
+    steps = steps or []
+    p = [f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}">
+  <defs><radialGradient id="hg" cx="50%" cy="0%" r="70%"><stop offset="0%" stop-color="{accent}" stop-opacity="0.14"/><stop offset="100%" stop-color="{accent}" stop-opacity="0"/></radialGradient></defs>
+  <rect width="{W}" height="{H}" fill="{ce.DARK}"/><rect width="{W}" height="{H}" fill="url(#hg)"/>
+  <rect x="36" y="36" width="{W-72}" height="{H-72}" rx="28" ry="28" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2"/>
+  <text x="90" y="170" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="28" fill="{accent}" letter-spacing="7" font-weight="500">{html.escape(HRF_EYEBROW)}</text>''']
+
+    if kind == "fix":
+        ew = 22 + len("THE FIX") * 13
+        p.append(f'<g transform="translate(90,210)"><rect width="{ew}" height="40" rx="20" ry="20" fill="none" stroke="{accent}" stroke-width="1.5"/>'
+                  f'<text x="{ew/2}" y="27" text-anchor="middle" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="14" fill="{accent}" letter-spacing="3" font-weight="500">THE FIX</text></g>')
+        p.append(_progress_pips(len(steps), n_steps, 90, 300, accent, "rgba(255,255,255,0.15)"))
+
+    if kind in ("hook", "reveal"):
+        text = hook if kind == "hook" else reveal
+        fs, max_lines = _hrf_fit(text)
+        lh = int(fs * 1.14)
+        body_svg, _ = ce._shout_lines(text, 90, 560, fs, lh, max_lines, fill=ce.BG)
+        p.append(body_svg)
+    elif kind == "fix":
+        chev_fs, text_fs, width, lh, gap = _fix_layout(steps)
+        sy = 380
+        for idx in range(n_steps):
+            wl = _wrap(steps[idx], width)
+            p.append(f'<text x="92" y="{sy}" font-family="DM Sans, system-ui, sans-serif" '
+                     f'font-size="{chev_fs}" fill="{accent}" font-weight="700">&#8250;</text>')
+            for j, seg in enumerate(wl):
+                p.append(f'<text x="142" y="{sy+j*lh}" font-family="DM Sans, system-ui, sans-serif" '
+                         f'font-size="{text_fs}" fill="{ce.BG}">{html.escape(seg)}</text>')
+            sy += lh * len(wl) + gap
+    elif kind == "cta":
+        fs, max_lines = _hrf_fit(cta_text, cta=True)
+        lh = int(fs * 1.14)
+        body_svg, n = ce._shout_lines(cta_text, 90, 560, fs, lh, max_lines, fill=ce.BG)
+        p.append(body_svg)
+        ay = 560 + n * lh + 90
+        p.append(f'<text x="90" y="{ay}" font-family="DM Sans, system-ui, sans-serif" '
+                 f'font-size="40" fill="rgba(255,255,255,0.65)">More tips, follow along:</text>')
+        p.append(f'<text x="90" y="{ay+90}" font-family="DM Mono, ui-monospace, Menlo, monospace" '
+                 f'font-size="52" fill="{accent}" letter-spacing="1">{html.escape(url)}</text>')
+
+    p.append(f'<line x1="90" y1="{H-210}" x2="{W-90}" y2="{H-210}" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>')
+    if kind != "cta":
+        p.append(f'<text x="{W-90}" y="{H-140}" text-anchor="end" font-family="DM Mono, ui-monospace, Menlo, monospace" '
+                 f'font-size="30" fill="{accent}" letter-spacing="2" font-weight="500">{html.escape(url)}</text>')
+    p.append('</svg>')
+    return "".join(p)
+
+
+def hrf_poster_svg(accent, hook):
+    """Square 1080 dark poster for the /social grid thumbnail."""
+    S = 1080
+    p = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {S} {S}">',
+         f'<defs><radialGradient id="hpg" cx="50%" cy="0%" r="80%"><stop offset="0%" stop-color="{accent}" stop-opacity="0.16"/><stop offset="100%" stop-color="{accent}" stop-opacity="0"/></radialGradient></defs>',
+         f'<rect width="{S}" height="{S}" fill="{ce.DARK}"/><rect width="{S}" height="{S}" fill="url(#hpg)"/>',
+         f'<rect x="28" y="28" width="{S-56}" height="{S-56}" rx="26" ry="26" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2"/>',
+         f'<text x="72" y="130" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="24" fill="{accent}" letter-spacing="6" font-weight="500">{html.escape(HRF_EYEBROW)}</text>']
+    fs, _ = _hrf_fit(hook)
+    fs = min(fs, 84); lh = int(fs * 1.14)
+    body_svg, _ = ce._shout_lines(hook, 72, 420, fs, lh, 5, fill=ce.BG)
+    p.append(body_svg)
+    p.append(f'<text x="72" y="{S-70}" font-family="DM Mono, ui-monospace, Menlo, monospace" '
+             f'font-size="26" fill="{accent}" letter-spacing="2">{HRF_URL}</text>')
+    p.append('</svg>')
+    return "".join(p)
+
+
+def main_hrf(data):
+    seed = pick_hrf_seed(data)
+    if not seed:
+        sys.exit("tip-bank has no harbor/tips entries; nothing to draw from")
+    post = None
+    for a in range(5):
+        try:
+            cand = hrf_reel_post(seed, data)
+        except Exception as e:
+            print(f"generate attempt {a} failed: {e!r}"); continue
+        why = hrf_reel_ok(cand)
+        if why is None:
+            post = cand; break
+        print(f"rejected (attempt {a}): {why}")
+    if not post:
+        sys.exit("no quality hrf reel produced; nothing added")
+
+    ts = int(time.time()); stem = f"reel-hrf-{ts}"
+    accent = ce.pick_accent(stem)
+    steps = [s.strip() for s in post["fix_steps"]]
+    n = len(steps)
+
+    # Dynamic pacing: hook/reveal/cta hold times are fixed, the fix-step
+    # scenes split whatever time is left so the total lands near TARGET
+    # seconds regardless of how many steps this tip needed (3-5), unlike the
+    # fixed-hold tip/pet reels which run ~14s total.
+    TARGET, T = 60.0, 0.4
+    HOOK_D, REVEAL_D, CTA_D = 6.0, 8.0, 9.0
+    n_scenes = 3 + n  # hook + reveal + n fix scenes + cta
+    fix_total = (TARGET + T * (n_scenes - 1)) - (HOOK_D + REVEAL_D + CTA_D)
+    per_fix = max(6.0, min(14.0, fix_total / n))
+
+    scenes, durs = [], []
+    s0 = SOCIAL_DIR / f"{stem}.s0.png"
+    render_png(hrf_scene_svg(accent, "hook", hook=post["hook"]), s0)
+    scenes.append(s0); durs.append(HOOK_D)
+    s1 = SOCIAL_DIR / f"{stem}.s1.png"
+    render_png(hrf_scene_svg(accent, "reveal", reveal=post["reveal"]), s1)
+    scenes.append(s1); durs.append(REVEAL_D)
+    for i in range(1, n + 1):
+        sp = SOCIAL_DIR / f"{stem}.f{i}.png"
+        render_png(hrf_scene_svg(accent, "fix", steps=steps, n_steps=i), sp)
+        scenes.append(sp); durs.append(per_fix)
+    sc = SOCIAL_DIR / f"{stem}.cta.png"
+    render_png(hrf_scene_svg(accent, "cta", cta_text=post["cta"], url=HRF_URL), sc)
+    scenes.append(sc); durs.append(CTA_D)
+
+    build_reel(scenes, durs, SOCIAL_DIR / f"{stem}.mp4")
+    render_square(hrf_poster_svg(accent, post["hook"]), SOCIAL_DIR / f"{stem}.png")
+    for p in scenes:
+        try: p.unlink()
+        except Exception: pass
+
+    entry = {
+        "id": stem, "category": "Hook-Reveal-Fix", "source": "reel", "brand": "harbor", "created": ts,
+        "head": post["hook"], "hdr": f"HRF REEL / {post['hook']} -> {HRF_URL}",
+        "img": f"{ASSET_BASE}/{stem}.png", "video": f"{ASSET_BASE}/{stem}.mp4",
+        "link": f"https://{HRF_URL}", "tags": "lightbulb,shield", "body": post["caption"].strip(),
+        "fix_steps": steps, "seed": seed.get("id"),
+    }
+    data["entries"].append(entry)
+    data.setdefault("used_hrf_reel_seeds", []).append(seed.get("id"))
+    dropped = prune_reels(data)
+
+    tmp = MANIFEST.with_suffix(".json.tmp")
+    tmp.write_text(json.dumps(data, indent=2)); os.replace(tmp, MANIFEST)
+    secs = sum(durs) - T * (len(scenes) - 1)
+    print(f"added {stem} | HRF REEL | steps={n} | ~{secs:.1f}s | accent={accent} | reels pruned {dropped}")
+
+
 def main():
     data = sr.load_manifest()
     arg = sys.argv[1] if len(sys.argv) > 1 else ""
     if arg in ("pets", "--pets"):
         niche = sys.argv[2].strip().lower() if len(sys.argv) > 2 else ""
         return main_pets(data, niche if niche in PET_NICHES else "")
+    if arg in ("hrf", "--hrf", "fixreveal"):
+        return main_hrf(data)
     brand = arg if arg in BRANDS else sr.pick_brand(data["entries"])
     mark, eyebrow, url, _ = BRANDS[brand]
     # Optional ad-hoc reel: `reel-refresh.py <brand> "<idea>" [link-slug]`.

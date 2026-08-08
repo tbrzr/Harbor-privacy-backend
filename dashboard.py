@@ -5402,6 +5402,10 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
         <svg viewBox="0 0 24 24"><path d="M12 3v14"/><path d="M6 11l6 6 6-6"/><rect x="4" y="19" width="16" height="2" rx="1"/></svg>
         Hook-Reveal-Fix
       </button>
+      <button class="btn alt" onclick="genReel(this,'hrf')" title="Video version of Hook-Reveal-Fix: same hook/reveal/fix-steps shape, ~60s paced for a full watch-through, dark bg with a rotating accent color">
+        <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/></svg>
+        HRF reel
+      </button>
     </div>
   </div>
   <a class="btn alt" href="/social/pages">Apex pages</a>
@@ -5551,7 +5555,7 @@ async function genReel(b,mode){
   try{
     var r=await fetch('/api/social/generate-reel',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify(payload)});
     var j=await r.json();
-    if(j.ok){toast(mode==='pets'?'Pet reel built':'Reel built'); setTimeout(function(){location.reload();},900);}
+    if(j.ok){toast(mode==='pets'?'Pet reel built':(mode==='hrf'?'Hook-Reveal-Fix reel built':'Reel built')); setTimeout(function(){location.reload();},900);}
     else{toast(j.error||'Reel build failed'); b.disabled=false; b.textContent=label;}
   }catch(e){toast('Reel build failed (timeout?)'); b.disabled=false; b.textContent=label;}
 }
@@ -6722,10 +6726,12 @@ def social_generate_set():
 @app.route("/api/social/generate-reel", methods=["POST"])
 @authentik_admin_required
 def social_generate_reel():
-    """On-demand reel build. mode=='pets' runs the deep-teal pet pack; anything
-    else runs the normal brand rotation. Synchronous: reel-refresh.py renders the
-    scenes + ffmpeg mp4 + poster and appends the manifest itself (~20-40s). Runs as
-    the service user (ubuntu) so the manifest stays ubuntu-owned, no chown needed."""
+    """On-demand reel build. mode=='pets' runs the deep-teal pet pack, mode=='hrf'
+    runs the hook/reveal/fix video (~60s, dark bg + rotating accent, video
+    counterpart to the static hook_reveal_fix carousel); anything else runs the
+    normal brand rotation. Synchronous: reel-refresh.py renders the scenes +
+    ffmpeg mp4 + poster and appends the manifest itself (~20-70s for hrf). Runs
+    as the service user (ubuntu) so the manifest stays ubuntu-owned, no chown needed."""
     import subprocess as _sp
     body = request.get_json(silent=True) or {}
     mode = (body.get("mode") or "").strip().lower()
@@ -6735,6 +6741,8 @@ def social_generate_reel():
         niche = (body.get("niche") or "").strip().lower()
         if niche in ("walkers", "groomers", "sitters", "mobile"):
             extra.append(niche)
+    elif mode == "hrf":
+        extra.append("hrf")
     cmd = ["/usr/bin/python3", "/home/ubuntu/harbor-backend/reel-refresh.py", *extra]
     try:
         r = _sp.run(cmd, capture_output=True, text=True, timeout=240,
