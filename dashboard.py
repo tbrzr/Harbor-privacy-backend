@@ -5314,11 +5314,13 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,sy
 h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;margin:6px 0 4px;}
 .sub{color:var(--mute);font-size:14px;margin:0 0 16px;}
 .bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+.idea-input{flex:1;min-width:220px;border:1.5px solid var(--line);border-radius:12px;padding:10px 14px;font:14px/1.4 -apple-system,system-ui,sans-serif;color:var(--ink);background:var(--surface-2,#f6f1e7);}
 .genwrap{position:relative;}
 .genlist{display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:50;background:#fff;border:1px solid var(--line);border-radius:14px;padding:10px;min-width:220px;flex-direction:column;gap:8px;box-shadow:0 12px 32px rgba(26,36,32,0.14);}
 .genwrap.open .genlist{display:flex;}
 .genlist .btn{justify-content:flex-start;width:100%;}
 .genlist select{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:10px;font:14px/1.4 -apple-system,system-ui,sans-serif;color:var(--ink);background:var(--surface-2,#f6f1e7);}
+.genlist input[type=text]{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:10px;font:14px/1.4 -apple-system,system-ui,sans-serif;color:var(--ink);background:var(--surface-2,#f6f1e7);margin:0;box-sizing:border-box;}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:none;border-radius:12px;padding:11px 16px;font-size:14px;font-weight:600;cursor:pointer;background:var(--teal);color:#fff;text-decoration:none;}
 .btn.alt{background:#fff;color:var(--teal);border:1.5px solid var(--teal);}
 .btn:active{opacity:.85;}.btn[disabled]{opacity:.6;cursor:default;}
@@ -5372,7 +5374,19 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
         <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1V18h6v-1.2c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
         Tips set
       </button>
-      <button class="btn alt" onclick="genReel(this)">
+      <select id="reelBrand" title="Which brand the idea box is for (ignored when the idea box is empty)">
+        <option value="harbor" selected>Harbor / Privacy</option>
+        <option value="career">Career</option>
+        <option value="fax">Fax</option>
+        <option value="booking">Booking</option>
+        <option value="money">Money</option>
+        <option value="neighbor">Neighbor</option>
+        <option value="scan">Scan</option>
+        <option value="burn">Burn</option>
+        <option value="stickers">Stickers</option>
+        <option value="playpark">Play Park</option>
+      </select>
+      <button class="btn alt" onclick="genReel(this)" title="Uses the idea box above (for the brand picked left) if filled in, otherwise picks the next brand in rotation">
         <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/></svg>
         Reel
       </button>
@@ -5403,16 +5417,17 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
         <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="2.2"/><line x1="7" y1="3" x2="7" y2="21"/><line x1="17" y1="3" x2="17" y2="21"/><polygon points="11,9 15,12 11,15"/></svg>
         Cards reel
       </button>
-      <button class="btn alt" onclick="genHrf(this)" title="Auto-generate a hook/reveal/CTA carousel from a random privacy tip, fix steps and subscribe CTA as two pinned comments">
+      <button class="btn alt" onclick="genHrf(this)" title="Auto-generate a hook/reveal/CTA carousel: fix steps and subscribe CTA post as two pinned comments. Uses the idea box above if filled in, otherwise a random tip from the bank.">
         <svg viewBox="0 0 24 24"><path d="M12 3v14"/><path d="M6 11l6 6 6-6"/><rect x="4" y="19" width="16" height="2" rx="1"/></svg>
         Hook-Reveal-Fix
       </button>
-      <button class="btn alt" onclick="genReel(this,'hrf')" title="Video version of Hook-Reveal-Fix: same hook/reveal/fix-steps shape, ~60s paced for a full watch-through, dark bg with a rotating accent color">
+      <button class="btn alt" onclick="genReel(this,'hrf')" title="Video version of Hook-Reveal-Fix: same hook/reveal/fix-steps shape, ~60s paced for a full watch-through, dark bg with a rotating accent color. Uses the idea box above if filled in, otherwise pulls a random tip from the bank.">
         <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/></svg>
         HRF reel
       </button>
     </div>
   </div>
+  <input type="text" id="customIdea" class="idea-input" placeholder="Your own idea/topic instead of the usual pick (optional)" title="Used by Reel, HRF reel, and Hook-Reveal-Fix instead of the automatic tip-bank rotation when filled in">
   <a class="btn alt" href="/social/pages">Apex pages</a>
   <a class="btn alt" href="/social/sent">Sent log</a>
   <span class="count"><b id="visCount">0</b> posts</span>
@@ -5471,8 +5486,10 @@ var CSRF="{{ csrf_token }}";
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},1800);}
 async function genHrf(b){
   var label=b.textContent.trim(); b.disabled=true; b.textContent='Generating...';
+  var payload={}; var ideaEl=document.getElementById('customIdea');
+  if(ideaEl&&ideaEl.value.trim())payload.idea=ideaEl.value.trim();
   try{
-    var r=await fetch('/api/social/generate-hrf-auto',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({})});
+    var r=await fetch('/api/social/generate-hrf-auto',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify(payload)});
     var j=await r.json();
     if(j.ok){toast('Added to review queue'); setTimeout(function(){location.reload();},900);}
     else{toast(j.error||'Generation failed'); b.disabled=false; b.textContent=label;}
@@ -5557,6 +5574,8 @@ async function genReel(b,mode){
   var label=b.textContent.trim(); b.disabled=true; b.textContent='Building reel...';
   var payload=mode?{mode:mode}:{};
   if(mode==='pets'){var sel=document.getElementById('petNiche'); if(sel&&sel.value)payload.niche=sel.value;}
+  if(mode!=='pets'){var ideaEl=document.getElementById('customIdea'); if(ideaEl&&ideaEl.value.trim())payload.idea=ideaEl.value.trim();}
+  if(!mode&&payload.idea){var brandSel=document.getElementById('reelBrand'); if(brandSel&&brandSel.value)payload.brand=brandSel.value;}
   try{
     var r=await fetch('/api/social/generate-reel',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify(payload)});
     var j=await r.json();
@@ -6748,6 +6767,14 @@ def social_generate_reel():
             extra.append(niche)
     elif mode == "hrf":
         extra.append("hrf")
+        idea = (body.get("idea") or "").strip()
+        if idea:
+            extra.append(idea[:400])  # sane ceiling, not a hard spec limit
+    else:
+        idea = (body.get("idea") or "").strip()
+        if idea:
+            brand = (body.get("brand") or "").strip().lower()
+            extra += ["idea", idea[:400], brand]
     cmd = ["/usr/bin/python3", "/home/ubuntu/harbor-backend/reel-refresh.py", *extra]
     try:
         r = _sp.run(cmd, capture_output=True, text=True, timeout=240,
@@ -7007,14 +7034,18 @@ def social_generate_hrf_auto():
     """One-click hook_reveal_fix: pick an unused tip from the curated bank
     (rotates through all platforms -- TVs, phones, browsers, routers, accounts,
     not just one topic), have Claude expand it into the 3-slide + fix-steps +
-    subscribe-comment shape, quality-gate it, and drop it in the review queue."""
+    subscribe-comment shape, quality-gate it, and drop it in the review queue.
+    A custom "idea" in the body skips the bank rotation entirely and scripts
+    from that topic instead (same idea box the plain Reel / HRF reel buttons
+    use); _hrf_quality_ok's accuracy-rule checks still apply either way."""
     import json as _json
     try:
         with open(SOCIAL_MANIFEST) as _f:
             man = _json.load(_f)
     except Exception:
         man = {"version": 1, "entries": []}
-    seed = _hrf_pick_seed(man)
+    custom_idea = ((request.get_json(silent=True) or {}).get("idea") or "").strip()
+    seed = {"id": "adhoc", "idea": custom_idea} if custom_idea else _hrf_pick_seed(man)
     if not seed:
         return jsonify({"ok": False, "error": "tip bank is empty or unreadable"}), 500
     draft, why = None, "no draft produced"

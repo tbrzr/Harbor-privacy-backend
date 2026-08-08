@@ -645,8 +645,12 @@ def hrf_poster_svg(accent, hook):
     return "".join(p)
 
 
-def main_hrf(data):
-    seed = pick_hrf_seed(data)
+def main_hrf(data, idea=""):
+    """idea, when given, is a one-off custom topic that skips the tip-bank
+    rotation entirely (same ad-hoc pattern main() already uses for plain
+    reels). hrf_reel_ok's accuracy-rule and banned-phrase checks still apply,
+    so a custom idea can't skip the same quality bar as a curated one."""
+    seed = {"id": "adhoc", "idea": idea} if idea else pick_hrf_seed(data)
     if not seed:
         sys.exit("tip-bank has no harbor/tips entries; nothing to draw from")
     post = None
@@ -723,7 +727,8 @@ def main_hrf(data):
         "fix_steps": steps, "seed": seed.get("id"),
     }
     data["entries"].append(entry)
-    data.setdefault("used_hrf_reel_seeds", []).append(seed.get("id"))
+    if seed["id"] != "adhoc":  # don't pollute the tip-bank rotation
+        data.setdefault("used_hrf_reel_seeds", []).append(seed.get("id"))
     dropped = prune_reels(data)
 
     tmp = MANIFEST.with_suffix(".json.tmp")
@@ -739,7 +744,21 @@ def main():
         niche = sys.argv[2].strip().lower() if len(sys.argv) > 2 else ""
         return main_pets(data, niche if niche in PET_NICHES else "")
     if arg in ("hrf", "--hrf", "fixreveal"):
-        return main_hrf(data)
+        idea = sys.argv[2].strip() if len(sys.argv) > 2 else ""
+        return main_hrf(data, idea)
+    if arg in ("idea", "--idea"):
+        # `reel-refresh.py idea "<text>" [brand]`: same ad-hoc path below
+        # (skips the tip-bank rotation) but invoked without needing the brand
+        # as the literal first argument. brand defaults to rotation ONLY if
+        # omitted/invalid -- a free-text idea about one product (e.g. Booking
+        # deposits) rendered under a rotation-picked unrelated brand (e.g.
+        # Fax) is a real mismatch, not a cosmetic one, so an explicit brand
+        # from the caller always wins.
+        idea_text = sys.argv[2] if len(sys.argv) > 2 else ""
+        want_brand = sys.argv[3].strip().lower() if len(sys.argv) > 3 else ""
+        chosen = want_brand if want_brand in BRANDS else sr.pick_brand(data["entries"])
+        sys.argv = [sys.argv[0], chosen, idea_text]
+        arg = chosen
     brand = arg if arg in BRANDS else sr.pick_brand(data["entries"])
     mark, eyebrow, url, _ = BRANDS[brand]
     # Optional ad-hoc reel: `reel-refresh.py <brand> "<idea>" [link-slug]`.
