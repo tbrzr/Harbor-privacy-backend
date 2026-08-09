@@ -736,7 +736,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 
 UNSUBSCRIBE_PAGE = STYLE + """
 <nav>
-  <a href="https://harborprivacy.com" class="logo">harbor<span>/</span>privacy</a>
+  <a href="https://harborprivacy.com" class="logo">harbor<span>/</span>dashboard</a>
   <div class="nav-links">
     {% if logged_in %}
     <a href="/dashboard">Dashboard</a>
@@ -814,7 +814,7 @@ NAV_CUSTOMER = """
 <div id="timeout-warning" style="display:none;position:fixed;bottom:24px;right:24px;background:#f4eee2;border:1px solid #1f5d6b;padding:20px 24px;z-index:9999;font-family:monospace;font-size:12px;color:#1a2420;flex-direction:column;gap:12px;max-width:300px;"><span>You will be logged out in 5 minutes due to inactivity.</span><button onclick="resetTimer()" style="background:#1f5d6b;color:#ffffff;border:none;padding:8px 16px;cursor:pointer;font-family:monospace;font-size:11px;">Stay Logged In</button></div>
 <nav style="display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 24px;border-bottom:1px solid var(--border);">
   <div style="display:flex;align-items:center;gap:20px;min-width:0;">
-    <a href="/dashboard" class="logo">harbor<span>/</span>privacy</a>
+    <a href="/dashboard" class="logo">harbor<span>/</span>dashboard</a>
     <div class="nav-links" style="flex-wrap:nowrap;white-space:nowrap;font-weight:700;">
       <div class="nav-drop">
         <a href="#" onclick="this.parentNode.classList.toggle('open');return false;" class="{% if active in ('adblock',) %}active{% endif %}">Menu &#9662;</a>
@@ -869,7 +869,7 @@ NAV_ADMIN = """
 <button class="hp-menu-btn" onclick="hpSidebarToggle()" aria-label="Menu"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
 <div class="hp-sidebar-overlay" id="hp-sidebar-overlay" onclick="hpSidebarToggle()"></div>
 <aside class="hp-sidebar" id="hp-sidebar">
-  <a href="/admin" class="logo">harbor<span>/</span>privacy</a>
+  <a href="/admin" class="logo">harbor<span>/</span>dashboard</a>
   <span class="hp-badge-admin">ADMIN</span>
   <div class="hp-nav-group">
     <a href="/admin" class="hp-link {{ 'active' if active == 'admin' else '' }}"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Customers</a>
@@ -959,7 +959,7 @@ NAV_LIGHT = """
 }
 </style>
 <div class="topnav">
-  <a href="/admin" class="brand">harbor<span>/</span>privacy</a>
+  <a href="/admin" class="brand">harbor<span>/</span>dashboard</a>
   <div class="links">
     <a href="/admin">Customers</a>
     <a href="/social" class="{{ 'active' if nav_active == 'social' else '' }}">Social</a>
@@ -1186,7 +1186,7 @@ def login():
 
     html = STYLE + """
 <nav>
-  <a href="https://harborprivacy.com" class="logo">harbor<span>/</span>privacy</a>
+  <a href="https://harborprivacy.com" class="logo">harbor<span>/</span>dashboard</a>
   <div class="nav-links">
     <a href="https://harborprivacy.com" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">← Back to site</a>
   </div>
@@ -1353,7 +1353,7 @@ def setup():
 
     html = STYLE + """
 <nav>
-  <a href="https://harborprivacy.com" class="logo">harbor<span>/</span>privacy</a>
+  <a href="https://harborprivacy.com" class="logo">harbor<span>/</span>dashboard</a>
 </nav>
 <div class="wrap-sm">
   <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">{% if is_admin %}Admin Setup{% else %}First Time Setup{% endif %}</p>
@@ -1381,7 +1381,7 @@ def setup():
 def setup_2fa_prompt():
     html = STYLE + """
 <nav>
-  <a href="https://harborprivacy.com" class="logo">harbor<span>/</span>privacy</a>
+  <a href="https://harborprivacy.com" class="logo">harbor<span>/</span>dashboard</a>
 </nav>
 <div class="wrap-sm" style="text-align:center;">
   <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">Account Security</p>
@@ -1404,7 +1404,7 @@ def setup_tutorial():
 
     html = STYLE + """
 <nav>
-  <a href="https://harborprivacy.com" class="logo">harbor<span>/</span>privacy</a>
+  <a href="https://harborprivacy.com" class="logo">harbor<span>/</span>dashboard</a>
 </nav>
 <div class="wrap-sm" style="text-align:center;">
   <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">Quick Setup</p>
@@ -4219,7 +4219,7 @@ def forgot():
         sent = True
 
     html = STYLE + """
-<nav><a href="https://harborprivacy.com" class="logo">harbor<span>/</span>privacy</a></nav>
+<nav><a href="https://harborprivacy.com" class="logo">harbor<span>/</span>dashboard</a></nav>
 <div class="wrap-sm">
   <h1 style="margin-bottom:8px;">Forgot password?</h1>
   {% if sent %}
@@ -4270,7 +4270,7 @@ def reset():
             error = "Invalid or expired reset link. Please request a new one."
 
     html = STYLE + """
-<nav><a href="https://harborprivacy.com" class="logo">harbor<span>/</span>privacy</a></nav>
+<nav><a href="https://harborprivacy.com" class="logo">harbor<span>/</span>dashboard</a></nav>
 <div class="wrap-sm">
   <h1 style="margin-bottom:8px;">Set new password.</h1>
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
@@ -9761,7 +9761,7 @@ _LINK_PAGE_TMPL = """<!DOCTYPE html>
 <meta name="description" content="All Harbor Privacy products and tools in one place.">
 <meta name="theme-color" content="#1f5d6b">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
+<script defer src="https://stats.harborprivacy.com/script.js" data-website-id="193a298d-8981-45a6-b9aa-301d12bc2217"></script>
 <style>
 :root{--bg:#fbf7f0;--surface:#ffffff;--border:#e6dfd2;--text:#1a2420;--muted:#6b7a72;--soft:#a6b1a8;--accent:#1f5d6b;--accent-soft:rgba(31,93,107,0.10);}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -9770,7 +9770,8 @@ body::before{content:"";position:fixed;inset:0;background-image:linear-gradient(
 .wrap{position:relative;z-index:1;max-width:520px;margin:0 auto}
 .head{text-align:center;margin-bottom:36px}
 .logo{display:block;width:112px;height:112px;margin:0 auto 18px;border-radius:24px;box-shadow:0 8px 32px rgba(31,93,107,0.12)}
-.brand{font-family:"DM Mono",monospace;font-size:13px;color:var(--accent);letter-spacing:0.18em;text-transform:uppercase;margin-bottom:14px}
+.brand{font-family:"DM Mono",monospace;font-size:15px;font-weight:500;color:var(--accent);letter-spacing:0.12em;margin-bottom:14px}
+.brand span{color:var(--soft)}
 h1{font-size:28px;font-weight:600;color:var(--text);margin-bottom:10px;letter-spacing:-0.01em}
 .sub{font-size:15px;color:var(--muted)}
 .links{display:flex;flex-direction:column;gap:10px}
@@ -9793,7 +9794,7 @@ h1{font-size:28px;font-weight:600;color:var(--text);margin-bottom:10px;letter-sp
 <div class="wrap">
   <div class="head">
     <img class="logo" src="/icons/logo.svg" alt="Harbor Privacy">
-    <div class="brand">Harbor Privacy</div>
+    <div class="brand">harbor<span>/</span>privacy</div>
     <h1>All Links</h1>
     <div class="sub">Privacy-first tools for home, business, and career.</div>
   </div>
