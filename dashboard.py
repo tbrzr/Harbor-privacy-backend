@@ -8691,6 +8691,7 @@ def begin_trial():
         utm_campaign = (data.get("utm_campaign") or request.form.get("utm_campaign", "")).strip()[:100]
         utm_content = (data.get("utm_content") or request.form.get("utm_content", "")).strip()[:100]
         utm_medium = (data.get("utm_medium") or request.form.get("utm_medium", "")).strip()[:100]
+        signup_code = (data.get("signup_code") or request.form.get("signup_code", "")).strip()[:60].upper()
         EMAIL_RE = _re_email.compile(r"^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$")
         if not email or not EMAIL_RE.match(email) or len(email) > 254:
             return jsonify({"error": "Valid email required"}), 400
@@ -8755,7 +8756,8 @@ def begin_trial():
         _save_pending_signup(token, email=email, ip=ip,
                              created_at=int(_time.time()),
                              utm_source=utm_source, utm_campaign=utm_campaign,
-                             utm_content=utm_content, utm_medium=utm_medium)
+                             utm_content=utm_content, utm_medium=utm_medium,
+                             signup_code=signup_code)
         _send_signup_confirmation(email, token)
         _record_signup_attempt(ip)
 
@@ -8870,7 +8872,8 @@ def confirm_trial(token):
     log_customer(client_id, name, email, plan, stripe_customer_id="",
                  plan_type=plan_type, is_trial=True, status="active",
                  utm_source=entry.get("utm_source", ""), utm_campaign=entry.get("utm_campaign", ""),
-                 utm_content=entry.get("utm_content", ""), utm_medium=entry.get("utm_medium", ""))
+                 utm_content=entry.get("utm_content", ""), utm_medium=entry.get("utm_medium", ""),
+                 signup_code=entry.get("signup_code", ""))
     schedule_wipe(client_id, delay=60 * 24 * 3600)
     schedule_trial_lifecycle(client_id, email, name)
     setup_url = f"https://dashboard.harborprivacy.com/setup?email={email}&st={_setup_token_for(email) or ''}"
