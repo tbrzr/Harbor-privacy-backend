@@ -791,12 +791,15 @@ def find_customer(stripe_customer_id):
         pass
     return {}
 
-def log_customer(client_id, name, email, plan, stripe_customer_id="", plan_type=None, is_trial=False, status="active"):
+def log_customer(client_id, name, email, plan, stripe_customer_id="", plan_type=None, is_trial=False, status="active",
+                  utm_source="", utm_campaign="", utm_content="", utm_medium=""):
     entry = {"date": datetime.utcnow().isoformat(), "client_id": client_id,
              "name": name, "email": email, "plan": plan,
             "plan_type": plan_type or plan,
             "is_trial": is_trial,
-             "stripe_customer_id": stripe_customer_id, "status": status}
+             "stripe_customer_id": stripe_customer_id, "status": status,
+             "utm_source": utm_source, "utm_campaign": utm_campaign,
+             "utm_content": utm_content, "utm_medium": utm_medium}
     open(CUSTOMERS_LOG, "a").write(json.dumps(entry) + "\n")
 
 EMAIL_FOOTER = """
