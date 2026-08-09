@@ -28,12 +28,25 @@ W, H = 1080, 1350
 # coral for scroll-stopping contrast, SAGE kept as one option not the only one.
 ACCENTS = (SAGE, "#8fb8d9", TAN, "#e8a86a", "#e2836a")
 
+# hook_reveal_fix dark-field rotation: every post used the same DARK teal
+# background regardless of brand/accent, so the whole format looked identical
+# in-feed post to post. These five stay dark enough for BG (cream) body text
+# and every ACCENTS color to stay legible on top.
+BG_FIELDS = (DARK, "#1f3d2e", "#2e2044", "#1a2238", "#3d2818")
+
 def pick_accent(seed):
     """Deterministic pick from ACCENTS so every slide of one post (same stem)
     lands on the same accent, but different posts vary. Same hash-the-id
     approach build_svg already uses for layout variety."""
     h = int(hashlib.md5(str(seed).encode()).hexdigest(), 16)
     return ACCENTS[h % len(ACCENTS)]
+
+def pick_bg(seed):
+    """Deterministic pick from BG_FIELDS, hashed with a different salt than
+    pick_accent so background and accent don't always land on the same index
+    (which would make the bg pick redundant)."""
+    h = int(hashlib.md5((str(seed) + "::bg").encode()).hexdigest(), 16)
+    return BG_FIELDS[h % len(BG_FIELDS)]
 
 
 # ── decorative motifs ────────────────────────────────────────────────────────
@@ -679,7 +692,7 @@ def _shout_lines(text, x, y, fs, lh, max_lines, fill=BG, anchor="start", weight=
                   for i, l in enumerate(lines))
     return svg, len(lines)
 
-def layout_shout(text, eyebrow, url, *, accent=SAGE):
+def layout_shout(text, eyebrow, url, *, accent=SAGE, bg=DARK):
     """Dark bg, bold ALL-CAPS sans, one big text block -- the hook/reveal
     slides of the hook_reveal_fix format (slide 3 is layout_fix, below).
     Picks the largest font size whose FULL text fits within the vertical budget
@@ -709,14 +722,14 @@ def layout_shout(text, eyebrow, url, *, accent=SAGE):
     arrow = (label +
              f'<path d="M{ax-40} {ay-18} h56 M{ax-2} {ay-40} l26 22 l-26 22" '
              f'stroke="{accent}" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>')
-    return _base_color(DARK, deco + body_svg + arrow + foot, grid=accent, grid_op=0.06) + "</svg>"
+    return _base_color(bg, deco + body_svg + arrow + foot, grid=accent, grid_op=0.06) + "</svg>"
 
 def _num_wrap(idx, text, fs):
     cpl = max(6, int(800 / (fs * 0.80)))
     return (textwrap.wrap(f"{idx}. {(text or '').strip()}".upper(), width=cpl, break_long_words=False)
             or [f"{idx}."])
 
-def layout_fix(header, steps, eyebrow, url, *, accent=SAGE):
+def layout_fix(header, steps, eyebrow, url, *, accent=SAGE, bg=DARK):
     """hook_reveal_fix's 3rd and final slide: the actual fix, numbered and IN
     the carousel. This used to be a CTA slide reading "SEE THE FIX IN
     COMMENTS" with the real how-to posted as a follow-up FB/IG comment --
@@ -761,7 +774,7 @@ def layout_fix(header, steps, eyebrow, url, *, accent=SAGE):
                                fill=accent, weight="700")
     foot = (f'<text x="80" y="{H-70}" font-family="DM Mono, monospace" font-size="24" fill="{accent}" '
             f'letter-spacing="2">{html.escape(url)}</text>')
-    return _base_color(DARK, deco + head_svg + "".join(body) + foot, grid=accent, grid_op=0.06) + "</svg>"
+    return _base_color(bg, deco + head_svg + "".join(body) + foot, grid=accent, grid_op=0.06) + "</svg>"
 
 def render_hrf_slides(stem, *, brand="harbor", hook="", reveal="", fix_steps=None, cta="",
                       eyebrow="", url="", out_dir):
@@ -771,15 +784,16 @@ def render_hrf_slides(stem, *, brand="harbor", hook="", reveal="", fix_steps=Non
     the list of png Paths."""
     out = Path(out_dir); out.mkdir(parents=True, exist_ok=True)
     accent = pick_accent(stem)
+    bg = pick_bg(stem)
     paths = []
     for i, text in enumerate((hook, reveal), start=1):
-        svg = layout_shout(text, eyebrow, url, accent=accent)
+        svg = layout_shout(text, eyebrow, url, accent=accent, bg=bg)
         svgp = out / f"{stem}-{i}.svg"; pngp = out / f"{stem}-{i}.png"
         svgp.write_text(svg)
         subprocess.run(["rsvg-convert","-w",str(W),"-h",str(H),str(svgp),"-o",str(pngp)],
                        check=True, timeout=40)
         paths.append(pngp)
-    fix_svg = layout_fix(cta, fix_steps or [], eyebrow, url, accent=accent)
+    fix_svg = layout_fix(cta, fix_steps or [], eyebrow, url, accent=accent, bg=bg)
     svgp = out / f"{stem}-3.svg"; pngp = out / f"{stem}-3.png"
     svgp.write_text(fix_svg)
     subprocess.run(["rsvg-convert","-w",str(W),"-h",str(H),str(svgp),"-o",str(pngp)],

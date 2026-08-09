@@ -1259,6 +1259,30 @@ def send_cancellation_email(email, name):
 </div>'''
     send_email(email, "Your Harbor Privacy subscription has ended", html)
 
+def send_payment_failed_email(email, name, invoice_url=""):
+    html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Payment Didn't Go Through</h1>
+<p>Hi {name},</p>
+<p>We tried to charge your card for your Harbor Privacy subscription and it didn't go through -- often an expired card, a replaced card number, or a temporary bank decline.</p>
+<p>DNS filtering keeps working for now. Stripe will automatically retry the charge over the next several days. To avoid any interruption, update your card before then:</p>
+{f'<p><a href="{invoice_url}" style="color:#1f5d6b;">Update payment method</a></p>' if invoice_url else ''}
+<p style="margin-top:16px;color:#6b7a72;">Questions? Just reply to this email.</p>
+<p style="border-top:1px solid #e6dfd2;padding-top:24px;color:#6b7a72;">- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
+</div>'''
+    send_email(email, "Action needed: update your payment method", html)
+
+def _ntfy(title, body, tags="warning", priority="default"):
+    """Best-effort push to the harbor-alerts ntfy topic. No-op without NTFY_AUTH."""
+    auth = os.environ.get("NTFY_AUTH", "")
+    try:
+        requests.post("https://ntfy.harborprivacy.com/harbor-alerts",
+                      data=body.encode(),
+                      headers={"Title": title, "Tags": tags, "Priority": priority,
+                               **({"Authorization": f"Basic {auth}"} if auth else {})},
+                      timeout=5)
+    except Exception:
+        pass
+
 def verify_sig(payload, sig_header, secret):
     try:
         parts = {}
@@ -1548,6 +1572,50 @@ class WebhookHandler(BaseHTTPRequestHandler):
                         send_cancellation_email(customer.get("email", ""), customer.get("name", ""))
                         deactivate_after_grace(cid)
                         log.info(f"Cancellation received for {cid} - grace period 30d")
+
+            elif etype == "invoice.payment_failed":
+                try:
+                    invoice = event["data"]["object"]
+                    stripe_id = invoice.get("customer", "")
+                    attempt = invoice.get("attempt_count", 1)
+                    amount = invoice.get("amount_due", 0) / 100
+                    invoice_url = invoice.get("hosted_invoice_url", "")
+                    customer = find_customer(stripe_id)
+                    email = customer.get("email", "") if customer else invoice.get("customer_email", "")
+                    name = customer.get("name", "Customer") if customer else (invoice.get("customer_name") or "Customer")
+                    log.warning(f"Payment failed: {email} attempt {attempt} ${amount:.2f}")
+                    # Only email the customer on the first attempt -- Stripe retries
+                    # automatically for days, and re-emailing on every retry would
+                    # spam someone whose bank just needs a second try.
+                    if attempt <= 1 and email:
+                        send_payment_failed_email(email, name, invoice_url)
+                    _ntfy("Payment failed", f"{email} ({name})\nAttempt {attempt}, ${amount:.2f}\n"
+                          "Stripe retries automatically; escalates to cancellation if all attempts fail.",
+                          tags="warning,moneybag", priority="high")
+                except Exception as e:
+                    log.error(f"payment_failed handler error: {e}")
+
+            elif etype == "charge.dispute.created":
+                try:
+                    dispute = event["data"]["object"]
+                    amount = dispute.get("amount", 0) / 100
+                    reason = dispute.get("reason", "unknown")
+                    charge_id = dispute.get("charge", "")
+                    stripe_id = ""
+                    try:
+                        ch = requests.get(f"https://api.stripe.com/v1/charges/{charge_id}",
+                                          auth=(STRIPE_SECRET, ""), timeout=10).json()
+                        stripe_id = ch.get("customer", "") or ""
+                    except Exception as ce:
+                        log.error(f"dispute charge lookup failed: {ce}")
+                    customer = find_customer(stripe_id) if stripe_id else None
+                    who = f"{customer.get('email','')} ({customer.get('name','')})" if customer else f"stripe customer {stripe_id or 'unknown'}"
+                    log.warning(f"Chargeback filed: {who} ${amount:.2f} reason={reason}")
+                    _ntfy("Chargeback filed", f"{who}\n${amount:.2f} -- reason: {reason}\n"
+                          "Respond with evidence in the Stripe dashboard before the deadline.",
+                          tags="rotating_light,moneybag", priority="urgent")
+                except Exception as e:
+                    log.error(f"dispute handler error: {e}")
 
             self.send_response(200); self.end_headers(); self.wfile.write(b"ok")
         except Exception as e:
