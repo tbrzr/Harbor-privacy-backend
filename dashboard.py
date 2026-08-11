@@ -965,6 +965,7 @@ NAV_LIGHT = """
     <a href="/social" class="{{ 'active' if nav_active == 'social' else '' }}">Social</a>
     <a href="/linkedin" class="{{ 'active' if nav_active == 'linkedin' else '' }}">LinkedIn</a>
     <a href="/leads" class="{{ 'active' if nav_active == 'leads' else '' }}">Leads</a>
+    <a href="/reddit-leads" class="{{ 'active' if nav_active == 'reddit-leads' else '' }}">Reddit</a>
     <a href="/settings">Settings</a>
     <a href="https://assets.harborprivacy.com/" target="_blank" rel="noopener">Assets</a>
     <a href="/logout">Sign out</a>
@@ -973,6 +974,7 @@ NAV_LIGHT = """
 <nav class="lt-tabs" aria-label="Primary">
   <a href="/social" class="{{ 'active' if nav_active == 'social' else '' }}"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg><span>Social</span></a>
   <a href="/leads" class="{{ 'active' if nav_active == 'leads' else '' }}"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg><span>Leads</span></a>
+  <a href="/reddit-leads" class="{{ 'active' if nav_active == 'reddit-leads' else '' }}"><svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg><span>Reddit</span></a>
   <a href="/linkedin" class="{{ 'active' if nav_active == 'linkedin' else '' }}"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg><span>LinkedIn</span></a>
   <a href="/admin"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Customers</span></a>
   <a href="/logout"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sign out</span></a>
@@ -7995,6 +7997,32 @@ def _leads_save(data):
         print(f"leads save failed: {e!r}", flush=True)
         return False
 
+REDDIT_LEADS_FILE = "/home/ubuntu/harbor-reddit-leads.json"
+
+def _reddit_leads_load():
+    import json as _j
+    try:
+        with open(REDDIT_LEADS_FILE) as f:
+            return _j.load(f)
+    except Exception:
+        return {"version": 1, "leads": []}
+
+def _reddit_leads_save(data):
+    import json as _j, os as _os, tempfile as _tf
+    tmp = None
+    try:
+        fd, tmp = _tf.mkstemp(dir=_os.path.dirname(REDDIT_LEADS_FILE), prefix=".reddit-leads-", suffix=".tmp")
+        with _os.fdopen(fd, "w") as f:
+            _j.dump(data, f, indent=2, ensure_ascii=False)
+        _os.replace(tmp, REDDIT_LEADS_FILE)
+        return True
+    except Exception as e:
+        if tmp:
+            try: _os.unlink(tmp)
+            except Exception: pass
+        print(f"reddit leads save failed: {e!r}", flush=True)
+        return False
+
 def _lead_message(name, profession, town):
     n = name.split(",")[0].strip()
     where = f" in {town}" if town else ""
@@ -8247,6 +8275,95 @@ def leads_vet():
     data.setdefault("leads", []).insert(0, lead)
     _leads_save(data)
     return jsonify({"ok": True, "lead": lead})
+
+REDDIT_LEADS_HTML = """<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Reddit Leads</title>
+<meta name="theme-color" content="#1f5d6b">
+<style>
+:root{--bg:#fbf7f1;--ink:#1a2420;--mute:#6b7a72;--teal:#1f5d6b;--terra:#c98a52;--line:#e5dfd3;--surface:#fff;--danger:#b3563f;--ok:#1f7a5b;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,system-ui,"DM Sans",sans-serif;padding:18px;padding-top:max(18px,env(safe-area-inset-top));max-width:780px;margin:0 auto;}
+h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;margin:4px 0 2px;}
+.sub{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--mute);letter-spacing:1px;text-transform:uppercase;margin-bottom:18px;}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;}
+.card.posted,.card.skip{opacity:.55;}
+.row1{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+.nm{font-weight:600;font-size:16px;}
+.nm a{color:var(--ink);text-decoration:none;}
+.meta{font-size:13px;color:var(--mute);margin:2px 0 8px;font-family:ui-monospace,Menlo,monospace;}
+.badge{font-family:ui-monospace,monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:3px 8px;border-radius:999px;white-space:nowrap;}
+.badge.new{background:#e3f1ec;color:var(--ok);}
+.badge.posted{background:#eee9df;color:var(--mute);}
+.badge.skip{background:#f6e3de;color:var(--danger);}
+.badge.nodraft{background:#f6ecdd;color:var(--terra);}
+textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px;font:13px/1.5 system-ui;color:var(--ink);background:#fcfaf6;resize:vertical;min-height:90px;}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.btns button,.btns a.gbtn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;padding:7px 11px;font-size:12px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;}
+.btns button.copy{background:var(--teal);color:#fff;border-color:var(--teal);}
+.btns button.on{background:var(--ink);color:#fff;border-color:var(--ink);}
+.btns button.rm{color:var(--danger);}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#2d2d2d;color:#fff;padding:11px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.empty{color:var(--mute);font-size:14px;padding:20px 0;}
+</style></head><body>
+""" + NAV_LIGHT + """
+<h1>Reddit Leads</h1>
+<div class="sub">{{ leads|length }} active</div>
+{% for l in leads %}
+<div class="card {{ l.status }}" id="c-{{ l.id }}">
+  <div class="row1">
+    <div><div class="nm"><a href="{{ l.link }}" target="_blank" rel="noopener">{{ l.title }}</a></div><div class="meta">r/{{ l.subreddit }}</div></div>
+    <span class="badge {{ l.status if l.draft else 'nodraft' }}">{{ l.status if l.draft else 'no draft' }}</span>
+  </div>
+  {% if l.draft %}<textarea id="d-{{ l.id }}">{{ l.draft }}</textarea>{% else %}<div class="empty">No draft generated (troubleshooting-only thread, or generation failed).</div>{% endif %}
+  <div class="btns">
+    {% if l.draft %}<button class="copy" onclick="copyMsg('{{ l.id }}')">Copy reply</button>{% endif %}
+    <a class="gbtn" href="{{ l.link }}" target="_blank" rel="noopener">Open thread &#8599;</a>
+    <button class="{{ 'on' if l.status=='posted' else '' }}" onclick="setStatus('{{ l.id }}','posted')">Posted</button>
+    <button class="{{ 'on' if l.status=='skip' else '' }}" onclick="setStatus('{{ l.id }}','skip')">Skip</button>
+    <button class="rm" onclick="setStatus('{{ l.id }}','remove')">Remove</button>
+  </div>
+</div>
+{% else %}
+<div class="empty">No leads yet. reddit_watcher.py runs every 6 hours.</div>
+{% endfor %}
+<div class="toast" id="toast"></div>
+<script>
+const CSRF="{{ csrf_token }}";
+function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(function(){t.classList.remove('show');},1600);}
+function copyMsg(id){var t=document.getElementById('d-'+id);try{navigator.clipboard.writeText(t.value);}catch(e){t.select();document.execCommand('copy');}toast('Reply copied');}
+async function setStatus(id,status){try{var r=await fetch('/api/reddit-leads/update',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF':CSRF},body:JSON.stringify({id:id,status:status})});if(!r.ok){toast('Failed ('+r.status+')');return;}if(status==='remove'){var c=document.getElementById('c-'+id);if(c)c.remove();toast('Removed');}else{location.reload();}}catch(e){toast('Failed');}}
+</script>
+</body></html>"""
+
+@app.route("/reddit-leads")
+@authentik_admin_required
+def reddit_leads_page():
+    data = _reddit_leads_load()
+    leads = [l for l in data.get("leads", []) if l.get("status") != "removed"]
+    order = {"new": 0, "posted": 1, "skip": 2}
+    leads.sort(key=lambda l: l.get("found_at", ""), reverse=True)
+    leads.sort(key=lambda l: order.get(l.get("status"), 9))
+    return render_template_string(REDDIT_LEADS_HTML, leads=leads, nav_active="reddit-leads")
+
+@app.route("/api/reddit-leads/update", methods=["POST"])
+@authentik_admin_required
+def reddit_leads_update():
+    d = request.json or {}
+    lid = d.get("id"); status = d.get("status")
+    data = _reddit_leads_load(); found = False
+    for l in data.get("leads", []):
+        if l.get("id") == lid:
+            if status == "remove":
+                l["status"] = "removed"
+            elif status in ("new", "posted", "skip"):
+                l["status"] = status
+            found = True; break
+    if not found:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    _reddit_leads_save(data)
+    return jsonify({"ok": True})
 
 def _build_post_prompt(brand, topic, platforms):
     import json as _json

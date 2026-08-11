@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import requests, json, os, time, logging, subprocess
+import requests, json, os, time, logging, subprocess, tempfile
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 
@@ -10,9 +10,19 @@ RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 TO_EMAIL = "tim@harborprivacy.com"
 FROM_EMAIL = "info@mail.harborprivacy.com"
 SEEN_FILE = "/home/ubuntu/harbor-backend/harbor-reddit-seen.json"
+LEADS_FILE = "/home/ubuntu/harbor-reddit-leads.json"
+
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+ANTHROPIC_URL = (
+    f"https://gateway.ai.cloudflare.com/v1/{os.environ.get('CF_ACCOUNT_ID')}/"
+    f"{os.environ.get('CF_AI_GATEWAY', 'harbor')}/anthropic/v1/messages"
+    if os.environ.get("CF_ACCOUNT_ID") else "https://api.anthropic.com/v1/messages"
+)
 
 NTFY = "https://ntfy.harborprivacy.com/harbor-alerts"
 NTFY_AUTH = "Basic aGFyYm9ydGltOlBlbmVsMHBlIUAhQCFA"
+
+PI_PROXY = "socks5h://127.0.0.1:1080"
 
 RSS_FEEDS = [
     "https://www.reddit.com/r/daddit/search.rss?q=parental+controls&sort=new&restrict_sr=1",
@@ -29,13 +39,26 @@ RSS_FEEDS = [
     "https://www.reddit.com/r/techsupport/search.rss?q=block+ads+router&sort=new&restrict_sr=1",
     "https://www.reddit.com/r/techsupport/search.rss?q=parental+controls+router&sort=new&restrict_sr=1",
     "https://www.reddit.com/r/networking/search.rss?q=block+ads&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/HomeNetworking/search.rss?q=adguard&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/HomeNetworking/search.rss?q=nextdns&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/pihole/search.rss?q=adguard&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/AskParents/search.rss?q=screen+time&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/AskParents/search.rss?q=block+youtube&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/Ubiquiti/search.rss?q=parental+controls&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/openwrt/search.rss?q=parental+controls&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/HomeNetworking/search.rss?q=guest+wifi+kids&sort=new&restrict_sr=1",
 ]
 
 TITLE_KEYWORDS = [
     "parental control", "block ads", "content filter", "dns filter",
     "kids internet", "block youtube", "block websites", "isp tracking",
-    "pihole", "circle", "family protection", "screen time",
+    "pihole", "pi-hole", "circle", "family protection", "screen time",
     "block adult", "internet filter", "router block", "dns privacy",
+    "adguard", "nextdns", "dns blocklist", "block tiktok", "kid safe",
+    "kid-safe", "family wifi", "guest wifi kids", "network wide ad",
+    "network-wide ad", "block porn", "content blocker", "wifi parental",
+    "router parental", "vpn kill switch parent", "screen time app",
+    "isp spying", "dns encryption", "encrypted dns",
 ]
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; HarborPrivacy/1.0)"}
@@ -56,7 +79,8 @@ def save_seen(seen):
 
 def fetch_rss(url):
     try:
-        r = requests.get(url, headers=HEADERS, timeout=15)
+        r = requests.get(url, headers=HEADERS, timeout=15,
+                          proxies={"http": PI_PROXY, "https": PI_PROXY})
         if not r.ok:
             return []
         root = ET.fromstring(r.text)
@@ -96,6 +120,82 @@ def is_recent(post_id):
     # Reddit post IDs are base36 encoded timestamps
     # We filter in the feed fetch instead via updated field
     return True
+
+DRAFT_PROMPT = """A Reddit post titled "{title}" was just posted in r/{subreddit}.
+
+Write a short reply Tim (a dad who runs Harbor Privacy, a DNS-level ad/tracker/parental-control
+filtering service, $1.99/mo, open-source-verifiable, works on any router) could post.
+
+Rules:
+- 2-4 sentences, plain text, no markdown, no quotes around it, no em dash.
+- Sound like a real Reddit comment from a person, not marketing copy. No superlatives
+  ("game changer", "amazing"), no exclamation points, no "I've been there!" filler.
+- Only mention Harbor Privacy if it is a genuinely direct answer to what they asked, and mention
+  it once, factually, alongside AdGuard Home as the free self-hosted alternative (never claim
+  Harbor is the only option).
+- If the post is a narrow troubleshooting question about a specific product bug (not "how do I
+  solve this problem in general"), do NOT pitch anything. Just write a genuinely helpful,
+  on-topic reply with no product mention, or reply with exactly NONE if you have nothing
+  substantive to add.
+- Never claim "no signup required" or make any claim you cannot verify from the post title alone.
+
+Reply:"""
+
+def draft_reply(post):
+    if not ANTHROPIC_API_KEY:
+        return None
+    prompt = DRAFT_PROMPT.format(title=post["title"], subreddit=post["subreddit"])
+    try:
+        r = requests.post(ANTHROPIC_URL,
+            headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
+                     "content-type": "application/json"},
+            json={"model": "claude-sonnet-5", "max_tokens": 300,
+                  "messages": [{"role": "user", "content": prompt}]},
+            timeout=30)
+        if not r.ok:
+            log.error(f"draft_reply http {r.status_code}: {r.text[:200]}")
+            return None
+        text = r.json()["content"][0]["text"].strip()
+        return None if text.strip().upper() == "NONE" else text
+    except Exception as e:
+        log.error(f"draft_reply error: {e}")
+        return None
+
+def load_leads():
+    try:
+        with open(LEADS_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {"version": 1, "leads": []}
+
+def save_leads(data):
+    tmp = None
+    try:
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(LEADS_FILE), prefix=".reddit-leads-", suffix=".tmp")
+        with os.fdopen(fd, "w") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+        os.replace(tmp, LEADS_FILE)
+    except Exception as e:
+        if tmp:
+            try: os.unlink(tmp)
+            except Exception: pass
+        log.error(f"save_leads error: {e}")
+
+def add_leads(posts):
+    data = load_leads()
+    now = datetime.now(timezone.utc).isoformat()
+    for p in posts:
+        data["leads"].append({
+            "id": p["id"],
+            "subreddit": p["subreddit"],
+            "title": p["title"],
+            "link": p["link"],
+            "draft": draft_reply(p),
+            "status": "new",
+            "found_at": now,
+        })
+    data["leads"] = data["leads"][-500:]
+    save_leads(data)
 
 def send_email(posts):
     rows = ""
@@ -158,12 +258,13 @@ def main():
                 seen.add(p["id"])
                 if is_relevant(p) and is_recent(p["id"]):
                     new_posts.append(p)
-        time.sleep(2)
+        time.sleep(8)
 
     save_seen(seen)
     log.info(f"Found {len(new_posts)} relevant new posts")
 
     if new_posts:
+        add_leads(new_posts)
         send_email(new_posts)
         send_ntfy(new_posts)
     else:
