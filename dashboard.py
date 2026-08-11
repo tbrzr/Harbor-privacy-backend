@@ -842,7 +842,7 @@ NAV_CUSTOMER = """
 NAV_ADMIN = """
 <style>
 :root{--hp-side-w:220px;}
-.hp-sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--hp-side-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:50;padding:calc(18px + env(safe-area-inset-top)) 12px 18px;overflow-y:auto;transform:translateX(0);transition:transform .2s;}
+.hp-sidebar{position:fixed;top:0;left:0;bottom:0;width:var(--hp-side-w);background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;z-index:50;padding:calc(18px + env(safe-area-inset-top)) 12px calc(32px + env(safe-area-inset-bottom));overflow-y:auto;transform:translateX(0);transition:transform .2s;}
 .hp-sidebar .logo{font-family:'DM Mono',monospace;font-size:14px;color:var(--accent);letter-spacing:0.1em;text-decoration:none;padding:2px 10px 10px;display:block;}
 .hp-sidebar .logo span{color:var(--muted);}
 .hp-badge-admin{display:inline-block;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:0.12em;color:var(--accent);background:var(--accent-dim);border-radius:6px;padding:3px 8px;margin:0 10px 16px;width:fit-content;}
