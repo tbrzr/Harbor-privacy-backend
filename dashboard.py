@@ -950,7 +950,7 @@ NAV_LIGHT = """
 @media all and (display-mode:standalone) and (max-width:768px){
   .topnav .links{display:none;}
   body{padding-bottom:calc(80px + env(safe-area-inset-bottom));}
-  .lt-tabs{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;align-items:stretch;background:#fbf7f1;border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom)) 4px;z-index:60;}
+  .lt-tabs{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;align-items:stretch;background:var(--bg);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom)) 4px;z-index:60;}
   /* Every page's own .toast rule sits above in source order but is a plain
      bottom:28px, which lands underneath (and at a lower z-index than) this
      fixed bottom tab bar in standalone PWA mode. This block loads later in
@@ -979,6 +979,43 @@ NAV_LIGHT = """
   <a href="/admin"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg><span>Customers</span></a>
   <a href="/logout"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg><span>Sign out</span></a>
 </nav>
+"""
+
+# Dark mode for the /social/* pages. DARK_MODE_INIT is inlined in <head> (before
+# <style>) so the theme is set before first paint -- no flash of the light
+# theme. DARK_MODE_TOGGLE is the visible sun/moon button + the function it
+# calls, placed right after <body>. DARK_MODE_CSS is appended before each
+# page's own </style> and overrides the --bg/--ink/--mute/--teal/--line vars
+# plus every hardcoded #fff surface (cards, chips, inputs) under
+# html[data-theme="dark"]; unmatched selectors on a given page are just
+# no-ops, so the same block is shared across all four templates.
+DARK_MODE_INIT = """<script>(function(){var s=localStorage.getItem('hp-theme');var d=s?s==='dark':(window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches);if(d)document.documentElement.setAttribute('data-theme','dark');})();</script>"""
+
+DARK_MODE_TOGGLE = """<button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode" title="Toggle dark mode">
+  <svg class="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+  <svg class="moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>
+</button>
+<script>function toggleTheme(){var d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');localStorage.setItem('hp-theme',d?'light':'dark');}</script>
+"""
+
+DARK_MODE_CSS = """
+html[data-theme="dark"]{--bg:#12181a;--ink:#e8ede9;--mute:#84968f;--teal:#3fb8ae;--line:#232f2c;--surface:#182220;--surface-2:#1c2724;}
+.theme-toggle{position:fixed;top:calc(14px + env(safe-area-inset-top));right:14px;z-index:80;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--surface,#fff);color:var(--ink);display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;}
+.theme-toggle svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;}
+.theme-toggle .moon{display:none;}
+html[data-theme="dark"] .theme-toggle .sun{display:none;}
+html[data-theme="dark"] .theme-toggle .moon{display:block;}
+html[data-theme="dark"] .card,html[data-theme="dark"] .genlist,html[data-theme="dark"] a.row,
+html[data-theme="dark"] .chip,html[data-theme="dark"] .schedq,html[data-theme="dark"] .btn.alt{background:var(--surface);}
+html[data-theme="dark"] .idea-input,html[data-theme="dark"] .genlist select,html[data-theme="dark"] .genlist input[type=text],
+html[data-theme="dark"] textarea,html[data-theme="dark"] input[type=datetime-local]{background:var(--surface-2);color:var(--ink);}
+html[data-theme="dark"] .schedrow img,html[data-theme="dark"] .row img,html[data-theme="dark"] .card .thumb{background:#0e1413;}
+html[data-theme="dark"] .btns button,html[data-theme="dark"] .btns a.gbtn,
+html[data-theme="dark"] .filters button,html[data-theme="dark"] .tools button,
+html[data-theme="dark"] .addbox{background:var(--surface);}
+html[data-theme="dark"] .addbox input,html[data-theme="dark"] .tools input,
+html[data-theme="dark"] .fu input[type=date],html[data-theme="dark"] .fu input.fu-reply{background:var(--surface-2);}
+html[data-theme="dark"] .btns button.on,html[data-theme="dark"] .filters button.on{background:var(--ink);color:var(--bg);}
 """
 
 # ════════════════════════════════════════════════════════════
@@ -5230,6 +5267,7 @@ SOCIAL_HISTORY_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Sent posts</title>
+""" + DARK_MODE_INIT + """
 <script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
 <style>
 :root{--bg:#fbf7f1;--ink:#1a2420;--mute:#6b7a72;--teal:#1f5d6b;--line:#e5dfd3;}
@@ -5246,8 +5284,9 @@ a.row.dead{opacity:.55;pointer-events:none;}
 .badge{display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--teal);border:1px solid var(--teal);border-radius:999px;padding:2px 8px;margin-left:8px;vertical-align:middle;}
 .empty{color:var(--mute);text-align:center;padding:40px 0;}
 .chev{margin-left:auto;flex:0 0 auto;width:18px;height:18px;stroke:var(--mute);fill:none;stroke-width:2;}
+""" + DARK_MODE_CSS + """
 </style></head><body>
-""" + NAV_LIGHT + """
+""" + DARK_MODE_TOGGLE + NAV_LIGHT + """
 <div class="eyebrow">Harbor social</div>
 <h1>Sent posts</h1>
 {% if not hist %}<div class="empty">No posts sent yet. They show up here after the next scheduled send.</div>{% endif %}
@@ -5299,6 +5338,7 @@ SOCIAL_LIBRARY_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Social library</title>
+""" + DARK_MODE_INIT + """
 <link rel="apple-touch-icon" sizes="180x180" href="/social-icon-180.png">
 <link rel="manifest" href="/social-app.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
@@ -5355,8 +5395,9 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
 .count{color:var(--mute);font-size:13px;margin-left:auto;}
 .toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(20px);background:#2d2d2d;color:#fff;padding:12px 20px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:9;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+""" + DARK_MODE_CSS + """
 </style></head><body>
-""" + NAV_LIGHT + """
+""" + DARK_MODE_TOGGLE + NAV_LIGHT + """
 <div class="eyebrow">Harbor social</div>
 <h1>Post library</h1>
 <p class="sub">Pick a post, copy the caption and image, and schedule it. Mark posts as used so you do not repeat.</p>
@@ -7274,6 +7315,7 @@ LINKEDIN_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>LinkedIn post generator</title>
+""" + DARK_MODE_INIT + """
 <script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
 <style>
 :root{--bg:#fbf7f1;--ink:#1a2420;--mute:#6b7a72;--teal:#1f5d6b;--line:#e5dfd3;--surface:#ffffff;--surface-2:#f6f1e7;}
@@ -7303,8 +7345,9 @@ select option{background:var(--surface);color:var(--ink);}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .back{display:inline-flex;align-items:center;gap:6px;color:var(--teal);text-decoration:none;font-size:14px;font-weight:600;margin-bottom:16px;}
 .back svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
+""" + DARK_MODE_CSS + """
 </style></head><body>
-""" + NAV_LIGHT + """
+""" + DARK_MODE_TOGGLE + NAV_LIGHT + """
 <div class="eyebrow">Personal posts</div>
 <h1>LinkedIn post generator</h1>
 <p class="sub">Pick who you are posting as and hit Write. Leave the topic blank and it picks a fresh angle for you, or paste a headline to react to. The link goes in the first comment so LinkedIn does not bury the post.</p>
@@ -7487,6 +7530,7 @@ SOCIAL_POST_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>{{ e.hdr }}</title>
+""" + DARK_MODE_INIT + """
 <script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
 <style>
 :root{--bg:#fbf7f1;--ink:#1a2420;--mute:#6b7a72;--teal:#1f5d6b;--line:#e5dfd3;}
@@ -7509,7 +7553,9 @@ img.preview{width:100%;border-radius:12px;border:1px solid var(--line);display:b
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .back{display:inline-flex;align-items:center;gap:6px;color:var(--teal);text-decoration:none;font-size:14px;font-weight:600;margin-bottom:16px;}
 .back svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
+""" + DARK_MODE_CSS + """
 </style></head><body>
+""" + DARK_MODE_TOGGLE + """
 <a href="/social" class="back"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>Sent posts</a>
 <div class="eyebrow">{{ e.category }} post</div>
 <h1>{{ e.hdr }}</h1>
@@ -7905,6 +7951,7 @@ def _page_title(path):
 SOCIAL_PAGES_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Apex pages</title>
+""" + DARK_MODE_INIT + """
 <script defer src="https://cloud.umami.is/script.js" data-website-id="2d16b46c-899b-444b-9767-0e2d21feedf9"></script>
 <style>
 :root{--bg:#fbf7f1;--ink:#1a2420;--mute:#6b7a72;--teal:#1f5d6b;--line:#e5dfd3;--surface:#fff;}
@@ -7921,8 +7968,9 @@ a.row:hover{border-color:var(--teal);}
 .row .title{font-size:13px;color:var(--mute);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .row .ext{margin-left:auto;flex:0 0 auto;width:15px;height:15px;stroke:var(--mute);fill:none;stroke-width:2;}
 .foot{color:var(--mute);font-size:12px;margin-top:24px;font-family:ui-monospace,monospace;}
+""" + DARK_MODE_CSS + """
 </style></head><body>
-""" + NAV_LIGHT + """
+""" + DARK_MODE_TOGGLE + NAV_LIGHT + """
 <div class="eyebrow">Harbor social</div>
 <h1>Live apex pages</h1>
 <p class="sub">{{ total }} marketing pages live on harborprivacy.com. Tap one to open it, then make a reel from it.</p>
@@ -8037,6 +8085,7 @@ def _lead_message(name, profession, town):
 LEADS_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Leads - {{ vertical }}</title>
+""" + DARK_MODE_INIT + """
 <link rel="apple-touch-icon" sizes="180x180" href="/leads-icon-180.png">
 <link rel="manifest" href="/leads-app.webmanifest">
 <meta name="mobile-web-app-capable" content="yes">
@@ -8090,8 +8139,9 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px
 .fu[data-due="1"]{border-top-color:var(--danger);}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#2d2d2d;color:#fff;padding:11px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+""" + DARK_MODE_CSS + """
 </style></head><body>
-""" + NAV_LIGHT + """
+""" + DARK_MODE_TOGGLE + NAV_LIGHT + """
 <h1>Leads</h1>
 <div class="sub">{{ vertical }} - {{ leads|length }} active</div>
 <div class="addbox">
@@ -8279,6 +8329,7 @@ def leads_vet():
 REDDIT_LEADS_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Reddit Leads</title>
+""" + DARK_MODE_INIT + """
 <meta name="theme-color" content="#1f5d6b">
 <style>
 :root{--bg:#fbf7f1;--ink:#1a2420;--mute:#6b7a72;--teal:#1f5d6b;--terra:#c98a52;--line:#e5dfd3;--surface:#fff;--danger:#b3563f;--ok:#1f7a5b;}
@@ -8306,8 +8357,9 @@ textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#2d2d2d;color:#fff;padding:11px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 .empty{color:var(--mute);font-size:14px;padding:20px 0;}
+""" + DARK_MODE_CSS + """
 </style></head><body>
-""" + NAV_LIGHT + """
+""" + DARK_MODE_TOGGLE + NAV_LIGHT + """
 <h1>Reddit Leads</h1>
 <div class="sub">{{ leads|length }} active</div>
 {% for l in leads %}

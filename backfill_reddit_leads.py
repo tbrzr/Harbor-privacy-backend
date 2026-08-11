@@ -8,7 +8,7 @@ import time
 from datetime import datetime, timezone, timedelta
 import reddit_watcher as rw
 
-MAX_AGE_DAYS = 30
+MAX_AGE_DAYS = 90
 MAX_LEADS = 8
 
 def is_relevant_backfill(post):
@@ -26,12 +26,14 @@ def is_relevant_backfill(post):
     return True
 
 def main():
+    existing_ids = {l["id"] for l in rw.load_leads().get("leads", [])}
+
     matches = []
     seen_links = set()
     for feed_url in rw.RSS_FEEDS:
         posts = rw.fetch_rss(feed_url)
         for p in posts:
-            if p["link"] in seen_links:
+            if p["link"] in seen_links or p["id"] in existing_ids:
                 continue
             if is_relevant_backfill(p):
                 seen_links.add(p["link"])
@@ -40,7 +42,7 @@ def main():
 
     matches.sort(key=lambda p: p.get("updated", ""), reverse=True)
     matches = matches[:MAX_LEADS]
-    print(f"Backfilling {len(matches)} leads (<= {MAX_AGE_DAYS}d old)")
+    print(f"Backfilling {len(matches)} new leads (<= {MAX_AGE_DAYS}d old, {len(existing_ids)} already in file skipped)")
     if matches:
         rw.add_leads(matches)
     for m in matches:

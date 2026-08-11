@@ -150,13 +150,15 @@ def draft_reply(post):
             headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
                      "content-type": "application/json"},
             json={"model": "claude-sonnet-5", "max_tokens": 300,
+                  "thinking": {"type": "disabled"},
                   "messages": [{"role": "user", "content": prompt}]},
             timeout=30)
         if not r.ok:
             log.error(f"draft_reply http {r.status_code}: {r.text[:200]}")
             return None
-        text = r.json()["content"][0]["text"].strip()
-        return None if text.strip().upper() == "NONE" else text
+        blocks = r.json().get("content", [])
+        text = next((b["text"] for b in blocks if b.get("type") == "text"), "").strip()
+        return None if not text or text.upper() == "NONE" else text
     except Exception as e:
         log.error(f"draft_reply error: {e}")
         return None
