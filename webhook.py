@@ -85,11 +85,12 @@ def generate_ios_profile(client_id, name):
 <key>PayloadContent</key><array><dict>
 <key>DNSSettings</key><dict>
 <key>DNSProtocol</key><string>HTTPS</string>
-<key>ServerAddresses</key><array></array>
 <key>ServerURL</key><string>https://{DOH_BASE}/{client_id}</string>
-<key>SupplementalMatchDomains</key><array></array>
-<key>AllowFailover</key><true/>
 </dict>
+<key>OnDemandEnabled</key><integer>1</integer>
+<key>OnDemandRules</key><array><dict>
+<key>Action</key><string>Connect</string>
+</dict></array>
 <key>PayloadDescription</key><string>Private encrypted DNS filtering for your devices. Blocks ads, trackers, and malware automatically.</string>
 <key>PayloadDisplayName</key><string>Harbor Privacy - {name}</string>
 <key>PayloadIdentifier</key><string>com.harborprivacy.doh.{client_id}.{pp}</string>
@@ -119,12 +120,13 @@ def generate_ios_kids_profile(client_id):
 <key>PayloadContent</key><array><dict>
 <key>DNSSettings</key><dict>
 <key>DNSProtocol</key><string>HTTPS</string>
-<key>ServerAddresses</key><array></array>
 <key>ServerURL</key><string>https://""" + DOH_BASE + """/""" + client_id + """</string>
-<key>SupplementalMatchDomains</key><array></array>
-<key>AllowFailover</key><true/>
 </dict>
-<key>PayloadDescription</key><string>Harbor Kids DNS. Falls back to OpenDNS Family Shield if unavailable.</string>
+<key>OnDemandEnabled</key><integer>1</integer>
+<key>OnDemandRules</key><array><dict>
+<key>Action</key><string>Connect</string>
+</dict></array>
+<key>PayloadDescription</key><string>Harbor Kids DNS.</string>
 <key>PayloadDisplayName</key><string>Harbor Kids DNS</string>
 <key>PayloadIdentifier</key><string>com.harborprivacy.kids.""" + client_id + """.""" + pp + """</string>
 <key>PayloadOrganization</key><string>Harbor Privacy</string>
@@ -133,7 +135,7 @@ def generate_ios_kids_profile(client_id):
 <key>PayloadVersion</key><integer>1</integer>
 <key>ProhibitDisablement</key><false/>
 </dict></array>
-<key>PayloadDescription</key><string>Harbor Kids DNS filtering. Blocks adult content and malware. Falls back to OpenDNS Family Shield if Harbor Privacy is unavailable.</string>
+<key>PayloadDescription</key><string>Harbor Kids DNS filtering. Blocks adult content and malware.</string>
 <key>PayloadDisplayName</key><string>Harbor Kids DNS</string>
 <key>PayloadIdentifier</key><string>com.harborprivacy.kids.""" + client_id + """</string>
 <key>PayloadOrganization</key><string>Harbor Privacy</string>
