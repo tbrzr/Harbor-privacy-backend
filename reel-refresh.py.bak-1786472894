@@ -574,14 +574,6 @@ def _fix_layout(steps):
     return _FIX_TIERS[-1]
 
 
-def _hrf_reel_bg(accent):
-    """Deterministic per-accent pick between the classic DARK teal field and
-    the near-black hero ink (Tim's favorite, matched to the static carousel's
-    new "GRADIENT" BG_FIELDS option) -- reels already draw their own accent
-    glow on top via radialGradient #hg, so this only swaps the base fill."""
-    return ce.HERO_INK if ce.ACCENTS.index(accent) % 2 == 0 else ce.DARK
-
-
 def hrf_scene_svg(accent, kind, hook="", reveal="", steps=None, n_steps=0, cta_text="", url=HRF_URL):
     """kind in hook/reveal/fix/cta. DARK bg (matches the carousel's dark
     slides) + one accent picked per-reel from card_engine.ACCENTS so hook,
@@ -589,7 +581,7 @@ def hrf_scene_svg(accent, kind, hook="", reveal="", steps=None, n_steps=0, cta_t
     steps = steps or []
     p = [f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}">
   <defs><radialGradient id="hg" cx="50%" cy="0%" r="70%"><stop offset="0%" stop-color="{accent}" stop-opacity="0.14"/><stop offset="100%" stop-color="{accent}" stop-opacity="0"/></radialGradient></defs>
-  <rect width="{W}" height="{H}" fill="{_hrf_reel_bg(accent)}"/><rect width="{W}" height="{H}" fill="url(#hg)"/>
+  <rect width="{W}" height="{H}" fill="{ce.DARK}"/><rect width="{W}" height="{H}" fill="url(#hg)"/>
   <rect x="36" y="36" width="{W-72}" height="{H-72}" rx="28" ry="28" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="2"/>
   <text x="90" y="170" font-family="DM Mono, ui-monospace, Menlo, monospace" font-size="28" fill="{accent}" letter-spacing="7" font-weight="500">{html.escape(HRF_EYEBROW)}</text>''']
 

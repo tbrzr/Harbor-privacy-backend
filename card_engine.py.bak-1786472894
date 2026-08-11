@@ -32,14 +32,7 @@ ACCENTS = (SAGE, "#8fb8d9", TAN, "#e8a86a", "#e2836a")
 # background regardless of brand/accent, so the whole format looked identical
 # in-feed post to post. These five stay dark enough for BG (cream) body text
 # and every ACCENTS color to stay legible on top.
-BG_FIELDS = (DARK, "#1f3d2e", "#2e2044", "#1a2238", "#3d2818", "GRADIENT")
-
-# Near-black hero gradient (Tim's favorite look, from the Angle-3 Meta ad) --
-# a radial glow of HERO_GLOW fading into HERO_INK. "GRADIENT" in BG_FIELDS is a
-# sentinel, not a real fill color -- callers must special-case it via
-# _base_gradient() rather than passing it straight to _base_color().
-HERO_INK = "#0a0e0f"
-HERO_GLOW = "#2e4d3c"
+BG_FIELDS = (DARK, "#1f3d2e", "#2e2044", "#1a2238", "#3d2818")
 
 def pick_accent(seed):
     """Deterministic pick from ACCENTS so every slide of one post (same stem)
@@ -274,21 +267,6 @@ def _base_color(bg, extra="", grid=None, grid_op=0.10):
         g = f'<g opacity="{grid_op}">{verts}</g>'
     return (f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 {W} {H}">{DEFS}'
             f'<rect width="{W}" height="{H}" fill="{bg}"/>{g}{extra}')
-
-def _base_gradient(grad_id, ink, glow, extra="", grid=None, grid_op=0.10, cx="78%", cy="82%"):
-    """Same canvas as _base_color but fills with a radial glow (glow color at
-    the cx/cy focal point, fading to ink at the edges) instead of one flat
-    color -- the near-black hero look, glow anchored behind the badge icon."""
-    g = ""
-    if grid:
-        verts = "".join(f'<line x1="{x}" y1="0" x2="{x}" y2="{H}" stroke="{grid}" stroke-width="2"/>' for x in range(120,W,120))
-        g = f'<g opacity="{grid_op}">{verts}</g>'
-    grad = (f'<radialGradient id="{grad_id}" cx="{cx}" cy="{cy}" r="75%">'
-            f'<stop offset="0%" stop-color="{glow}"/><stop offset="55%" stop-color="{ink}"/>'
-            f'<stop offset="100%" stop-color="{ink}"/></radialGradient>')
-    return (f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 {W} {H}">{DEFS}'
-            f'<defs>{grad}</defs><rect width="{W}" height="{H}" fill="{ink}"/>'
-            f'<rect width="{W}" height="{H}" fill="url(#{grad_id})"/>{g}{extra}')
 
 def _serif_lines(text,x,y,fs,lh,fill=INK,anchor="start"):
     width=max(8,int(20*(62/fs)))
@@ -641,84 +619,6 @@ def layout_compare(head, sub, eyebrow, url):
     return _base_color(BG, left + right) + "</svg>"
 
 
-
-# ── dark hero layout: near-black gradient, bold sans headline, amber CTA
-# pill, privacy-badge icon -- the look Tim picked out from the Angle-3 Meta ad
-# creative and asked to have folded into the regular rotation. ─────────────
-PRIVACY_BADGE = (
-    '<rect width="512" height="512" rx="113" ry="113" fill="#fbf7f1"/>'
-    '<path d="M256 96 L384 140 L384 260 Q384 360 256 416 Q128 360 128 260 L128 140 Z" '
-    'fill="rgba(74,122,92,0.08)" stroke="#4a7a5c" stroke-width="18" stroke-linejoin="round"/>'
-    '<path d="M196 268 L256 218 L316 268 L316 332 L196 332 Z" fill="none" stroke="#4a7a5c" '
-    'stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/>'
-    '<path d="M238 332 L238 296 Q238 290 244 290 L268 290 Q274 290 274 296 L274 332" fill="none" '
-    'stroke="#4a7a5c" stroke-width="11" stroke-linejoin="round" stroke-linecap="round"/>'
-    '<circle cx="356" cy="158" r="20" fill="#a64a40"/>'
-    '<path d="M348 150 L364 166 M364 150 L348 166" stroke="#fbf7f1" stroke-width="6" stroke-linecap="round"/>'
-)
-
-# CTA pill copy keyed by url substring -- build_svg only hands layouts
-# (headline, subhead, eyebrow, url), so the pill text is derived from url the
-# same way every other layout derives its footer text from url alone.
-HERO_CTA = [
-    ("/career", "AI TOOLS, $2.99 EACH"),
-    ("/fax", "SEND A FAX, $2.99"),
-    ("/money", "NO BANK LOGIN NEEDED"),
-    ("/booking", "FREE TO SET UP"),
-    ("scan.", "FREE SCAN"),
-    ("/learn", "MORE FREE TIPS"),
-]
-
-def _hero_cta_for(url):
-    u = (url or "").lower()
-    for needle, label in HERO_CTA:
-        if needle in u:
-            return label
-    return "30 DAYS FREE, THEN 50% OFF"
-
-def _bold_lines(text, x, y, fs, lh, max_lines, fill=BG, weight="800"):
-    """Mixed-case bold DM Sans wrap -- same shrink-to-fit spirit as
-    _shout_lines but keeps natural case instead of forcing upper(). Returns
-    (svg, n_lines) like _serif_lines/_shout_lines do."""
-    cpl = max(6, int(860 / (fs * 0.56)))
-    lines = textwrap.wrap((text or "").strip(), width=cpl, break_long_words=False)[:max_lines] or [text or ""]
-    svg = "".join(f'<text x="{x}" y="{y+i*lh}" font-family="DM Sans, sans-serif" font-size="{fs}" '
-                  f'font-weight="{weight}" fill="{fill}">{html.escape(l)}</text>'
-                  for i, l in enumerate(lines))
-    return svg, len(lines)
-
-def layout_dark_hero(head, sub, eyebrow, url):
-    tiers = [(96, 4), (80, 5), (64, 6)]
-    fs, max_lines = tiers[-1]
-    for cand_fs, cand_max in tiers:
-        cpl = max(6, int(860 / (cand_fs * 0.56)))
-        if len(textwrap.wrap((head or "").strip(), width=cpl, break_long_words=False)) <= cand_max:
-            fs, max_lines = cand_fs, cand_max
-            break
-    lh = int(fs * 1.08)
-    head_svg, n_head_lines = _bold_lines(head, 80, 330, fs, lh, max_lines, fill=BG)
-    sub_y = 330 + n_head_lines * lh + 70
-    sub_svg = _para(sub, 80, sub_y, 34, fill="#c9d6cf", anchor="start", weight="500", maxlines=2)
-
-    cta_text = _hero_cta_for(url)
-    pw = 70 + len(cta_text) * 17
-    pill = (f'<g transform="translate(80,{sub_y+90})">'
-            f'<rect width="{pw}" height="66" rx="33" ry="33" fill="#e0a63c"/>'
-            f'<text x="{pw/2}" y="43" text-anchor="middle" font-family="DM Sans, sans-serif" '
-            f'font-size="24" font-weight="700" fill="#1a1206">{html.escape(cta_text)}</text></g>')
-
-    badge_s = 0.44
-    badge_x, badge_y = W - 90 - 512*badge_s, H - 130 - 512*badge_s
-    badge = f'<g transform="translate({badge_x:.0f},{badge_y:.0f}) scale({badge_s})">{PRIVACY_BADGE}</g>'
-
-    deco = _eyebrow(80, 150, eyebrow, fill="#8ca894")
-    foot = (f'<text x="80" y="{H-70}" font-family="DM Mono, monospace" font-size="22" fill="#8ca894" '
-            f'letter-spacing="2">{html.escape(url)}</text>')
-
-    return _base_gradient("heroGrad", HERO_INK, HERO_GLOW,
-                          deco + head_svg + sub_svg + pill + badge + foot) + "</svg>"
-
-
 def build_svg(headline, subhead, eyebrow, url, seed=""):
     """Pick layout + illustration deterministically and return the SVG string."""
     headline = (headline or "").strip()
@@ -746,7 +646,7 @@ def build_svg(headline, subhead, eyebrow, url, seed=""):
     # matched clay asset. All entries are called as fn(headline, subhead, eyebrow, url).
     type_pool = [layout_bigtype, layout_quote, layout_split, layout_label,
                  layout_index, layout_diagonal, layout_band, layout_emphasis, layout_receipt,
-                 layout_stat, layout_outline, layout_compare, layout_dark_hero]
+                 layout_stat, layout_outline, layout_compare]
     if key:
         illo_pool = [lambda h,s,e,u: layout_hero(h,s,e,u,key),
                      lambda h,s,e,u: layout_postage(h,s,e,u,key)]
@@ -822,9 +722,6 @@ def layout_shout(text, eyebrow, url, *, accent=SAGE, bg=DARK):
     arrow = (label +
              f'<path d="M{ax-40} {ay-18} h56 M{ax-2} {ay-40} l26 22 l-26 22" '
              f'stroke="{accent}" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>')
-    if bg == "GRADIENT":
-        return _base_gradient("shoutGrad", HERO_INK, HERO_GLOW, deco + body_svg + arrow + foot,
-                               grid=accent, grid_op=0.06) + "</svg>"
     return _base_color(bg, deco + body_svg + arrow + foot, grid=accent, grid_op=0.06) + "</svg>"
 
 def _num_wrap(idx, text, fs):
@@ -877,9 +774,6 @@ def layout_fix(header, steps, eyebrow, url, *, accent=SAGE, bg=DARK):
                                fill=accent, weight="700")
     foot = (f'<text x="80" y="{H-70}" font-family="DM Mono, monospace" font-size="24" fill="{accent}" '
             f'letter-spacing="2">{html.escape(url)}</text>')
-    if bg == "GRADIENT":
-        return _base_gradient("fixGrad", HERO_INK, HERO_GLOW, deco + head_svg + "".join(body) + foot,
-                               grid=accent, grid_op=0.06) + "</svg>"
     return _base_color(bg, deco + head_svg + "".join(body) + foot, grid=accent, grid_op=0.06) + "</svg>"
 
 def render_hrf_slides(stem, *, brand="harbor", hook="", reveal="", fix_steps=None, cta="",

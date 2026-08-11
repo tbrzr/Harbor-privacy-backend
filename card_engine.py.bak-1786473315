@@ -674,7 +674,7 @@ def _hero_cta_for(url):
     for needle, label in HERO_CTA:
         if needle in u:
             return label
-    return "30 DAYS FREE, THEN 50% OFF"
+    return "30 DAYS FREE \u2014 NO CARD NEEDED"
 
 def _bold_lines(text, x, y, fs, lh, max_lines, fill=BG, weight="800"):
     """Mixed-case bold DM Sans wrap -- same shrink-to-fit spirit as
