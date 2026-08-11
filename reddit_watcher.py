@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import requests, json, os, time, logging
+import requests, json, os, time, logging, subprocess
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone, timedelta
 
@@ -9,7 +9,10 @@ log = logging.getLogger(__name__)
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 TO_EMAIL = "tim@harborprivacy.com"
 FROM_EMAIL = "info@mail.harborprivacy.com"
-SEEN_FILE = "/var/log/harbor-reddit-seen.json"
+SEEN_FILE = "/home/ubuntu/harbor-backend/harbor-reddit-seen.json"
+
+NTFY = "https://ntfy.harborprivacy.com/harbor-alerts"
+NTFY_AUTH = "Basic aGFyYm9ydGltOlBlbmVsMHBlIUAhQCFA"
 
 RSS_FEEDS = [
     "https://www.reddit.com/r/daddit/search.rss?q=parental+controls&sort=new&restrict_sr=1",
@@ -46,7 +49,10 @@ def load_seen():
     return set()
 
 def save_seen(seen):
-    open(SEEN_FILE, "w").write(json.dumps(list(seen)[-1000:]))
+    try:
+        open(SEEN_FILE, "w").write(json.dumps(list(seen)[-1000:]))
+    except Exception as e:
+        log.error(f"save_seen error: {e}")
 
 def fetch_rss(url):
     try:
@@ -124,6 +130,23 @@ def send_email(posts):
     except Exception as e:
         log.error(f"Email error: {e}")
 
+def send_ntfy(posts):
+    lines = "\n".join(f"r/{p['subreddit']}: {p['title']}" for p in posts[:5])
+    if len(posts) > 5:
+        lines += f"\n+{len(posts) - 5} more"
+    try:
+        r = subprocess.run(
+            ["curl", "-s", "-X", "POST", NTFY,
+             "-H", f"Authorization: {NTFY_AUTH}",
+             "-H", "Title: Reddit Leads",
+             "-H", f"Click: {posts[0]['link']}",
+             "-H", "Tags: mag",
+             "-d", lines],
+            timeout=10, capture_output=True, text=True)
+        log.info(f"ntfy sent: {r.returncode}")
+    except Exception as e:
+        log.error(f"ntfy error: {e}")
+
 def main():
     seen = load_seen()
     new_posts = []
@@ -142,8 +165,9 @@ def main():
 
     if new_posts:
         send_email(new_posts)
+        send_ntfy(new_posts)
     else:
-        log.info("No relevant posts, no email sent")
+        log.info("No relevant posts, no alert sent")
 
 if __name__ == "__main__":
     main()
