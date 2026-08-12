@@ -2152,11 +2152,11 @@ def dashboard():
     <p class="note" style="margin-bottom:20px;">Block entire services on your network. Toggle on to block, off to allow.</p>
     {% for group_name, services in service_groups.items() %}
     {% set blocked_in_group = services | selectattr("id", "in", blocked_services) | list %}
-    <div style="margin-bottom:4px;border:1px solid var(--border);">
+    <div class="service-group" style="margin-bottom:4px;border:1px solid var(--border);">
       <button onclick="toggleGroup(this)" style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface);border:none;cursor:pointer;text-align:left;">
         <div style="display:flex;align-items:center;gap:10px;">
           <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;">{{ group_name.replace("_"," ") }}</span>
-          <span style="font-family:'DM Mono',monospace;font-size:9px;{% if blocked_in_group %}background:var(--accent);color:var(--bg);{% else %}background:var(--border);color:var(--muted);{% endif %}padding:2px 6px;">{{ blocked_in_group|length }}/{{ services|length }} BLOCKED</span>
+          <span class="group-badge" style="font-family:'DM Mono',monospace;font-size:9px;{% if blocked_in_group %}background:var(--accent);color:var(--bg);{% else %}background:var(--border);color:var(--muted);{% endif %}padding:2px 6px;">{{ blocked_in_group|length }}/{{ services|length }} BLOCKED</span>
         </div>
         <span class="group-arrow" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">&#9660;</span>
       </button>
@@ -2166,7 +2166,7 @@ def dashboard():
           <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface);border:1px solid var(--border);">
             <span style="font-size:13px;color:var(--text);">{{ svc.name }}</span>
             <label class="toggle" style="width:44px;height:24px;flex-shrink:0;">
-              <input type="checkbox" {% if svc.id in blocked_services %}checked{% endif %} onchange="toggleService('{{ svc.id }}',this.checked)">
+              <input type="checkbox" {% if svc.id in blocked_services %}checked{% endif %} onchange="toggleService(this,'{{ svc.id }}',this.checked)">
               <span class="slider" style="border-radius:24px;"></span>
             </label>
           </div>
@@ -2206,7 +2206,7 @@ def dashboard():
 })();
 async function togglePause(pause){
   if(pause && !confirm('This will disable all ad blocking and filtering. Continue?')) return;
-  const r=await fetch('/api/pause',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paused:pause})});
+  const r=await fetch('/api/pause'+location.search,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paused:pause})});
   const d=await r.json();
   if(d.ok) location.reload(); else alert('Failed to update. Try again.');
 }
@@ -2226,10 +2226,18 @@ async function toggleAddon(type,enabled){
   const d=await r.json();
   if(d.ok)location.reload();else alert('Failed to update. Please try again.');
 }
-async function toggleService(id, blocked){
+async function toggleService(el, id, blocked){
   const r=await fetch('/api/service'+location.search,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service_id:id,blocked:blocked})});
   const d=await r.json();
-  if(d.ok) window.location.href='/dashboard'+location.search;
+  if(!d.ok){ el.checked=!blocked; alert('Failed to update. Try again.'); return; }
+  const group=el.closest('.service-group');
+  const badge=group.querySelector('.group-badge');
+  const boxes=group.querySelectorAll('.group-body input[type="checkbox"]');
+  let blockedCount=0;
+  boxes.forEach(b=>{ if(b.checked) blockedCount++; });
+  badge.textContent=blockedCount+'/'+boxes.length+' BLOCKED';
+  badge.style.background=blockedCount?'var(--accent)':'var(--border)';
+  badge.style.color=blockedCount?'var(--bg)':'var(--muted)';
 }
 
 async function addKidProfileCustomer(){
@@ -4471,7 +4479,7 @@ def api_apply_profile():
 @app.route("/api/pause", methods=["POST"])
 @login_required
 def api_pause():
-    if request.is_admin:
+    if request.is_admin and not request.args.get("preview"):
         return jsonify({"ok": False})
     customer = find_customer(request.user_email)
     if not customer:
@@ -5468,6 +5476,11 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
         <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="2.2"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/><line x1="17" y1="17" x2="22" y2="17"/></svg>
         HRF reel
       </button>
+      <input type="file" id="talkFile" accept="video/*" style="display:none" onchange="uploadTalkVideo(this)">
+      <button class="btn alt" onclick="document.getElementById('talkFile').click()" title="Upload a filmed talking-head video (phone .mp4/.mov). Asks for a caption and brand, lands in Pending review like any other post.">
+        <svg viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        Talking video
+      </button>
     </div>
   </div>
   <input type="text" id="customIdea" class="idea-input" placeholder="Your own idea/topic instead of the usual pick (optional)" title="Used by Reel, HRF reel, and Hook-Reveal-Fix instead of the automatic tip-bank rotation when filled in">
@@ -5652,6 +5665,20 @@ async function genCardsReel(b){
     if(j.ok){toast('Cards reel built'); setTimeout(function(){location.reload();},900);}
     else{toast(j.error||'Reel build failed'); b.disabled=false; b.textContent=label;}
   }catch(e){toast('Reel build failed (timeout?)'); b.disabled=false; b.textContent=label;}
+}
+async function uploadTalkVideo(input){
+  var file=input.files&&input.files[0]; if(!file) return;
+  var caption=prompt('Caption for this video:'); if(!caption||!caption.trim()){input.value='';return;}
+  var brand=(prompt('Brand (harbor, career, fax, booking, money, scan, burn, neighbor):','harbor')||'harbor').trim().toLowerCase();
+  var fd=new FormData(); fd.append('video',file); fd.append('caption',caption.trim()); fd.append('brand',brand);
+  toast('Uploading video...');
+  try{
+    var r=await fetch('/api/social/upload-video',{method:'POST',headers:{'X-CSRF':CSRF},body:fd});
+    var j=await r.json();
+    if(j.ok){toast('Uploaded, pending review'); setTimeout(function(){location.reload();},900);}
+    else{toast(j.error||'Upload failed');}
+  }catch(e){toast('Upload failed (timeout?)');}
+  input.value='';
 }
 recount();
 document.addEventListener('click',function(e){var w=document.getElementById('genWrap');if(w&&!w.contains(e.target))w.classList.remove('open');});
@@ -6866,6 +6893,77 @@ def social_generate_sticker_reel():
         return jsonify({"ok": False, "error": tail[-1] if tail else "reel generation failed"}), 500
     parts = added.split()
     return jsonify({"ok": True, "id": parts[1] if len(parts) > 1 else ""})
+
+
+@app.route("/api/social/upload-video", methods=["POST"])
+@authentik_admin_required
+def social_upload_video():
+    """Manually filmed talking-head video (phone -> upload), same review/post
+    pipeline as an AI reel: source="reel" so approve skips the (unimplemented)
+    FB video path and publishes the real mp4 to IG as a Reel; category stays
+    "Talking video" so the library can filter it apart from AI-generated reels.
+    Re-encodes with ffmpeg since a phone .mov (often HEVC) is not guaranteed to
+    be a format Meta's ingest accepts."""
+    import time as _time, json as _json, tempfile as _tf, subprocess as _sp, pathlib, re as _re
+    f = request.files.get("video")
+    if not f or not f.filename:
+        return jsonify({"ok": False, "error": "no video file"}), 400
+    if not _re.search(r"\.(mp4|mov|m4v)$", f.filename, _re.I):
+        return jsonify({"ok": False, "error": "video must be mp4/mov/m4v"}), 400
+    caption = (request.form.get("caption") or "").strip()
+    if not (1 <= len(caption) <= 2000):
+        return jsonify({"ok": False, "error": "caption required"}), 400
+    brand = (request.form.get("brand") or "harbor").strip().lower()
+    if brand not in HRF_BRAND_URL:
+        brand = "harbor"
+    link = (request.form.get("link") or "").strip()
+
+    social_dir = pathlib.Path("/home/ubuntu/harbor-design-system/assets/social")
+    ts = int(_time.time())
+    pid = f"talk-{brand}-{ts}"
+    raw = social_dir / f"_upload-{pid}"
+    f.save(str(raw))
+    mp4_path = social_dir / f"{pid}.mp4"
+    try:
+        _sp.run(["ffmpeg", "-y", "-i", str(raw), "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                 "-c:a", "aac", "-movflags", "+faststart", str(mp4_path)],
+                check=True, timeout=180, stdout=_sp.DEVNULL, stderr=_sp.PIPE)
+    except Exception as e:
+        raw.unlink(missing_ok=True)
+        mp4_path.unlink(missing_ok=True)
+        return jsonify({"ok": False, "error": f"video encode failed: {e}"}), 500
+    raw.unlink(missing_ok=True)
+
+    png_path = social_dir / f"{pid}.png"
+    try:
+        _sp.run(["ffmpeg", "-y", "-i", str(mp4_path), "-vframes", "1",
+                 "-vf", "scale=1080:-2", str(png_path)],
+                check=True, timeout=30, stdout=_sp.DEVNULL, stderr=_sp.PIPE)
+    except Exception as e:
+        mp4_path.unlink(missing_ok=True)
+        return jsonify({"ok": False, "error": f"poster frame failed: {e}"}), 500
+
+    asset_base = "https://assets.harborprivacy.com/raw/social"
+    default_url = HRF_BRAND_URL.get(brand, "harborprivacy.com")
+    entry = {
+        "id": pid, "category": "Talking video", "source": "reel", "brand": brand,
+        "created": ts, "head": caption[:60],
+        "hdr": f"TALK / {caption[:40]} -> {default_url}",
+        "img": f"{asset_base}/{pid}.png", "video": f"{asset_base}/{pid}.mp4",
+        "link": f"https://{link or default_url}", "tags": "lightbulb,shield",
+        "body": caption, "status": "pending",
+    }
+    try:
+        with open(SOCIAL_MANIFEST) as _f:
+            man = _json.load(_f)
+    except Exception:
+        man = {"version": 1, "entries": []}
+    man.setdefault("entries", []).append(entry)
+    fd, tmp = _tf.mkstemp(dir=os.path.dirname(SOCIAL_MANIFEST), prefix=".manifest-", suffix=".tmp")
+    with os.fdopen(fd, "w") as _f:
+        _json.dump(man, _f, indent=2, ensure_ascii=False)
+    os.replace(tmp, SOCIAL_MANIFEST)
+    return jsonify({"ok": True, "id": pid})
 
 
 @app.route("/api/social/generate-cards-set", methods=["POST"])
