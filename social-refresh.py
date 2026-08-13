@@ -180,15 +180,20 @@ def ai_post(brand, seed, data):
 A scrolling stranger gives this post about one second. The headline and the first line have to make
 them stop. Voice: plain, direct, no hype, no em dashes, no emoji.{basis}
 
+Pick ONE angle and commit to it, do not blend them: a specific THREAT or curiosity gap (the usual
+default), a CONTRARIAN take on common privacy advice, or a VALUE angle stated as a direct how-to.
+Rotating angles keeps the feed from reading as the same post every time.
+
 Return ONLY a JSON object with these keys:
   "head": a headline for the image card that opens a curiosity gap or names a specific surprising
           threat the reader feels instantly (max 28 chars, sentence case). Good: "Your TV is watching",
           "Delete this hidden ID". Bad: vague slogans like "Stay private" or "Protect your data".
   "sub": array of exactly 2 short supporting lines for the card that raise the stakes or hint the fix
          without giving it all away (each max 52 chars)
-  "caption": the full social caption. The FIRST line must be a scroll-stopping hook (a surprising fact
-             or a pointed question), then deliver the concrete tip with exact names/settings/numbers,
-             ending with 3-4 hashtags. Do NOT include a URL anywhere, the link is posted separately.
+  "caption": the full social caption. The FIRST ~125 characters, what shows before Facebook/Instagram
+             truncate to "See more", must stand alone as a complete scroll-stopping thought, not a
+             lead-in. Then deliver the concrete tip with exact names/settings/numbers, ending with
+             3-4 hashtags. Do NOT include a URL anywhere, the link is posted separately.
              2-4 short paragraphs.
 
 The caption must be genuinely useful and specific, a real tip people would screenshot, never generic

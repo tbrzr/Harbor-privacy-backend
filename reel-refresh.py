@@ -43,11 +43,16 @@ def reel_post(brand, seed, data):
     basis = (f"Base it on THIS tip and keep the concrete settings, names, and numbers: {seed['idea']}"
              if seed else f"Themes to draw from: {themes}.")
     prompt = f"""You script a SHORT vertical phone reel for Harbor {brand}, a privacy-first product.
-The job of the first frame is to make a scrolling stranger STOP and need the answer, then hold them
-to the end. Voice: plain, direct, no hype, no em dashes, no emoji. {basis}
+The first frame gets about one second to earn the rest: the on-screen hook line IS the visual hook
+AND the text hook at once (reels are silent), so it has to work with zero context. Voice: plain,
+direct, no hype, no em dashes, no emoji. {basis}
 
 Build an open loop: the hook raises a question or a stake, the steps walk toward it, and the answer is
 withheld until the payoff. Do not give away the payoff in the hook.
+
+Pick ONE angle and commit to it: a specific THREAT/curiosity gap (the usual default), a CONTRARIAN
+take on common privacy advice, or a VALUE angle framed as a fast how-to. Rotating angles keeps
+consecutive reels from feeling identical.
 
 Return ONLY a JSON object with these keys:
   "hook": a scroll-stopping opener that opens a curiosity gap or names a specific stakes/threat the
@@ -57,7 +62,9 @@ Return ONLY a JSON object with these keys:
            tension building toward the payoff (each max 38 chars, concrete, no numbering)
   "payoff": the single satisfying result line revealed at the end, the reason staying was worth it
             (max 38 chars, sentence case). Example: "Now nobody is logging it"
-  "caption": the post caption, 2-3 short paragraphs, ending with the line {url} then 3-4 hashtags
+  "caption": the post caption. The FIRST ~125 characters, what shows before Facebook/Instagram
+             truncate to "See more", must stand alone as a complete thought. 2-3 short paragraphs,
+             ending with the line {url} then 3-4 hashtags
 
 Every line must be concrete and screenshot-worthy, never vague marketing.{avoid_txt}"""
     body = json.dumps({
@@ -262,10 +269,15 @@ Voice: warm, plain, talking to a single tired small-business owner. No hype, no 
 Open on this real pain: {seed['idea']}.
 Harbor Booking is the fix: a free booking page where clients self-book, reschedule, and can leave a deposit, so the owner stops playing phone tag.
 
+Lead with the PAIN as the default angle, but if it fits better, try a transformation angle instead:
+the before/after of a day with vs without the booking page. Reels are silent, so the on-screen hook
+line has to work with zero context.
+
 Return ONLY a JSON object with these keys:
   "hook": a short pain-point opener the {seed['who']} feels instantly (max 38 chars, sentence case)
   "steps": array of 3 to 4 short lines that move from the pain to the fix (each max 48 chars, no numbering)
-  "caption": 2-3 short paragraphs, ending with the line {seed['learn']} then 3-4 hashtags
+  "caption": the FIRST ~125 characters must stand alone before Facebook/Instagram truncate to "See
+             more". 2-3 short paragraphs, ending with the line {seed['learn']} then 3-4 hashtags
 Make it feel like a real day on the job, concrete, not marketing.{avoid_txt}"""
     body = json.dumps({
         "model": "claude-haiku-4-5-20251001", "max_tokens": 700,
@@ -490,6 +502,11 @@ as given, do not invent anything beyond it: {seed['idea']}
 
 Voice: plain, direct, no hype, no em dashes, no emoji.
 
+This format lives or dies on the hook frame: it is the ONLY thing on screen for the first beat, no
+sound, no other context, so it has to work as a complete pattern interrupt on its own. Favor a bold,
+specific claim over a setup line ("Your TV is already doing this" beats "Here's something about your
+TV"). End on a genuine cliffhanger, not a rhetorical question with an obvious answer.
+
 Return ONLY a JSON object with these keys:
   "hook": the opening line, max 90 chars, states the problem in a way that stops a scroller,
           ends on a cliffhanger with NO resolution. If the tip describes a feature that is on
@@ -500,7 +517,9 @@ Return ONLY a JSON object with these keys:
   "fix_steps": array of 3 to 5 short plain-text steps, ONE action per step, using the exact
                menu names from the tip (each max 60 chars, no numbering)
   "cta": a short line inviting a follow for more tips like this, no links (max 40 chars)
-  "caption": the post caption, 2-3 short paragraphs, ending with the line {HRF_URL} then 3-4 hashtags
+  "caption": the post caption. The FIRST ~125 characters, what shows before Facebook/Instagram
+             truncate to "See more", must stand alone as a complete thought. 2-3 short paragraphs,
+             ending with the line {HRF_URL} then 3-4 hashtags
 Every line must be concrete and screenshot-worthy, never vague marketing.{avoid_txt}"""
     body = json.dumps({
         "model": "claude-haiku-4-5-20251001", "max_tokens": 700,
