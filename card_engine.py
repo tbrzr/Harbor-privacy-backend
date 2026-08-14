@@ -665,6 +665,7 @@ HERO_CTA = [
     ("/fax", "SEND A FAX, $2.99"),
     ("/money", "NO BANK LOGIN NEEDED"),
     ("/booking", "FREE TO SET UP"),
+    ("adblock.", "BLOCK ADS & TRACKERS"),
     ("scan.", "FREE SCAN"),
     ("/learn", "MORE FREE TIPS"),
 ]

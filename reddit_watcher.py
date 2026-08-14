@@ -261,7 +261,7 @@ def main():
                 seen.add(p["id"])
                 if is_relevant(p) and is_recent(p["id"]):
                     new_posts.append(p)
-        time.sleep(45)
+        time.sleep(60)
 
     save_seen(seen)
     log.info(f"Found {len(new_posts)} relevant new posts")
