@@ -82,6 +82,7 @@ def fetch_rss(url):
         r = requests.get(url, headers=HEADERS, timeout=15,
                           proxies={"http": PI_PROXY, "https": PI_PROXY})
         if not r.ok:
+            log.warning(f"RSS http {r.status_code} {url} (reset={r.headers.get('x-ratelimit-reset','?')}s)")
             return []
         root = ET.fromstring(r.text)
         ns = {"atom": "http://www.w3.org/2005/Atom"}
@@ -260,7 +261,7 @@ def main():
                 seen.add(p["id"])
                 if is_relevant(p) and is_recent(p["id"]):
                     new_posts.append(p)
-        time.sleep(8)
+        time.sleep(45)
 
     save_seen(seen)
     log.info(f"Found {len(new_posts)} relevant new posts")
