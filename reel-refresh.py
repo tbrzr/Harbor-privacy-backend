@@ -72,7 +72,8 @@ Every line must be concrete and screenshot-worthy, never vague marketing.{avoid_
         "messages": [{"role": "user", "content": prompt}],
     }).encode()
     req = urllib.request.Request(ANTHROPIC_URL, data=body, method="POST",
-        headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
+        headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json",
+                 "user-agent": "HarborPrivacy-ReelRefresh/1.0"})
     with urllib.request.urlopen(req, timeout=40) as r:
         d = json.load(r)
     txt = d["content"][0]["text"].strip()
@@ -284,7 +285,8 @@ Make it feel like a real day on the job, concrete, not marketing.{avoid_txt}"""
         "messages": [{"role": "user", "content": prompt}],
     }).encode()
     req = urllib.request.Request(ANTHROPIC_URL, data=body, method="POST",
-        headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
+        headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json",
+                 "user-agent": "HarborPrivacy-ReelRefresh/1.0"})
     with urllib.request.urlopen(req, timeout=40) as r:
         d = json.load(r)
     txt = d["content"][0]["text"].strip()
@@ -526,7 +528,8 @@ Every line must be concrete and screenshot-worthy, never vague marketing.{avoid_
         "messages": [{"role": "user", "content": prompt}],
     }).encode()
     req = urllib.request.Request(ANTHROPIC_URL, data=body, method="POST",
-        headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
+        headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json",
+                 "user-agent": "HarborPrivacy-ReelRefresh/1.0"})
     with urllib.request.urlopen(req, timeout=40) as r:
         d = json.load(r)
     txt = d["content"][0]["text"].strip()

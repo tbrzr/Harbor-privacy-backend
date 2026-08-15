@@ -5269,7 +5269,7 @@ def _review_decision(action, entry):
 # brand -> filter category for generated sets
 SOCIAL_BRAND_CAT = {"harbor":"Harbor","career":"Career","fax":"Fax",
                     "booking":"Booking","money":"Money","scan":"Scan",
-                    "burn":"Burn","tips":"Tips","neighbor":"Neighbor"}
+                    "burn":"Burn","tips":"Tips","blocker":"Blocker"}
 
 SOCIAL_HISTORY_HTML = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8">
@@ -5431,7 +5431,7 @@ h1{font-family:"DM Serif Display",Georgia,serif;font-weight:400;font-size:26px;m
         <option value="fax">Fax</option>
         <option value="booking">Booking</option>
         <option value="money">Money</option>
-        <option value="neighbor">Neighbor</option>
+        <option value="blocker">Blocker</option>
         <option value="scan">Scan</option>
         <option value="burn">Burn</option>
         <option value="stickers">Stickers</option>
@@ -5669,7 +5669,7 @@ async function genCardsReel(b){
 async function uploadTalkVideo(input){
   var file=input.files&&input.files[0]; if(!file) return;
   var caption=prompt('Caption for this video:'); if(!caption||!caption.trim()){input.value='';return;}
-  var brand=(prompt('Brand (harbor, career, fax, booking, money, scan, burn, neighbor):','harbor')||'harbor').trim().toLowerCase();
+  var brand=(prompt('Brand (harbor, career, fax, booking, money, scan, burn, blocker):','harbor')||'harbor').trim().toLowerCase();
   var fd=new FormData(); fd.append('video',file); fd.append('caption',caption.trim()); fd.append('brand',brand);
   toast('Uploading video...');
   try{
@@ -6760,7 +6760,7 @@ def social_generate_set():
                     "booking":  "#SmallBusiness #Scheduling #Privacy #BookingApp",
                     "money":    "#Budgeting #PersonalFinance #Privacy #MoneyTips",
                     "scan":     "#DataPrivacy #DataBrokers #OptOut #PrivacyMatters",
-                    "neighbor": "#HomeNetwork #WiFi #Privacy #SmartHome",
+                    "blocker":  "#AdBlocker #TrackerBlocker #Privacy #BrowserExtension",
                     "career":   "#JobSearch #Resume #Privacy #CareerTips",
                     "stickers": "#Privacy #Homelab #Stickers #DataPrivacy",
                 }.get(brand, "#Privacy #DataPrivacy #DigitalPrivacy #HarborPrivacy")
@@ -7014,7 +7014,7 @@ HRF_BRAND_URL = {
     "harbor": "harborprivacy.com", "career": "harborprivacy.com/career",
     "fax": "harborprivacy.com/fax", "booking": "harborprivacy.com/booking",
     "money": "harborprivacy.com/money", "scan": "scan.harborprivacy.com",
-    "burn": "burn.harborprivacy.com", "neighbor": "neighbor.harborprivacy.com",
+    "burn": "burn.harborprivacy.com", "blocker": "harborprivacy.com/blocker",
 }
 
 # Stopwords stripped before comparing caption words against hook/reveal words
@@ -7172,7 +7172,7 @@ def social_generate_hrf():
 # just out of the automatic rotation.
 _HRF_POOL_KEYS = {
     "harbor": "harbor", "scan": "scan", "money": "money", "career": "career",
-    "burn": "burn", "neighbor": "neighbor",
+    "burn": "burn", "blocker": "blocker",
     "breach": "harbor", "tips": "harbor",
 }
 

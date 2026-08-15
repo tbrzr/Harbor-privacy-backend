@@ -45,10 +45,11 @@ BRANDS = {
                 "free appointment scheduling and employee shifts that keep client/staff data private, never sold"),
     "money":   ("HARBOR / MONEY",   "MONEY TIP",    "harborprivacy.com/money",
                 "budgeting without sharing your bank login, forwarding receipts/alerts, private alternative to Mint/YNAB"),
-    "neighbor":("HARBOR / NEIGHBOR","NETWORK TIP",  "neighbor.harborprivacy.com",
-                "self-serve network management for people who share a home or building, each neighbor claims their own VLAN and WiFi password and guest network and device list, "
-                "vendor-neutral adapter layer that runs on TP-Link Omada today with UniFi and pfSense next, the operator never sees your traffic only network state, "
-                "see-as-you support needs a code you give them, a full live demo with sample data at neighbor-demo.harborprivacy.com"),
+    "blocker": ("HARBOR / BLOCKER", "PRIVACY TIP",  "harborprivacy.com/blocker",
+                "free Chrome browser extension that blocks trackers and ads and strips tracking parameters from links, entirely inside your browser, "
+                "ships blank on purpose, nothing blocks until you turn on a filter list like EasyList, EasyPrivacy, AdGuard Base, or uBlock Origin's default list, "
+                "no account, no login, no server of its own, nothing ever sent to Harbor, a live blocked-tracker counter per page plus a resettable lifetime total, "
+                "Edge/Microsoft Store support coming soon, live today on the Chrome Web Store"),
     "scan":    ("HARBOR / SCAN",    "PRIVACY TIP",  "scan.harborprivacy.com",
                 "finding your name/address/phone/relatives for sale on people-search data brokers like Spokeo Whitepages BeenVerified, "
                 "filing automated CCPA opt-outs on your behalf as authorized agent, weekly re-scans because brokers quietly relist you, "
@@ -69,7 +70,7 @@ BRANDS = {
                 "made by the same team as Harbor Privacy"),
 }
 # brands where "no account / no signup" claims are FALSE -> reject if present
-ACCOUNT_REQUIRED = {"booking", "money", "neighbor", "scan"}
+ACCOUNT_REQUIRED = {"booking", "money", "scan"}
 
 BG="#fbf7f1"; GRID="#e5dfd3"; INK="#1a2420"; MUTE="#6b7a72"; TEAL="#1f5d6b"; TERRA="#c98a52"
 
@@ -209,7 +210,8 @@ privacy company, it has failed: rewrite it.{avoid_txt}"""
         "messages": [{"role": "user", "content": prompt}],
     }).encode()
     req = urllib.request.Request(ANTHROPIC_URL, data=body, method="POST",
-        headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"})
+        headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json",
+                 "user-agent": "HarborPrivacy-SocialRefresh/1.0"})
     with urllib.request.urlopen(req, timeout=40) as r:
         data = json.load(r)
     txt = data["content"][0]["text"].strip()
