@@ -123,6 +123,24 @@ def _csrf_guard():
         log.warning(f"CSRF rejected path={p} ua={request.headers.get('User-Agent','')[:80]} sent_len={len(sent)} exp_len={len(expected)} xcsrf={request.headers.get('X-CSRF','<none>')[:12]!r} sess_csrf={(expected or '')[:12]!r}")
         return jsonify({"error": "csrf"}), 403
 
+@app.before_request
+def _admin_2f_guard():
+    # Second, app-level check for /api/admin/* independent of the
+    # X-authentik-email header authentik_admin_required trusts by design.
+    # Protects against a Caddy/nginx route losing its auth_request directive:
+    # the cookie only ever gets set inside admin_required/authentik_admin_required
+    # after a real admin page load succeeds, so a route hit directly without
+    # ever passing through one of those first has no way to obtain it.
+    p = request.path or ""
+    if not p.startswith("/api/admin"):
+        return
+    if not ADMIN_2F_TOKEN:
+        return
+    provided = request.cookies.get("hp_admin2f", "")
+    if not provided or not secrets.compare_digest(provided, ADMIN_2F_TOKEN):
+        log.warning(f"admin 2f rejected path={p} ua={request.headers.get('User-Agent','')[:80]}")
+        return jsonify({"error": "forbidden"}), 403
+
 @app.context_processor
 def _inject_is_admin():
     try:
@@ -140,6 +158,7 @@ def _inject_csrf():
     return {"csrf_token": tok}
 
 SECRET_KEY = os.environ.get("DASHBOARD_SECRET", "change-me")
+ADMIN_2F_TOKEN = os.environ.get("ADMIN_2F_TOKEN", "")
 ADGUARD_URL = os.environ.get("ADGUARD_URL", "http://127.0.0.1:8080")
 ADGUARD_USER = os.environ.get("ADGUARD_USER", "admin")
 ADGUARD_PASS = os.environ.get("ADGUARD_PASS", "")
@@ -424,7 +443,11 @@ def admin_required(f):
             return redirect("/dashboard")
         request.user_email = payload["email"]
         request.is_admin = True
-        return f(*args, **kwargs)
+        resp = make_response(f(*args, **kwargs))
+        if ADMIN_2F_TOKEN:
+            resp.set_cookie("hp_admin2f", ADMIN_2F_TOKEN, httponly=True, secure=True,
+                             samesite="Lax", max_age=2592000, domain=".harborprivacy.com")
+        return resp
     return decorated
 
 def authentik_admin_required(f):
@@ -451,6 +474,9 @@ def authentik_admin_required(f):
         token = make_token(email, is_admin=True)
         resp.set_cookie("hp_token", token, httponly=True, secure=True,
                          samesite="Lax", max_age=2592000, domain=".harborprivacy.com")
+        if ADMIN_2F_TOKEN:
+            resp.set_cookie("hp_admin2f", ADMIN_2F_TOKEN, httponly=True, secure=True,
+                             samesite="Lax", max_age=2592000, domain=".harborprivacy.com")
         return resp
     return decorated
 
