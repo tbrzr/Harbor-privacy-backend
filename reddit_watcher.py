@@ -47,6 +47,16 @@ RSS_FEEDS = [
     "https://www.reddit.com/r/Ubiquiti/search.rss?q=parental+controls&sort=new&restrict_sr=1",
     "https://www.reddit.com/r/openwrt/search.rss?q=parental+controls&sort=new&restrict_sr=1",
     "https://www.reddit.com/r/HomeNetworking/search.rss?q=guest+wifi+kids&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/selfhosted/search.rss?q=pihole+alternative&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/selfhosted/search.rss?q=adguard&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/selfhosted/search.rss?q=parental+controls&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/homelab/search.rss?q=pihole+cloud&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/Parents/search.rss?q=parental+controls&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/Parents/search.rss?q=screen+time&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/NewParents/search.rss?q=internet+safety&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/techsupport/search.rss?q=block+youtube+kids&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/VPN/search.rss?q=parental+controls&sort=new&restrict_sr=1",
+    "https://www.reddit.com/r/frugal/search.rss?q=parental+controls+subscription&sort=new&restrict_sr=1",
 ]
 
 TITLE_KEYWORDS = [
