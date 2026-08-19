@@ -150,7 +150,7 @@ def register_career_admin(app):
             import resend
             resend.api_key = os.environ.get("RESEND_API_KEY", "")
             resend.Emails.send({
-                "from": "Harbor Career <career@mail.harborprivacy.com>",
+                "from": "Harbor Career <career@harborprivacy.app>",
                 "to": [email],
                 "subject": "Your access code",
                 "html": f"<p>Access code for your job: <strong style='font-size:1.4rem'>{code}</strong></p>",

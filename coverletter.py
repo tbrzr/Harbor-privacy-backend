@@ -985,7 +985,7 @@ def send_cover_letter_email(job, subject_override=None, note=None):
             pdf_content = f.read()
         
         resend.Emails.send({
-            "from": "Harbor Privacy Cover Letters <coverletter@mail.harborprivacy.com>",
+            "from": "Harbor Privacy Cover Letters <coverletter@harborprivacy.app>",
             "to": [job['email']],
             "subject": subject_override or "Your Cover Letter from Harbor Privacy",
             "html": html_content,
@@ -1016,7 +1016,7 @@ def send_resume_review_email(job):
     
     try:
         resend.Emails.send({
-            "from": "Harbor Privacy Resume Review <resume@mail.harborprivacy.com>",
+            "from": "Harbor Privacy Resume Review <resume@harborprivacy.app>",
             "to": [job['email']],
             "subject": "Your Resume Review from Harbor Privacy",
             "html": html_content

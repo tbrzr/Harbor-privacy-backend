@@ -8,7 +8,7 @@ log = logging.getLogger(__name__)
 
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 TO_EMAIL = "tim@harborprivacy.com"
-FROM_EMAIL = "info@mail.harborprivacy.com"
+FROM_EMAIL = "info@harborprivacy.app"
 SEEN_FILE = "/home/ubuntu/harbor-backend/harbor-reddit-seen.json"
 LEADS_FILE = "/home/ubuntu/harbor-reddit-leads.json"
 
