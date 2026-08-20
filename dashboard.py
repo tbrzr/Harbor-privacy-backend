@@ -2094,6 +2094,7 @@ def dashboard():
         <a href="https://adblock.harborprivacy.com/profiles/{{ kp.name }}.mobileconfig" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#8659; iOS/Mac Profile</a>
         <a href="https://adblock.harborprivacy.com/setup/android/{{ kp.name }}" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#9632; Android QR</a>
         <a href="https://harborprivacy.com/docs/harbor-kids#kids-setup" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">Windows Setup</a>
+        <a href="/dashboard/adblock/screen-time/{{ kp.name }}" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#128274; Lock with Screen Time</a>
       </div>
     </div>
     {% endfor %}
@@ -10293,6 +10294,65 @@ def adblock_usage():
         has_family_badge=has_family_badge, harbor_kids=harbor_kids,
         active="adblock", light_theme=True,
     )
+
+
+# ════════════════════════════════════════════════════════════
+# SECTION 24 — SCREEN TIME LOCK WIZARD
+# Owns: /dashboard/adblock/screen-time/<kid_name>
+#
+# App-free enforcement layer for Harbor Kids: walks a parent through
+# locking the installed DNS profile behind the device passcode plus
+# Screen Time, instead of building a native iOS app for the Apple
+# Family Controls entitlement. Instructional only -- no new backend
+# state, no MDM. Honest about its ceiling (a factory reset still
+# clears it; that needs supervised/MDM, which this deliberately is not).
+# ════════════════════════════════════════════════════════════
+
+@app.route("/dashboard/adblock/screen-time/<kid_name>")
+@login_required
+def screen_time_wizard(kid_name):
+    email = request.user_email
+    customer = find_customer(email)
+    client_id = customer.get("client_id", "") if customer else ""
+    if not client_id or not kid_name.startswith(f"{client_id}kid"):
+        return render_template_string(STYLE + NAV_CUSTOMER + """
+<div class="wrap-sm"><p class="note">Profile not found on your account.</p>
+<a href="/dashboard" class="ghost">&larr; Back to Dashboard</a></div>""",
+            active="adblock", light_theme=True), 404
+
+    html = STYLE + NAV_CUSTOMER + """
+<div class="wrap-sm">
+  <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">Harbor Kids</p>
+  <h1 style="margin-bottom:8px;">Lock it down.</h1>
+  <p class="note" style="margin-bottom:24px;">Four steps to keep {{ kid_name }}'s profile from being removed. No app install needed.</p>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="card-label">1. Install the profile</div>
+    <p class="note" style="margin-bottom:12px;">If you haven't already, install it on your child's device first.</p>
+    <a href="https://adblock.harborprivacy.com/profiles/{{ kid_name }}.mobileconfig" class="btn">Download Profile &rarr;</a>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="card-label">2. Set a device passcode only you know</div>
+    <p class="note">This is the real lock. Removing a profile requires the device's own lock-screen passcode (<strong>Settings &rarr; Face/Touch ID &amp; Passcode</strong>) &mdash; not the Screen Time passcode. If your child already knows the device passcode, change it first.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="card-label">3. Turn on Screen Time</div>
+    <p class="note"><strong>Settings &rarr; Screen Time &rarr; Turn On Screen Time &rarr; This Is My Child's [Device]</strong>. Set a separate Screen Time passcode &mdash; don't reuse the device passcode from step 2.</p>
+  </div>
+
+  <div class="card" style="margin-bottom:12px;">
+    <div class="card-label">4. Lock the passcode from being changed</div>
+    <p class="note"><strong>Content &amp; Privacy Restrictions &rarr; Allow Changes &rarr; Passcode Changes &rarr; Don't Allow</strong>. Now the device passcode can't be changed out from under you without the Screen Time passcode.</p>
+  </div>
+
+  <p class="note" style="margin-top:20px;">Ceiling: this stops casual profile removal, not a full factory reset. A determined teenager with physical access can still erase the device &mdash; blocking that requires a supervised/managed device, which is a separate setup.</p>
+  <p class="note" style="margin-top:8px;"><a href="https://harborprivacy.com/learn/lock-screen-time-kids-phone" target="_blank" style="color:var(--accent);">Full guide with more detail &rarr;</a></p>
+
+  <a href="/dashboard" class="ghost" style="margin-top:16px;display:inline-block;">&larr; Back to Dashboard</a>
+</div>"""
+    return render_template_string(html, kid_name=kid_name, active="adblock", light_theme=True)
 
 
 if __name__ == "__main__":
