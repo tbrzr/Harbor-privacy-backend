@@ -6,7 +6,7 @@ sys.path.insert(0, '/home/ubuntu/harbor-backend')
 
 CUSTOMERS_LOG = "/var/log/harbor-customers.json"
 USERS_FILE = "/var/log/harbor-dashboard-users.json"
-RESEND_API_KEY = os.environ.get("RESEND_API_KEY", "")
+RESEND_API_KEY = os.environ.get("RESEND_ALL_DOMAIN_KEY", "")
 FROM_EMAIL = os.environ.get("FROM_EMAIL", "info@mail.harborprivacy.com")
 ADGUARD_URL = os.environ.get("ADGUARD_URL", "http://127.0.0.1:8080")
 ADGUARD_USER = os.environ.get("ADGUARD_USER", "admin")
