@@ -36,6 +36,7 @@ except Exception as _e:
 
 STRIPE_SECRET           = os.environ["STRIPE_SECRET"]
 STRIPE_WEBHOOK_SECRET   = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+TURNSTILE_SECRET_KEY    = os.environ.get("TURNSTILE_SECRET_KEY", "")
 TELNYX_API_KEY          = os.environ["TELNYX_API_KEY"]
 TELNYX_CONNECTION_ID    = os.environ["TELNYX_CONNECTION_ID"]
 TELNYX_FROM_NUMBER      = os.environ["TELNYX_FROM_NUMBER"]
@@ -623,6 +624,25 @@ def send_delivery_email(email, order_token, fax_number, status, refunded=False):
         pass
 
 
+def _verify_turnstile(token, ip):
+    if not TURNSTILE_SECRET_KEY:
+        return True
+    if not token:
+        return False
+    try:
+        import urllib.request as _ur, urllib.parse as _up, json as _jj
+        data = _up.urlencode({"secret": TURNSTILE_SECRET_KEY, "response": token, "remoteip": ip}).encode()
+        req = _ur.Request("https://challenges.cloudflare.com/turnstile/v0/siteverify", data=data, method="POST")
+        with _ur.urlopen(req, timeout=5) as resp:
+            result = _jj.loads(resp.read())
+            if not result.get("success", False):
+                log.warning(f"turnstile rejected ip={ip} error-codes={result.get('error-codes')}")
+            return result.get("success", False)
+    except Exception as e:
+        log.warning(f"turnstile verify request failed ip={ip}: {e}")
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -747,6 +767,8 @@ def create_payment_intent():
     if not _rate_ok("create-payment-intent", ip, 6, 60):
         return jsonify({"error": "Too many requests. Please wait a moment."}), 429
     body = request.get_json(silent=True) or {}
+    if not _verify_turnstile(body.get("cf_turnstile_response", ""), ip):
+        return jsonify({"error": "Verification failed. Please refresh and try again."}), 403
     ok, err = _validate_order_payload(body)
     if not ok:
         return jsonify({"error": err}), 400
@@ -820,6 +842,8 @@ def send_free():
     if not _rate_ok("send-free", ip, 3, 60) or not _rate_ok("send-free-day", ip, 10, 86400):
         return jsonify({"error": "Too many requests. Please wait a moment."}), 429
     body = request.get_json(silent=True) or {}
+    if not _verify_turnstile(body.get("cf_turnstile_response", ""), ip):
+        return jsonify({"error": "Verification failed. Please refresh and try again."}), 403
     ok, err = _validate_order_payload(body)
     if not ok:
         return jsonify({"error": err}), 400
