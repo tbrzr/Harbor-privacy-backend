@@ -125,7 +125,8 @@ _CODE_FAIL_WINDOW = 600     # 10 minutes
 _CODE_FAIL_MAX = 15
 _CODE_VIEWS = {'download_revised_resume', 'get_job_status', 'extend_job_access',
                'update_header', 'download_cover_letter_by_code', 'adjust_cover_letter',
-               'resend_cover_letter', 'coverletter_status', 'download_cover_letter'}
+               'resend_cover_letter', 'coverletter_status', 'download_cover_letter',
+               'download_cover_letter_by_token', 'download_revised_resume_by_token'}
 
 @app.before_request
 def _code_bruteforce_gate():
@@ -177,6 +178,13 @@ def _upsell_checkout_url(price_id, client_ref, success_url, email=None):
 def generate_access_code():
     return str(secrets.randbelow(900000) + 100000)
 
+def generate_dl_token():
+    """High-entropy token for emailed download links, separate from the short
+    access_code (which stays low-entropy on purpose since it's manually typed
+    on /success). Links get logged/prefetched/forwarded outside our rate
+    limiter's reach, so the emailed one shouldn't be brute-forceable at all."""
+    return secrets.token_urlsafe(32)
+
 @app.route('/api/coverletter/create', methods=['POST'])
 def create_cover_letter():
     _err, _code = _create_guard()
@@ -209,6 +217,7 @@ def create_cover_letter():
         'tone': tone,
         'length': length,
         'access_code': access_code,
+        'dl_token': generate_dl_token(),
         'status': 'pending',
         'created_at': timestamp,
         'delete_at': (datetime.now() + timedelta(hours=2)).isoformat(),
@@ -261,6 +270,7 @@ def create_resume_review():
         'tone': tone,
         'target_length': target_length,
         'access_code': access_code,
+        'dl_token': generate_dl_token(),
         'status': 'pending',
         'created_at': timestamp,
         'delete_at': (datetime.now() + timedelta(hours=2)).isoformat(),
@@ -500,6 +510,18 @@ def download_revised_resume(access_code):
             return jsonify({'error': 'PDF not ready'}), 404
     return jsonify({'error': 'Invalid code'}), 404
 
+@app.route('/api/resume/dl/<token>', methods=['GET'])
+def download_revised_resume_by_token(token):
+    """High-entropy-token counterpart to download_revised_resume, used by the
+    emailed download link instead of the short access_code."""
+    jobs = load_jobs()
+    for job_id, job in jobs.items():
+        if job.get('dl_token') and job['dl_token'] == token and job.get('type') == 'resume_review':
+            if job.get('revised_pdf_path') and os.path.exists(job['revised_pdf_path']):
+                return send_file(job['revised_pdf_path'], as_attachment=True, download_name='revised_resume.pdf')
+            return jsonify({'error': 'PDF not ready'}), 404
+    return jsonify({'error': 'Invalid link'}), 404
+
 
 @app.route('/api/job/status/check/<job_id>', methods=['GET'])
 def check_job_status(job_id):
@@ -735,6 +757,30 @@ def download_cover_letter_by_code(access_code):
             return jsonify({'error': 'PDF not found'}), 404
     return jsonify({'error': 'Invalid code'}), 404
 
+@app.route('/api/coverletter/dl/<token>', methods=['GET'])
+def download_cover_letter_by_token(token):
+    """High-entropy-token counterpart to download_cover_letter_by_code, used by
+    the emailed download link instead of the short access_code."""
+    rev = request.args.get('rev')
+    jobs = load_jobs()
+    for job_id, job in jobs.items():
+        if job.get('dl_token') and job['dl_token'] == token and job.get('type') == 'cover_letter':
+            if rev is not None:
+                try:
+                    rev_idx = int(rev)
+                    adjustments = job.get('adjustments', [])
+                    if rev_idx < len(adjustments) and adjustments[rev_idx].get('pdf_path'):
+                        path = adjustments[rev_idx]['pdf_path']
+                        if os.path.exists(path):
+                            return send_file(path, as_attachment=True, download_name=f'cover_letter_revision_{rev_idx+1}.pdf')
+                except:
+                    pass
+                return jsonify({'error': 'Revision not found'}), 404
+            if job.get('pdf_path') and os.path.exists(job['pdf_path']):
+                return send_file(job['pdf_path'], as_attachment=True, download_name='cover_letter.pdf')
+            return jsonify({'error': 'PDF not found'}), 404
+    return jsonify({'error': 'Invalid link'}), 404
+
 @app.route('/api/coverletter/adjust/<access_code>', methods=['POST'])
 def adjust_cover_letter(access_code):
     data = request.json
@@ -954,11 +1000,13 @@ def generate_pdf(letter_text, name, output_path, phone=None, email=None):
     doc.build(story)
 
 def send_cover_letter_email(job, subject_override=None, note=None):
-    download_url = f"https://career.harborprivacy.com/api/coverletter/download/{job['access_code']}"
+    dl_base = (f"https://career.harborprivacy.com/api/coverletter/dl/{job['dl_token']}" if job.get('dl_token')
+               else f"https://career.harborprivacy.com/api/coverletter/download/{job['access_code']}")
+    download_url = dl_base
     revisions = job.get('adjustments', [])
     revision_links = ''
     for i, rev in enumerate(revisions):
-        revision_links += f'<p style="font-family:sans-serif;"><strong>Revision {i+1} Download:</strong><br><a href="https://career.harborprivacy.com/api/coverletter/download/{job["access_code"]}?rev={i}">Click here to download revision {i+1}</a></p>'
+        revision_links += f'<p style="font-family:sans-serif;"><strong>Revision {i+1} Download:</strong><br><a href="{dl_base}?rev={i}">Click here to download revision {i+1}</a></p>'
     
     note_html = f'<p style="font-family:sans-serif; background:#f0fdf4; padding:12px; border-left:4px solid #00e5c0;">{note}</p>' if note else ''
     
@@ -976,7 +1024,7 @@ def send_cover_letter_email(job, subject_override=None, note=None):
     <p style="margin-top:30px;color:#666;font-size:12px;font-family:sans-serif;">Your viewing session expires after 10 minutes. Re-enter your code to start a new session. Your data is deleted 2 hours after payment.</p>
     <p style="margin-top:20px;padding-top:20px;border-top:1px solid #eee;color:#999;font-size:11px;font-family:sans-serif;">
     This is a transactional email for your Harbor Privacy purchase. You will not receive marketing emails.<br>
-    Harbor Privacy | <a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a> | <a href="https://career.harborprivacy.com/privacy" style="color:#666;">Privacy Policy</a>
+    Harbor Privacy | <a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a> | <a href="https://harborprivacy.com/privacy#career" style="color:#666;">Privacy Policy</a>
     </p>
     """
     
@@ -999,9 +1047,10 @@ def send_cover_letter_email(job, subject_override=None, note=None):
 
 def send_resume_review_email(job):
     access_url = "https://resume.harborprivacy.com/success"
-    
+
     has_pdf = bool(job.get('revised_pdf_path'))
-    download_url = f"https://resume.harborprivacy.com/api/resume/download/{job['access_code']}"
+    download_url = (f"https://resume.harborprivacy.com/api/resume/dl/{job['dl_token']}" if job.get('dl_token')
+                     else f"https://resume.harborprivacy.com/api/resume/download/{job['access_code']}")
     html_content = f"""
     <h2 style="font-family: sans-serif;">Your Resume Review is Ready</h2>
     <p style="font-family: sans-serif;">Use the code below to access your results. Your session will time out after 10 minutes of viewing.</p>
