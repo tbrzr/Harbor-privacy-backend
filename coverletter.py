@@ -507,7 +507,7 @@ def check_job_status(job_id):
     job = jobs.get(job_id)
     if not job:
         return jsonify({'status': 'not_found'}), 404
-    return jsonify({'status': job.get('status', 'pending')}), 200
+    return jsonify({'status': job.get('status', 'pending'), 'type': job.get('type')}), 200
 
 @app.route('/api/resume/generate/<job_id>', methods=['POST'])
 def generate_resume_review(job_id):
@@ -1097,6 +1097,82 @@ def checkout_adjust():
         return jsonify({'clientSecret': session.client_secret})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
+_PAY_TYPES = {'cl': 'cover_letter', 'resume': 'resume_review'}
+_PAY_AMOUNT = 299  # $2.99, matches career/index.html baseAmount for both products
+
+def _get_promo_discount(code, amount):
+    import stripe
+    stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+    promos = stripe.PromotionCode.list(code=code, active=True, limit=1)
+    if not promos.data:
+        return None, "Invalid or expired promo code"
+    promo = promos.data[0].to_dict()
+    coupon_id = (promo.get('promotion') or {}).get('coupon') or promo.get('coupon')
+    if not coupon_id:
+        return None, "Promo has no coupon"
+    coupon = stripe.Coupon.retrieve(coupon_id).to_dict()
+    if coupon.get('percent_off'):
+        discount = int(round(amount * coupon['percent_off'] / 100))
+    elif coupon.get('amount_off'):
+        discount = coupon['amount_off']
+    else:
+        return None, "Promo has no valid discount"
+    return min(discount, amount), None
+
+@app.route('/api/pay/<ptype>', methods=['POST'])
+def pay(ptype):
+    job_type = _PAY_TYPES.get(ptype)
+    if not job_type:
+        return jsonify({'error': 'Unknown product'}), 404
+
+    data = request.get_json(silent=True) or {}
+    job_id = (data.get('job_id') or '').strip()
+    promo_code = (data.get('promo_code') or '').strip()
+
+    _err, _code = _checkout_guard(job_id)
+    if _err:
+        return _err, _code
+
+    jobs = load_jobs()
+    job = jobs.get(job_id)
+    if not job or job.get('type') != job_type:
+        return jsonify({'error': 'Order not found'}), 404
+    if job.get('status') in ('generating', 'completed'):
+        return jsonify({'error': 'Order already in progress'}), 400
+
+    amount = _PAY_AMOUNT
+    if promo_code:
+        discount, err = _get_promo_discount(promo_code, amount)
+        if err:
+            return jsonify({'error': err}), 400
+        amount = max(0, amount - discount)
+
+    # Frontend calls this endpoint twice for a 100%-off code (once to preview
+    # via "Apply", once more on "Pay Now"/"Generate Now") - re-marking an
+    # already-paid job free here is a harmless no-op, not a double payment.
+    if amount == 0:
+        job['status'] = 'paid'
+        job['promo_code'] = promo_code
+        save_jobs(jobs)
+        return jsonify({'free': True})
+
+    if job.get('status') == 'paid':
+        return jsonify({'error': 'Order already paid'}), 400
+
+    import stripe
+    stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
+    try:
+        intent = stripe.PaymentIntent.create(
+            amount=amount,
+            currency='usd',
+            receipt_email=job.get('email') or None,
+            metadata={'job_id': job_id, 'type': job_type},
+        )
+    except stripe.error.StripeError as e:
+        return jsonify({'error': str(e)}), 400
+
+    return jsonify({'client_secret': intent.client_secret, 'amount': amount})
 
 @app.route('/webhook/stripe/pi', methods=['POST'])
 def stripe_pi_webhook():
