@@ -847,6 +847,7 @@ NAV_CUSTOMER = """
         <div class="nav-drop-menu">
           <a href="https://harborprivacy.com">← Site</a>
           <a href="/dashboard/adblock" class="{{ 'active' if active == 'adblock' else '' }}">AdBlock Usage</a>
+          <a href="/dashboard/blocklists" class="{{ 'active' if active == 'blocklists' else '' }}">Blocklists</a>
           <a href="https://breach.harborprivacy.com/app">Breach Monitor</a>
           <a href="https://scan.harborprivacy.com">Harbor Scan</a>
         </div>
@@ -10432,6 +10433,101 @@ def screen_time_wizard(kid_name):
   <a href="/dashboard" class="ghost" style="margin-top:16px;display:inline-block;">&larr; Back to Dashboard</a>
 </div>"""
     return render_template_string(html, kid_name=kid_name, active="adblock", light_theme=True)
+
+# ════════════════════════════════════════════════════════════
+# SECTION 25 - CUSTOMER BLOCKLIST SELECTION
+# Owns: /dashboard/blocklists page. API lives in /api/blocklists
+# (see api_blocklists near /api/addon).
+# ════════════════════════════════════════════════════════════
+
+@app.route("/dashboard/blocklists")
+@login_required
+def dashboard_blocklists():
+    email = request.user_email
+    customer = find_customer(email)
+    client_id = customer.get("client_id", "") if customer else ""
+
+    is_trial = customer.get("is_trial", False) if customer else False
+    plan_type = customer.get("plan_type", "") if customer else ""
+    harbor_kids = customer.get("harbor_kids", False) if customer else False
+    has_family_badge = has_family_addon(client_id) if client_id else False
+    plan_badge = ""
+    if plan_type == "harbor-remote-light": plan_badge = "LIGHT"
+    elif plan_type == "3month": plan_badge = "3-MONTH"
+    elif plan_type == "6month": plan_badge = "6-MONTH"
+    elif plan_type == "annual": plan_badge = "ANNUAL"
+    elif customer and not is_trial: plan_badge = "MONTHLY"
+
+    status = agh_get("/control/filtering/status") or {}
+    all_filters = status.get("filters", [])
+    selected = set((customer or {}).get("selected_filter_ids", []))
+    filters = [
+        {
+            "id": f.get("id"),
+            "name": f.get("name", ""),
+            "url": f.get("url", ""),
+            "rules_count": f.get("rules_count", 0),
+            "source_link": BLOCKLIST_SOURCES.get(f.get("url", "")),
+            "checked": f.get("id") in selected,
+        }
+        for f in all_filters
+    ]
+
+    html = STYLE + NAV_CUSTOMER + """
+<div class="wrap-sm">
+  <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">AdBlock</p>
+  <h1 style="margin-bottom:8px;">Choose your blocklists.</h1>
+  <p class="note" style="margin-bottom:24px;">Applies to your AdBlock client and every Harbor Kids profile on this account.</p>
+  {% if not client_id %}
+  <p class="note">No AdBlock client found on your account.</p>
+  {% else %}
+  <div id="save-error" class="note" style="display:none;color:#a64a40;margin-bottom:12px;">Save failed. Please try again.</div>
+  <div class="card">
+    {% for f in filters %}
+    <div class="row" style="align-items:flex-start;">
+      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;">
+        <input type="checkbox" class="blocklist-check" value="{{ f.id }}" {% if f.checked %}checked{% endif %} style="margin-top:3px;">
+        <span>
+          <span style="display:block;">{{ f.name }}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">{{ f.rules_count }} rules{% if f.source_link %} &middot; <a href="{{ f.source_link }}" target="_blank" style="color:var(--accent);">source &rarr;</a>{% endif %}</span>
+        </span>
+      </label>
+    </div>
+    {% endfor %}
+    {% if not filters %}
+    <p class="note">No blocklists available yet.</p>
+    {% endif %}
+  </div>
+  <button id="save-blocklists" class="btn" style="margin-top:16px;">Save selection</button>
+  {% endif %}
+  <a href="/dashboard" class="ghost" style="margin-top:16px;display:inline-block;">&larr; Back to Dashboard</a>
+</div>
+<script>
+document.getElementById('save-blocklists')?.addEventListener('click', function() {
+  var ids = Array.from(document.querySelectorAll('.blocklist-check:checked')).map(function(el) { return parseInt(el.value, 10); });
+  var btn = document.getElementById('save-blocklists');
+  var err = document.getElementById('save-error');
+  btn.disabled = true;
+  err.style.display = 'none';
+  fetch('/api/blocklists', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({filter_ids: ids})
+  }).then(function(r) { return r.json(); }).then(function(d) {
+    btn.disabled = false;
+    if (!d.ok) { err.style.display = 'block'; }
+  }).catch(function() {
+    btn.disabled = false;
+    err.style.display = 'block';
+  });
+});
+</script>"""
+    return render_template_string(
+        html, client_id=client_id, filters=filters,
+        user_email=email, is_trial=is_trial, plan_badge=plan_badge,
+        has_family_badge=has_family_badge, harbor_kids=harbor_kids,
+        active="blocklists", light_theme=True,
+    )
 
 
 if __name__ == "__main__":
