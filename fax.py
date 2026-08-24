@@ -1,5 +1,6 @@
 import os
 import re
+import fcntl
 import uuid
 import json
 import sqlite3
@@ -59,6 +60,8 @@ AMOUNT_REMOVE_BRANDING  = 99
 PAGE_LIMIT_BASE         = 10
 PAGE_LIMIT_EXTRA        = 30
 MAX_FILE_MB             = 20
+ORPHAN_MAX_AGE_H        = 24
+ORPHAN_SWEEP_MIN        = 60
 
 UPLOAD_DIR = Path("/tmp/harbor-fax-uploads")
 MEDIA_DIR  = Path("/var/www/network/fax-media")
@@ -497,6 +500,88 @@ def delete_fax_files(order_token):
                 pass
     finally:
         db.close()
+
+
+_LIVE_STATUSES = ("pending_payment", "queued", "sending", "retrying")
+
+
+def _reap_orphan_files():
+    """Delete uploads and merged PDFs that no in-flight order still needs.
+
+    delete_fax_files() only walks the tokens listed on a specific order, so a
+    file the customer uploaded and then replaced, or one from an order that was
+    never completed, is never reaped. Sweep anything older than
+    ORPHAN_MAX_AGE_H that isn't referenced by an order still in flight.
+    """
+    cutoff = time.time() - ORPHAN_MAX_AGE_H * 3600
+    live_tokens = set()
+    live_paths = set()
+    db = get_db()
+    try:
+        for row in db.execute(
+            "SELECT token, file_tokens, merged_pdf, status FROM fax_orders"
+        ):
+            if row["status"] not in _LIVE_STATUSES:
+                continue
+            live_tokens.update(json.loads(row["file_tokens"] or "[]"))
+            live_tokens.add(row["token"])
+            if row["merged_pdf"]:
+                live_paths.add(row["merged_pdf"])
+
+        removed = 0
+        for directory in (UPLOAD_DIR, MEDIA_DIR):
+            for path in directory.glob("*"):
+                if not path.is_file():
+                    continue
+                token = path.stem
+                if token in live_tokens or str(path) in live_paths:
+                    continue
+                try:
+                    if path.stat().st_mtime > cutoff:
+                        continue
+                    path.unlink()
+                    removed += 1
+                except FileNotFoundError:
+                    continue
+                except Exception as e:
+                    log.warning("Orphan sweep could not remove %s: %s", path, e)
+                    continue
+                db.execute("DELETE FROM fax_files WHERE token=?", (token,))
+        if removed:
+            db.commit()
+            log.info("Orphan sweep removed %d stale fax file(s)", removed)
+    except Exception as e:
+        log.error("Orphan sweep failed: %s", e)
+    finally:
+        db.close()
+
+
+def _orphan_sweep_loop():
+    while True:
+        _reap_orphan_files()
+        time.sleep(ORPHAN_SWEEP_MIN * 60)
+
+
+def _start_orphan_sweeper():
+    """Run the sweeper in exactly one gunicorn worker.
+
+    Every worker imports this module, so take an flock and let whichever
+    worker wins own the sweep. The handle is kept alive deliberately: closing
+    it would release the lock and let a second worker start its own loop.
+    """
+    lock_path = "/tmp/harbor-fax-orphan-sweep.lock"
+    try:
+        fh = open(lock_path, "w")
+        fcntl.flock(fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except (OSError, IOError):
+        return
+    _start_orphan_sweeper._lock = fh
+    threading.Thread(target=_orphan_sweep_loop, daemon=True).start()
+    log.info("Orphan sweeper started (every %dm, files older than %dh)",
+             ORPHAN_SWEEP_MIN, ORPHAN_MAX_AGE_H)
+
+
+_start_orphan_sweeper()
 
 
 def _resend_fax(order_token):
