@@ -830,6 +830,8 @@ def unsubscribe():
     return render_template_string(UNSUBSCRIBE_PAGE, error=False, email=email, logged_in=logged_in)
 
 
+BLOCKLIST_SELECTION_ENABLED = os.environ.get("BLOCKLIST_SELECTION_ENABLED", "0") == "1"
+
 NAV_CUSTOMER = """
 {% if request.cookies.get('hp_view_as') %}
 <div style="position:sticky;top:0;z-index:10000;background:#a64a40;color:#ffffff;padding:10px 24px;display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.03em;">
@@ -847,8 +849,8 @@ NAV_CUSTOMER = """
         <div class="nav-drop-menu">
           <a href="https://harborprivacy.com">← Site</a>
           <a href="/dashboard/adblock" class="{{ 'active' if active == 'adblock' else '' }}">AdBlock Usage</a>
-          <a href="/dashboard/blocklists" class="{{ 'active' if active == 'blocklists' else '' }}">Blocklists</a>
-          <a href="https://breach.harborprivacy.com/app">Breach Monitor</a>
+""" + ("""          <a href="/dashboard/blocklists" class="{{ 'active' if active == 'blocklists' else '' }}">Blocklists</a>
+""" if BLOCKLIST_SELECTION_ENABLED else "") + """          <a href="https://breach.harborprivacy.com/app">Breach Monitor</a>
           <a href="https://scan.harborprivacy.com">Harbor Scan</a>
         </div>
       </div>
@@ -4611,6 +4613,8 @@ def api_addon():
 @app.route("/api/blocklists", methods=["POST"])
 @login_required
 def api_blocklists():
+    if not BLOCKLIST_SELECTION_ENABLED:
+        return jsonify({"ok": False, "error": "Not yet available"})
     if request.is_admin and not request.args.get("preview"):
         return jsonify({"ok": False, "error": "Use admin endpoint"})
     customer = find_customer(request.user_email)
@@ -4623,8 +4627,13 @@ def api_blocklists():
     filter_ids = data.get("filter_ids", [])
     if not isinstance(filter_ids, list) or not all(isinstance(i, int) for i in filter_ids):
         return jsonify({"ok": False, "error": "filter_ids must be a list of integers"})
-    save_selected_filter_ids(client_id, filter_ids)
-    ok = apply_customer_blocklist_selection(client_id, filter_ids)
+    catalog_status = agh_get("/control/filtering/status") or {}
+    enabled_ids = {f.get("id") for f in catalog_status.get("filters", []) if f.get("enabled")}
+    filter_ids = [i for i in filter_ids if i in enabled_ids]
+    saved = save_selected_filter_ids(client_id, filter_ids)
+    if not saved:
+        return jsonify({"ok": False, "error": "Could not save selection"})
+    ok = apply_customer_blocklist_selection(client_id, filter_ids, harbor_kids=customer.get("harbor_kids", False))
     return jsonify({"ok": ok})
 
 @app.route("/api/admin/delete-customer", methods=["POST"])
@@ -4994,21 +5003,36 @@ def _tier_hash_name(filter_ids):
     digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
     return f"cust-{digest}"
 
-def apply_customer_blocklist_selection(client_id, filter_ids):
+def apply_customer_blocklist_selection(client_id, filter_ids, harbor_kids=False):
     filter_ids = sorted(set(filter_ids))
     hash_name = _tier_hash_name(filter_ids) if filter_ids else ""
     with _TIER_LOCK:
         if hash_name:
-            tiers = agh_get("/control/filtering/tiers")
-            if not isinstance(tiers, list):
-                log.error(f"apply_customer_blocklist_selection: could not read tiers for {client_id}")
+            try:
+                AGH = os.environ.get("ADGUARD_URL", "http://127.0.0.1:8080")
+                USER = os.environ.get("ADGUARD_USER", "admin")
+                PASS = os.environ.get("ADGUARD_PASS", "")
+                r = requests.get(f"{AGH}/control/filtering/tiers", auth=(USER, PASS), timeout=AGH_TIMEOUT)
+                if r.status_code != 200:
+                    log.error(f"apply_customer_blocklist_selection: tiers read {r.status_code} for {client_id}")
+                    return False
+                tiers = r.json()
+                if not isinstance(tiers, list):
+                    log.error(f"apply_customer_blocklist_selection: tiers read non-list for {client_id}")
+                    return False
+            except Exception as e:
+                log.error(f"apply_customer_blocklist_selection: tiers read failed for {client_id}: {e}")
                 return False
             if not any(t.get("name") == hash_name for t in tiers):
                 tiers.append({"name": hash_name, "filter_ids": filter_ids})
                 if not agh_post("/control/filtering/set_tiers", tiers):
                     log.error(f"apply_customer_blocklist_selection: set_tiers failed for {client_id}")
                     return False
-        targets = [client_id] + [k["name"] for k in get_kids_profiles(client_id)]
+        kid_profiles = get_kids_profiles(client_id)
+        if harbor_kids and not kid_profiles:
+            log.error(f"apply_customer_blocklist_selection: harbor_kids set but no kid profiles found for {client_id}")
+            return False
+        targets = [client_id] + [k["name"] for k in kid_profiles]
         all_ok = True
         for target_id in targets:
             client = get_client(target_id)
@@ -5024,6 +5048,7 @@ def apply_customer_blocklist_selection(client_id, filter_ids):
 
 def save_selected_filter_ids(client_id, filter_ids):
     lines = []
+    hit = False
     try:
         with open(CUSTOMERS_LOG) as f:
             for line in f:
@@ -5034,13 +5059,16 @@ def save_selected_filter_ids(client_id, filter_ids):
                     r = json.loads(line)
                     if r.get("client_id") == client_id:
                         r["selected_filter_ids"] = filter_ids
+                        hit = True
                     lines.append(json.dumps(r))
                 except Exception:
                     lines.append(line)
         with open(CUSTOMERS_LOG, "w") as f:
             f.write("\n".join(lines) + "\n")
+        return hit
     except Exception as e:
         log.error(f"save_selected_filter_ids error: {e}")
+        return False
 
 @app.route("/api/admin/addon", methods=["POST"])
 @authentik_admin_required
@@ -10458,29 +10486,39 @@ def dashboard_blocklists():
     elif plan_type == "annual": plan_badge = "ANNUAL"
     elif customer and not is_trial: plan_badge = "MONTHLY"
 
-    status = agh_get("/control/filtering/status") or {}
-    all_filters = status.get("filters", [])
-    selected = set((customer or {}).get("selected_filter_ids", []))
-    filters = [
-        {
-            "id": f.get("id"),
-            "name": f.get("name", ""),
-            "url": f.get("url", ""),
-            "rules_count": f.get("rules_count", 0),
-            "source_link": BLOCKLIST_SOURCES.get(f.get("url", "")),
-            "checked": f.get("id") in selected,
-        }
-        for f in all_filters
-    ]
+    if not BLOCKLIST_SELECTION_ENABLED:
+        filters = []
+    else:
+        status = agh_get("/control/filtering/status") or {}
+        all_filters = [f for f in status.get("filters", []) if f.get("enabled")]
+        if customer and "selected_filter_ids" in customer:
+            selected = set(customer.get("selected_filter_ids", []))
+        else:
+            selected = {f.get("id") for f in all_filters}
+        filters = [
+            {
+                "id": f.get("id"),
+                "name": f.get("name", ""),
+                "url": f.get("url", ""),
+                "rules_count": f.get("rules_count", 0),
+                "source_link": BLOCKLIST_SOURCES.get(f.get("url", "")),
+                "checked": f.get("id") in selected,
+            }
+            for f in all_filters
+        ]
 
     html = STYLE + NAV_CUSTOMER + """
 <div class="wrap-sm">
   <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">AdBlock</p>
   <h1 style="margin-bottom:8px;">Choose your blocklists.</h1>
   <p class="note" style="margin-bottom:24px;">Applies to your AdBlock client and every Harbor Kids profile on this account.</p>
-  {% if not client_id %}
+  <p class="note" style="margin-bottom:12px;">Unchecking every list restores your account's default protection (every currently enabled list) - it does not turn off blocking.</p>
+  {% if not enabled %}
+  <p class="note">This feature is not live yet. Check back soon.</p>
+  {% elif not client_id %}
   <p class="note">No AdBlock client found on your account.</p>
   {% else %}
+  <div id="save-success" class="note" style="display:none;color:#1f5d6b;margin-bottom:12px;">Saved.</div>
   <div id="save-error" class="note" style="display:none;color:#a64a40;margin-bottom:12px;">Save failed. Please try again.</div>
   <div class="card">
     {% for f in filters %}
@@ -10507,15 +10545,17 @@ document.getElementById('save-blocklists')?.addEventListener('click', function()
   var ids = Array.from(document.querySelectorAll('.blocklist-check:checked')).map(function(el) { return parseInt(el.value, 10); });
   var btn = document.getElementById('save-blocklists');
   var err = document.getElementById('save-error');
+  var ok = document.getElementById('save-success');
   btn.disabled = true;
   err.style.display = 'none';
+  ok.style.display = 'none';
   fetch('/api/blocklists', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({filter_ids: ids})
   }).then(function(r) { return r.json(); }).then(function(d) {
     btn.disabled = false;
-    if (!d.ok) { err.style.display = 'block'; }
+    if (d.ok) { ok.style.display = 'block'; } else { err.style.display = 'block'; }
   }).catch(function() {
     btn.disabled = false;
     err.style.display = 'block';
@@ -10523,7 +10563,7 @@ document.getElementById('save-blocklists')?.addEventListener('click', function()
 });
 </script>"""
     return render_template_string(
-        html, client_id=client_id, filters=filters,
+        html, client_id=client_id, filters=filters, enabled=BLOCKLIST_SELECTION_ENABLED,
         user_email=email, is_trial=is_trial, plan_badge=plan_badge,
         has_family_badge=has_family_badge, harbor_kids=harbor_kids,
         active="blocklists", light_theme=True,
