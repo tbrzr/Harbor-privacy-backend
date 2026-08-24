@@ -1,4 +1,5 @@
 import os
+import re
 import uuid
 import json
 import sqlite3
@@ -45,6 +46,8 @@ NTFY_AUTH               = os.environ.get("NTFY_AUTH", "")
 RESEND_API_KEY          = os.environ.get("RESEND_API_KEY", "")
 FROM_EMAIL              = os.environ.get("FROM_EMAIL", "info@mail.harborprivacy.com")
 BASE_URL                = os.environ.get("BASE_URL", "https://fax.harborprivacy.com")
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
 
 PRICE_BASE              = "price_1TTY2iCOrGNrBgIfVhhszJMO"
 PRICE_EXTRA_PAGES       = "price_1TTY4CCOrGNrBgIfEr8byUPO"
@@ -778,6 +781,8 @@ def create_payment_intent():
     promo_id        = body.get("promo_id")
     discount        = int(body.get("discount") or 0)
     email           = (body.get("email") or "").strip()
+    if not _EMAIL_RE.match(email):
+        return jsonify({"error": "A valid email is required for delivery confirmation"}), 400
 
     amount = _calc_amount(remove_branding, extra_pages)
     if promo_id and discount:
