@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import uuid
 import anthropic
@@ -11,6 +12,8 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib.enums import TA_LEFT
 import secrets
+
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
 
 app = Flask(__name__)
 
@@ -202,6 +205,9 @@ def create_cover_letter():
     
     if not all([job_posting, your_name, your_background, email]):
         return jsonify({'error': 'All fields required'}), 400
+
+    if not _EMAIL_RE.match(email):
+        return jsonify({'error': 'A valid email address is required'}), 400
     
     job_id = str(uuid.uuid4())
     access_code = generate_access_code()
@@ -254,6 +260,9 @@ def create_resume_review():
 
     if not resume_text or not email:
         return jsonify({'error': 'Resume text and email required'}), 400
+
+    if not _EMAIL_RE.match(email):
+        return jsonify({'error': 'A valid email address is required'}), 400
 
     if len(resume_text) > 50000:
         return jsonify({'error': 'Resume too long (max 50k chars)'}), 400
@@ -1208,6 +1217,9 @@ def pay(ptype):
 
     if job.get('status') == 'paid':
         return jsonify({'error': 'Order already paid'}), 400
+
+    if not _EMAIL_RE.match((job.get('email') or '').strip()):
+        return jsonify({'error': 'A valid email address is required to complete payment'}), 400
 
     import stripe
     stripe.api_key = os.getenv('STRIPE_SECRET_KEY')
