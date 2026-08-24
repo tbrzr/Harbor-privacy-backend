@@ -547,6 +547,8 @@ STYLE = """<!DOCTYPE html>
   .nav-drop-menu{display:none;position:absolute;top:calc(100% + 4px);left:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:6px;min-width:170px;z-index:70;flex-direction:column;gap:2px;box-shadow:0 8px 24px rgba(0,0,0,0.35);}
   .nav-drop.open .nav-drop-menu{display:flex;}
   .nav-drop-menu a{display:block;padding:8px 10px;white-space:nowrap;}
+  .nav-hamburger-btn{display:inline-flex;align-items:center;}
+  .nav-hamburger-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
   .nav-utility{display:flex;align-items:center;gap:4px;flex-shrink:0;margin-left:auto;}
   .nav-icon-btn{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;color:var(--muted);text-decoration:none;flex-shrink:0;transition:color 0.15s,background 0.15s;}
   .nav-icon-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
@@ -845,10 +847,15 @@ NAV_CUSTOMER = """
     <a href="/dashboard" class="logo">harbor<span>/</span>dashboard</a>
     <div class="nav-links" style="flex-wrap:nowrap;white-space:nowrap;font-weight:700;">
       <div class="nav-drop">
-        <a href="#" onclick="this.parentNode.classList.toggle('open');return false;" class="{% if active in ('adblock',) %}active{% endif %}">Menu &#9662;</a>
+        <a href="#" onclick="this.parentNode.classList.toggle('open');return false;" class="nav-hamburger-btn {% if active in ('account','addons','filters','kids','support','adblock','blocklists') %}active{% endif %}" aria-label="Menu"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></a>
         <div class="nav-drop-menu">
           <a href="https://harborprivacy.com">← Site</a>
-          <a href="/dashboard/adblock" class="{{ 'active' if active == 'adblock' else '' }}">AdBlock Usage</a>
+          <a href="/dashboard/account" class="{{ 'active' if active == 'account' else '' }}">Account</a>
+          <a href="/dashboard/addons" class="{{ 'active' if active == 'addons' else '' }}">Add-Ons</a>
+          <a href="/dashboard/filters" class="{{ 'active' if active == 'filters' else '' }}">Filters</a>
+          {% if not is_light_plan %}<a href="/dashboard/kids" class="{{ 'active' if active == 'kids' else '' }}">Harbor Kids</a>{% endif %}
+          <a href="/dashboard/support" class="{{ 'active' if active == 'support' else '' }}">Support</a>
+          <a href="/dashboard/adblock" class="{{ 'active' if active == 'adblock' else '' }}">Usage</a>
 """ + ("""          <a href="/dashboard/blocklists" class="{{ 'active' if active == 'blocklists' else '' }}">Blocklists</a>
 """ if BLOCKLIST_SELECTION_ENABLED else "") + """          <a href="https://breach.harborprivacy.com/app">Breach Monitor</a>
           <a href="https://scan.harborprivacy.com">Harbor Scan</a>
@@ -1736,34 +1743,6 @@ def dashboard():
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-label">Block or Allow a Site</div>
-    <p class="note" style="margin-bottom:16px;">If something gets blocked that should not be, allow it here. Or block a specific site on your network.</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-      <input type="text" id="light-domain" placeholder="example.com" style="flex:1;min-width:140px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-family:'DM Mono',monospace;font-size:13px;">
-      <button onclick="lightAddRule(false)" class="btn" style="background:var(--accent);color:var(--bg);">Allow</button>
-      <button onclick="lightAddRule(true)" class="btn" style="background:transparent;border:1px solid var(--danger);color:var(--danger);">Block</button>
-    </div>
-    <div id="light-rules-list">
-      {% for rule in rules %}
-      <div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
-        <span class="{% if rule.startswith('@@') %}rule-allow{% else %}rule-block{% endif %}" style="font-family:'DM Mono',monospace;font-size:12px;">{{ rule }}</span>
-        <button onclick="removeRule('{{ rule }}')" class="btn btn-danger btn-sm">Remove</button>
-      </div>
-      {% else %}
-      <p class="note">No custom rules yet.</p>
-      {% endfor %}
-    </div>
-    <script>
-    function lightAddRule(block){
-      var domain = document.getElementById('light-domain').value.trim();
-      if(!domain) return;
-      fetch('/api/rule', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({domain:domain, block:block})})
-        .then(r=>r.json()).then(d=>{ if(d.ok) location.reload(); else alert('Error: '+d.error); });
-    }
-    </script>
-  </div>
-
   <div class="card" style="border-color:var(--accent);background:rgba(0,229,192,0.04);">
     <div class="card-label" style="color:var(--accent);">Upgrade to Harbor Remote</div>
     <p style="color:var(--text);font-size:14px;margin-bottom:16px;">Get your full dashboard — see your stats, block specific services, set custom rules, and more.</p>
@@ -1773,36 +1752,35 @@ def dashboard():
     </div>
   </div>
 
+  <!-- SHORTCUT CARDS -->
   <div class="card">
-    <div class="card-label">Harbor VPN {% if vpn_status %}<span class="badge badge-on">ACTIVE</span>{% endif %}</div>
-    <p class="note" style="margin-bottom:16px;">WireGuard, OpenVPN &amp; AmneziaWG tunnels with the same DNS-layer blocking, added to any plan.</p>
-    {% if vpn_status %}
-    <a href="/vpn-sso" target="_blank" class="btn" style="background:transparent;border-color:var(--accent);color:var(--accent);">Manage Devices →</a>
-    {% else %}
-    <button onclick="openVpnAddonCheckout('monthly')" class="btn" style="background:transparent;border-color:var(--accent);color:var(--accent);cursor:pointer;">Add Harbor VPN — $4.99/mo →</button>
-    <button onclick="openVpnAddonCheckout('annual')" style="background:none;border:none;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;text-decoration:underline;cursor:pointer;margin-left:10px;">or $49/yr</button>
-    {% endif %}
+    <div class="card-label">Account</div>
+    <p class="note" style="margin-bottom:12px;">Your plan, status, and login settings</p>
+    <a href="/dashboard/account" class="ghost">View Account &rarr;</a>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Add-Ons</div>
+    <p class="note" style="margin-bottom:12px;">Harbor VPN</p>
+    <a href="/dashboard/addons" class="ghost">View Add-Ons &rarr;</a>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Filters</div>
+    <p class="note" style="margin-bottom:12px;">Block or allow specific sites</p>
+    <a href="/dashboard/filters" class="ghost">View Filters &rarr;</a>
   </div>
 
   <div class="card">
     <div class="card-label">Support</div>
-    <p class="note" style="margin-bottom:16px;">Need help with setup or have a question?</p>
-    <a href="mailto:support@harborprivacy.com" class="btn" style="background:transparent;border-color:var(--border);color:var(--text);">Email Support →</a>
-  </div>
-
-  <div class="card">
-    <div class="card-label">Settings</div>
-    <div style="display:flex;flex-direction:column;gap:12px;">
-      <a href="/settings" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);text-decoration:none;">Change Password →</a>
-      <a href="/settings" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);text-decoration:none;">Two-Factor Authentication →</a>
-      <a href="/settings/data-request" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);text-decoration:none;">Download My Data →</a>
-    </div>
+    <p class="note" style="margin-bottom:12px;">Get help with your account</p>
+    <a href="/dashboard/support" class="ghost">View Support &rarr;</a>
   </div>
 
 </div>
 """ + VPN_CHECKOUT_MODAL + """
 </html>"""
-        return render_template_string(html, name=name, client_id=client_id, total=total, blocked=blocked, blocked_month=blocked_month, lifetime=lifetime, active="dashboard", light_theme=True, vpn_status=vpn_status, uptime_pct=uptime_pct)
+        return render_template_string(html, name=name, client_id=client_id, total=total, blocked=blocked, blocked_month=blocked_month, lifetime=lifetime, is_light_plan=True, active="dashboard", light_theme=True, uptime_pct=uptime_pct)
     if plan_type == "harbor-remote-light": plan_badge = "LIGHT"
     elif plan_type == "annual": plan_badge = "ANNUAL"
     elif is_trial: plan_badge = "TRIAL"
