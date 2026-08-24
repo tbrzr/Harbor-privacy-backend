@@ -10691,5 +10691,114 @@ def dashboard_account():
     )
 
 
+# ════════════════════════════════════════════════════════════
+# SECTION 27 - CUSTOMER ADD-ONS PAGE
+# Owns: /dashboard/addons. Full plan: Family Safe + Harbor VPN
+# (relocated from the main /dashboard route's Add-Ons card). Light
+# plan: Harbor VPN only, Light has no Family Safe toggle.
+# ════════════════════════════════════════════════════════════
+
+@app.route("/dashboard/addons")
+@login_required
+def dashboard_addons():
+    email = request.user_email
+    customer = find_customer(email)
+    client_id = customer.get("client_id", "") if customer else ""
+    is_active = customer is not None
+    client = get_client(client_id) if client_id else {}
+
+    plan_type = customer.get("plan_type", "") if customer else ""
+    is_light_plan = plan_type == "harbor-remote-light"
+    is_trial = customer.get("is_trial", False) if customer else False
+    harbor_kids = customer.get("harbor_kids", False) if customer else False
+    has_family_badge = has_family_addon(client_id) if client_id else False
+    family_safe = client.get("parental_enabled", False) if client else False
+    plan_badge = ""
+    if plan_type == "harbor-remote-light": plan_badge = "LIGHT"
+    elif plan_type == "3month": plan_badge = "3-MONTH"
+    elif plan_type == "6month": plan_badge = "6-MONTH"
+    elif plan_type == "annual": plan_badge = "ANNUAL"
+    elif is_trial: plan_badge = "TRIAL"
+    elif is_active: plan_badge = "MONTHLY"
+
+    vpn_status = customer.get("vpn_status", False) if customer else False
+    if customer and not vpn_status:
+        _sv = _standalone_vpn_status(email)
+        if _sv and _sv.get("active"):
+            vpn_status = True
+
+    html = STYLE + NAV_CUSTOMER + """
+<div class="wrap">
+  <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">Add-Ons</p>
+  <h1 style="margin-bottom:24px;">Add-ons.</h1>
+  {% if is_light_plan %}
+  <div class="card">
+    <div class="card-label">Harbor VPN {% if vpn_status %}<span class="badge badge-on">ACTIVE</span>{% endif %}</div>
+    <p class="note" style="margin-bottom:16px;">WireGuard, OpenVPN &amp; AmneziaWG tunnels with the same DNS-layer blocking, added to any plan.</p>
+    {% if vpn_status %}
+    <a href="/vpn-sso" target="_blank" class="btn" style="background:transparent;border-color:var(--accent);color:var(--accent);">Manage Devices &#8594;</a>
+    {% else %}
+    <button onclick="openVpnAddonCheckout('monthly')" class="btn" style="background:transparent;border-color:var(--accent);color:var(--accent);cursor:pointer;">Add Harbor VPN &mdash; $4.99/mo &#8594;</button>
+    <button onclick="openVpnAddonCheckout('annual')" style="background:none;border:none;color:var(--muted);font-family:'DM Mono',monospace;font-size:11px;text-decoration:underline;cursor:pointer;margin-left:10px;">or $49/yr</button>
+    {% endif %}
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-label">Add-Ons {% if not is_active %}<span class="badge badge-locked">LOCKED</span>{% endif %}</div>
+    <div style="position:relative;">
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">
+            Family Safe
+            <span class="badge {% if family_safe %}badge-on{% else %}badge-off{% endif %}">{% if family_safe %}ON{% else %}OFF{% endif %}</span>
+          </div>
+          <div class="toggle-desc">SafeSearch enforcement, adult content blocking, NSFW filtering</div>
+        </div>
+        <label class="toggle" style="width:44px;height:24px;flex-shrink:0;">
+          <input type="checkbox" {% if family_safe %}checked{% endif %} {% if not is_active %}disabled{% else %}onchange="toggleAddon('family',this.checked)"{% endif %}>
+          <span class="slider" style="border-radius:24px;"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row">
+        <div>
+          <div class="toggle-label">
+            Harbor VPN
+            <span class="badge {% if vpn_status %}badge-on{% else %}badge-off{% endif %}">{% if vpn_status %}ACTIVE{% else %}NOT ACTIVE{% endif %}</span>
+          </div>
+          <div class="toggle-desc">WireGuard, OpenVPN &amp; AmneziaWG tunnels with the same DNS-layer blocking</div>
+        </div>
+        {% if vpn_status %}
+        <a href="/vpn-sso" target="_blank" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);border:1px solid var(--accent);padding:8px 14px;text-decoration:none;white-space:nowrap;">Manage Devices &#8594;</a>
+        {% else %}
+        <span style="white-space:nowrap;">
+          <button onclick="openVpnAddonCheckout('monthly')" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);background:none;border:1px solid var(--accent);padding:8px 14px;cursor:pointer;white-space:nowrap;">Add &mdash; $4.99/mo &#8594;</button>
+          <button onclick="openVpnAddonCheckout('annual')" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);background:none;border:none;text-decoration:underline;cursor:pointer;">or $49/yr</button>
+        </span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <a href="/dashboard" class="ghost" style="margin-top:16px;display:inline-block;">&larr; Back to Dashboard</a>
+</div>
+<script>
+async function toggleAddon(type,enabled){
+  const r=await fetch('/api/addon'+location.search,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,enabled})});
+  const d=await r.json();
+  if(d.ok)location.reload();else alert('Failed to update. Please try again.');
+}
+</script>
+""" + VPN_CHECKOUT_MODAL + """
+</html>"""
+    return render_template_string(
+        html, client_id=client_id, is_active=is_active, is_light_plan=is_light_plan,
+        family_safe=family_safe, vpn_status=vpn_status, has_family_badge=has_family_badge,
+        harbor_kids=harbor_kids, user_email=email, is_trial=is_trial, plan_badge=plan_badge,
+        active="addons", light_theme=True,
+    )
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=int(os.environ.get("DASHBOARD_PORT", 7000)), debug=False)
