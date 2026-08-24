@@ -568,10 +568,6 @@ def dashboard_filters():
     badge.style.background=blockedCount?'var(--accent)':'var(--border)';
     badge.style.color=blockedCount?'var(--bg)':'var(--muted)';
   }
-  function toggleGroup(btn){
-    const body = btn.nextElementSibling;
-    body.style.display = body.style.display === 'none' ? 'block' : 'none';
-  }
   </script>
   {% endif %}
 
@@ -586,29 +582,21 @@ def dashboard_filters():
 
 ```
 
-Note: `toggleGroup` was previously defined inline in the main dashboard's shared script block without being shown in the excerpt this plan's research captured directly - it toggles a service group's expand/collapse. If Task 3's implementer finds the main dashboard route's actual `toggleGroup` implementation differs from the one above when they check it directly (Step 1 below), use the real one verbatim instead of this reconstruction.
+Note: `toggleGroup` (called by the Blocked Services markup's `onclick="toggleGroup(this)"` above) is intentionally NOT defined in this page's script block. It already exists as a global helper inside the shared `STYLE` block (`dashboard.py:676`, included on every customer page via `STYLE + NAV_CUSTOMER`), so every page that includes `STYLE` already has it. Defining a second, local copy here would be redundant at best and could silently diverge from the real one at worst - confirmed by checking the real implementation directly: it also flips a `.group-arrow` chevron icon between `&#9650;`/`&#9660;`, which an earlier draft of this task guessed incorrectly and omitted.
 
-- [ ] **Step 3: Confirm `toggleGroup`'s real implementation before finalizing**
-
-```bash
-grep -n "function toggleGroup" -A5 /home/ubuntu/harbor-backend/dashboard.py
-```
-
-If this differs from the version pasted into Step 2 above, correct Step 2's script block to match the real function exactly before proceeding, and note the correction in the task report.
-
-- [ ] **Step 4: Syntax-check**
+- [ ] **Step 3: Syntax-check**
 
 ```bash
 python3 -m py_compile /home/ubuntu/harbor-backend/dashboard.py
 ```
 
-- [ ] **Step 5: Verify**
+- [ ] **Step 4: Verify**
 
 ```bash
 grep -n 'def dashboard_filters' /home/ubuntu/harbor-backend/dashboard.py
 ```
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
 cd /home/ubuntu/harbor-backend
@@ -1189,5 +1177,5 @@ git commit -m "Cut over main dashboard (Light plan) and NAV_CUSTOMER hamburger m
 ## Self-review notes (from writing this plan)
 
 - **Spec coverage:** Goal 1 (main page keeps protection/stats/DNS setup) - Tasks 7-8. Goal 2 (five new pages) - Tasks 1-5. Goal 3 (shortcut cards) - Tasks 7-8. Goal 4 (hamburger, unified list) - Task 8. Goal 5 (Light plan gets the same treatment) - Task 8's Light branch plus every new route's `is_light_plan` handling. All five Non-goals are restated in Global Constraints and no task introduces a new API route, writes `harbor_kids`/`plan_type`, or touches `/settings`/`/dashboard/adblock`/`/dashboard/blocklists`/`/dashboard/screen-time`/admin pages.
-- **Placeholder scan:** no TBD/TODO. Task 3's `toggleGroup` function body is flagged explicitly as a reconstruction to verify against the real source rather than presented as fact - this is a deliberate, disclosed exception to "no placeholders," not an oversight, because the research pass that produced this plan did not capture that one function's exact body; Task 3's Step 3 makes correcting it a required, checked step before that task can be marked done.
+- **Placeholder scan:** no TBD/TODO. Task 3's `toggleGroup` gap (flagged during initial plan-writing as a reconstruction needing verification) was resolved by checking the real implementation directly at `dashboard.py:676`: it's a global helper already defined in the shared `STYLE` block, present on every customer page, so `/dashboard/filters` doesn't define its own copy at all - the task now correctly omits it rather than reproducing a guess.
 - **Type/name consistency:** `is_light_plan` is the exact name used everywhere it appears (Tasks 1-5's new routes, Task 7's `is_light_plan=False`, Task 8's `is_light_plan=True` and the `NAV_CUSTOMER` Jinja check) - no task introduces a differently-named or differently-typed variant. `active="account"`/`"addons"`/`"filters"`/`"kids"`/`"support"` string values match exactly between each new route's own kwarg and `NAV_CUSTOMER`'s corresponding `{{ 'active' if active == '...' else '' }}` check added in Task 8.
