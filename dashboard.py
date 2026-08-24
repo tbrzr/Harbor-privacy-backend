@@ -4627,7 +4627,18 @@ def api_blocklists():
     filter_ids = data.get("filter_ids", [])
     if not isinstance(filter_ids, list) or not all(isinstance(i, int) for i in filter_ids):
         return jsonify({"ok": False, "error": "filter_ids must be a list of integers"})
-    catalog_status = agh_get("/control/filtering/status") or {}
+    try:
+        AGH = os.environ.get("ADGUARD_URL", "http://127.0.0.1:8080")
+        USER = os.environ.get("ADGUARD_USER", "admin")
+        PASS = os.environ.get("ADGUARD_PASS", "")
+        r = requests.get(f"{AGH}/control/filtering/status", auth=(USER, PASS), timeout=AGH_TIMEOUT)
+        if r.status_code != 200:
+            log.error(f"api_blocklists: status read {r.status_code} for {client_id}")
+            return jsonify({"ok": False, "error": "Could not verify blocklist catalog"})
+        catalog_status = r.json()
+    except Exception as e:
+        log.error(f"api_blocklists: status read failed for {client_id}: {e}")
+        return jsonify({"ok": False, "error": "Could not verify blocklist catalog"})
     enabled_ids = {f.get("id") for f in catalog_status.get("filters", []) if f.get("enabled")}
     filter_ids = [i for i in filter_ids if i in enabled_ids]
     saved = save_selected_filter_ids(client_id, filter_ids)
