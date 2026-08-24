@@ -11093,5 +11093,50 @@ async function addKidProfileCustomer(){
     )
 
 
+# ════════════════════════════════════════════════════════════
+# SECTION 30 - CUSTOMER SUPPORT PAGE
+# Owns: /dashboard/support. Both plan types. Full plan never had a
+# Support card before this - authored here using Harbor Light's
+# existing Support card's exact copy.
+# ════════════════════════════════════════════════════════════
+
+@app.route("/dashboard/support")
+@login_required
+def dashboard_support():
+    email = request.user_email
+    customer = find_customer(email)
+    client_id = customer.get("client_id", "") if customer else ""
+
+    plan_type = customer.get("plan_type", "") if customer else ""
+    is_trial = customer.get("is_trial", False) if customer else False
+    harbor_kids = customer.get("harbor_kids", False) if customer else False
+    has_family_badge = has_family_addon(client_id) if client_id else False
+    plan_badge = ""
+    if plan_type == "harbor-remote-light": plan_badge = "LIGHT"
+    elif plan_type == "3month": plan_badge = "3-MONTH"
+    elif plan_type == "6month": plan_badge = "6-MONTH"
+    elif plan_type == "annual": plan_badge = "ANNUAL"
+    elif is_trial: plan_badge = "TRIAL"
+    elif customer: plan_badge = "MONTHLY"
+
+    html = STYLE + NAV_CUSTOMER + """
+<div class="wrap">
+  <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">Support</p>
+  <h1 style="margin-bottom:24px;">Support.</h1>
+  <div class="card">
+    <div class="card-label">Support</div>
+    <p class="note" style="margin-bottom:16px;">Need help with setup or have a question?</p>
+    <a href="mailto:support@harborprivacy.com" class="btn" style="background:transparent;border-color:var(--border);color:var(--text);">Email Support &#8594;</a>
+  </div>
+
+  <a href="/dashboard" class="ghost" style="margin-top:16px;display:inline-block;">&larr; Back to Dashboard</a>
+</div>"""
+    return render_template_string(
+        html, client_id=client_id, has_family_badge=has_family_badge, harbor_kids=harbor_kids,
+        user_email=email, is_trial=is_trial, plan_badge=plan_badge,
+        active="support", light_theme=True,
+    )
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=int(os.environ.get("DASHBOARD_PORT", 7000)), debug=False)
