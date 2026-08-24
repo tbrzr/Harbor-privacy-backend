@@ -4607,6 +4607,25 @@ def api_addon():
 
     return jsonify({"ok": False})
 
+@app.route("/api/blocklists", methods=["POST"])
+@login_required
+def api_blocklists():
+    if request.is_admin and not request.args.get("preview"):
+        return jsonify({"ok": False, "error": "Use admin endpoint"})
+    customer = find_customer(request.user_email)
+    if not customer:
+        return jsonify({"ok": False, "error": "No active subscription"})
+    client_id = customer.get("client_id", "")
+    if not client_id:
+        return jsonify({"ok": False, "error": "No AdBlock client on this account"})
+    data = request.json or {}
+    filter_ids = data.get("filter_ids", [])
+    if not isinstance(filter_ids, list) or not all(isinstance(i, int) for i in filter_ids):
+        return jsonify({"ok": False, "error": "filter_ids must be a list of integers"})
+    save_selected_filter_ids(client_id, filter_ids)
+    ok = apply_customer_blocklist_selection(client_id, filter_ids)
+    return jsonify({"ok": ok})
+
 @app.route("/api/admin/delete-customer", methods=["POST"])
 @authentik_admin_required
 def admin_delete_customer():
