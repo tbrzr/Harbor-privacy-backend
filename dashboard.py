@@ -10800,5 +10800,217 @@ async function toggleAddon(type,enabled){
     )
 
 
+# ════════════════════════════════════════════════════════════
+# SECTION 28 - CUSTOMER FILTERS PAGE
+# Owns: /dashboard/filters. Full plan: Custom Rules, Quick Profiles,
+# Blocked Services (relocated from the main /dashboard route). Light
+# plan: the simplified "Block or Allow a Site" tool (also relocated).
+# ════════════════════════════════════════════════════════════
+
+@app.route("/dashboard/filters")
+@login_required
+def dashboard_filters():
+    email = request.user_email
+    customer = find_customer(email)
+    client_id = customer.get("client_id", "") if customer else ""
+    is_active = customer is not None
+
+    plan_type = customer.get("plan_type", "") if customer else ""
+    is_light_plan = plan_type == "harbor-remote-light"
+    is_trial = customer.get("is_trial", False) if customer else False
+    harbor_kids = customer.get("harbor_kids", False) if customer else False
+    has_family_badge = has_family_addon(client_id) if client_id else False
+    plan_badge = ""
+    if plan_type == "harbor-remote-light": plan_badge = "LIGHT"
+    elif plan_type == "3month": plan_badge = "3-MONTH"
+    elif plan_type == "6month": plan_badge = "6-MONTH"
+    elif plan_type == "annual": plan_badge = "ANNUAL"
+    elif is_trial: plan_badge = "TRIAL"
+    elif is_active: plan_badge = "MONTHLY"
+
+    rules = get_client_rules(client_id) if client_id else []
+    active_profile = customer.get("active_profile", "custom") if customer else "custom"
+    service_groups = get_all_blocked_services() if is_active else {}
+    blocked_services = get_client_blocked_services(client_id) if is_active and client_id else []
+
+    html = STYLE + NAV_CUSTOMER + """
+<div class="wrap">
+  <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">Filters</p>
+  <h1 style="margin-bottom:24px;">Filters.</h1>
+  {% if is_light_plan %}
+  <div class="card">
+    <div class="card-label">Block or Allow a Site</div>
+    <p class="note" style="margin-bottom:16px;">If something gets blocked that should not be, allow it here. Or block a specific site on your network.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <input type="text" id="light-domain" placeholder="example.com" style="flex:1;min-width:140px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;font-family:'DM Mono',monospace;font-size:13px;">
+      <button onclick="lightAddRule(false)" class="btn" style="background:var(--accent);color:var(--bg);">Allow</button>
+      <button onclick="lightAddRule(true)" class="btn" style="background:transparent;border:1px solid var(--danger);color:var(--danger);">Block</button>
+    </div>
+    <div id="light-rules-list">
+      {% for rule in rules %}
+      <div class="row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">
+        <span class="{% if rule.startswith('@@') %}rule-allow{% else %}rule-block{% endif %}" style="font-family:'DM Mono',monospace;font-size:12px;">{{ rule }}</span>
+        <button onclick="removeRule('{{ rule }}')" class="btn btn-danger btn-sm">Remove</button>
+      </div>
+      {% else %}
+      <p class="note">No custom rules yet.</p>
+      {% endfor %}
+    </div>
+  </div>
+  <script>
+  function lightAddRule(block){
+    var domain = document.getElementById('light-domain').value.trim();
+    if(!domain) return;
+    fetch('/api/rule', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({domain:domain, block:block})})
+      .then(r=>r.json()).then(d=>{ if(d.ok) location.reload(); else alert('Error: '+d.error); });
+  }
+  async function removeRule(rule){
+    if(!confirm('Remove this rule?'))return;
+    const r=await fetch('/api/rule',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({rule})});
+    const d=await r.json();
+    if(d.ok)location.reload();
+  }
+  </script>
+  {% else %}
+  <div class="card">
+    <div class="card-label">Custom Rules {% if not is_active %}<span class="badge badge-locked">LOCKED</span>{% endif %}</div>
+    {% if is_active %}
+    <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+      <input type="text" id="rule-domain" placeholder="example.com" style="margin:0;flex:1;min-width:140px;">
+      <select id="rule-type" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px;font-family:'DM Mono',monospace;font-size:12px;margin:0;width:auto;">
+        <option value="block">Block</option>
+        <option value="allow">Allow</option>
+      </select>
+      <button onclick="addRule()" class="btn">Add Rule</button>
+    </div>
+    {% for rule in rules %}
+    <div class="row">
+      <span class="{% if rule.startswith('@@') %}rule-allow{% else %}rule-block{% endif %}">{{ rule }}</span>
+      <button onclick="removeRule('{{ rule }}')" class="btn btn-danger btn-sm">Remove</button>
+    </div>
+    {% else %}
+    <p class="note">No custom rules yet. Add a domain above to block or allow it.</p>
+    {% endfor %}
+    {% else %}
+    <p class="note" style="margin-bottom:16px;">Block or allow specific websites on your network. Unlocks with an active Harbor Remote subscription.</p>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;opacity:0.4;pointer-events:none;">
+      <input type="text" placeholder="example.com" style="margin:0;flex:1;min-width:140px;" disabled>
+      <button class="btn btn-disabled">Add Rule</button>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if is_active %}
+  <div class="card">
+    <div class="card-label">Quick Profiles</div>
+    <p class="note" style="margin-bottom:20px;">Apply a preset profile to quickly block groups of services. Your custom settings are saved automatically. Current: {{ active_profile }}</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:16px;">
+      <button onclick="applyProfile('kid')" class="profile-btn {% if active_profile == 'kid' %}profile-active{% endif %}" data-profile="kid">
+        <div style="font-size:24px;margin-bottom:6px;">&#128103;</div>
+        <div style="font-weight:700;margin-bottom:4px;">Kid Mode</div>
+        <div style="font-size:11px;opacity:0.7;">Blocks social, adult, gambling</div>
+      </button>
+      <button onclick="applyProfile('work')" class="profile-btn {% if active_profile == 'work' %}profile-active{% endif %}" data-profile="work">
+        <div style="font-size:24px;margin-bottom:6px;">&#128188;</div>
+        <div style="font-weight:700;margin-bottom:4px;">Work Focus</div>
+        <div style="font-size:11px;opacity:0.7;">Blocks social, streaming, gaming</div>
+      </button>
+      <button onclick="applyProfile('gaming')" class="profile-btn {% if active_profile == 'gaming' %}profile-active{% endif %}" data-profile="gaming">
+        <div style="font-size:24px;margin-bottom:6px;">&#127918;</div>
+        <div style="font-weight:700;margin-bottom:4px;">Gaming Mode</div>
+        <div style="font-size:11px;opacity:0.7;">Blocks social, keeps gaming open</div>
+      </button>
+      <button onclick="applyProfile('custom')" class="profile-btn {% if active_profile == 'custom' or not active_profile %}profile-active{% endif %}" data-profile="custom">
+        <div style="font-size:24px;margin-bottom:6px;">&#9881;</div>
+        <div style="font-weight:700;margin-bottom:4px;">Custom</div>
+        <div style="font-size:11px;opacity:0.7;">Your saved settings</div>
+      </button>
+    </div>
+    <button onclick="applyProfile('clear')" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);background:transparent;border:1px solid var(--border);padding:6px 14px;cursor:pointer;">Clear All Blocks</button>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Blocked Services</div>
+    <p class="note" style="margin-bottom:20px;">Block entire services on your network. Toggle on to block, off to allow.</p>
+    {% for group_name, services in service_groups.items() %}
+    {% set blocked_in_group = services | selectattr("id", "in", blocked_services) | list %}
+    <div class="service-group" style="margin-bottom:4px;border:1px solid var(--border);">
+      <button onclick="toggleGroup(this)" style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface);border:none;cursor:pointer;text-align:left;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;">{{ group_name.replace("_"," ") }}</span>
+          <span class="group-badge" style="font-family:'DM Mono',monospace;font-size:9px;{% if blocked_in_group %}background:var(--accent);color:var(--bg);{% else %}background:var(--border);color:var(--muted);{% endif %}padding:2px 6px;">{{ blocked_in_group|length }}/{{ services|length }} BLOCKED</span>
+        </div>
+        <span class="group-arrow" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">&#9660;</span>
+      </button>
+      <div class="group-body" style="display:none;padding:12px;background:var(--bg);">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;">
+          {% for svc in services %}
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface);border:1px solid var(--border);">
+            <span style="font-size:13px;color:var(--text);">{{ svc.name }}</span>
+            <label class="toggle" style="width:44px;height:24px;flex-shrink:0;">
+              <input type="checkbox" {% if svc.id in blocked_services %}checked{% endif %} onchange="toggleService(this,'{{ svc.id }}',this.checked)">
+              <span class="slider" style="border-radius:24px;"></span>
+            </label>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <script>
+  async function addRule(){
+    const domain=document.getElementById('rule-domain').value.trim();
+    const type=document.getElementById('rule-type').value;
+    if(!domain)return;
+    const r=await fetch('/api/rule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain,block:type==='block'})});
+    const d=await r.json();
+    if(d.ok)location.reload();else alert('Failed to add rule.');
+  }
+  async function removeRule(rule){
+    if(!confirm('Remove this rule?'))return;
+    const r=await fetch('/api/rule',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({rule})});
+    const d=await r.json();
+    if(d.ok)location.reload();
+  }
+  async function applyProfile(profile){
+    if(profile === 'clear' && !confirm('Remove all blocked services?')) return;
+    const btns = document.querySelectorAll('.profile-btn');
+    btns.forEach(b => b.classList.remove('profile-active'));
+    const activeBtn = document.querySelector('[data-profile="'+profile+'"]');
+    if(activeBtn) activeBtn.classList.add('profile-active');
+    const r = await fetch('/api/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile})});
+    const d = await r.json();
+    if(d.ok) location.reload();
+    else alert('Error: ' + (d.error || 'Unknown error'));
+  }
+  async function toggleService(el, id, blocked){
+    const r=await fetch('/api/service'+location.search,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service_id:id,blocked:blocked})});
+    const d=await r.json();
+    if(!d.ok){ el.checked=!blocked; alert('Failed to update. Try again.'); return; }
+    const group=el.closest('.service-group');
+    const badge=group.querySelector('.group-badge');
+    const boxes=group.querySelectorAll('.group-body input[type="checkbox"]');
+    let blockedCount=0;
+    boxes.forEach(b=>{ if(b.checked) blockedCount++; });
+    badge.textContent=blockedCount+'/'+boxes.length+' BLOCKED';
+    badge.style.background=blockedCount?'var(--accent)':'var(--border)';
+    badge.style.color=blockedCount?'var(--bg)':'var(--muted)';
+  }
+  </script>
+  {% endif %}
+
+  <a href="/dashboard" class="ghost" style="margin-top:16px;display:inline-block;">&larr; Back to Dashboard</a>
+</div>"""
+    return render_template_string(
+        html, client_id=client_id, is_active=is_active, is_light_plan=is_light_plan,
+        rules=rules, active_profile=active_profile, service_groups=service_groups, blocked_services=blocked_services,
+        has_family_badge=has_family_badge, harbor_kids=harbor_kids, user_email=email, is_trial=is_trial, plan_badge=plan_badge,
+        active="filters", light_theme=True,
+    )
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=int(os.environ.get("DASHBOARD_PORT", 7000)), debug=False)
