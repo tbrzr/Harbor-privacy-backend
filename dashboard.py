@@ -4979,7 +4979,10 @@ def apply_customer_blocklist_selection(client_id, filter_ids):
     hash_name = _tier_hash_name(filter_ids) if filter_ids else ""
     with _TIER_LOCK:
         if hash_name:
-            tiers = agh_get("/control/filtering/tiers") or []
+            tiers = agh_get("/control/filtering/tiers")
+            if not isinstance(tiers, list):
+                log.error(f"apply_customer_blocklist_selection: could not read tiers for {client_id}")
+                return False
             if not any(t.get("name") == hash_name for t in tiers):
                 tiers.append({"name": hash_name, "filter_ids": filter_ids})
                 if not agh_post("/control/filtering/set_tiers", tiers):
