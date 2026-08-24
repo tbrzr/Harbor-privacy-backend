@@ -44,7 +44,7 @@ Harbor Privacy Customer Dashboard
 dashboard.harborprivacy.com
 """
 
-import os, json, secrets, logging, re
+import os, json, secrets, logging, re, hashlib, threading
 
 # Routes through Cloudflare AI Gateway (cost/latency visibility) when CF_ACCOUNT_ID
 # is set in the service env; falls back to calling Anthropic directly otherwise.
@@ -4961,6 +4961,63 @@ def update_customer_harbor_kids_flag(client_id, enabled):
         open(CUSTOMERS_LOG,"w").write("\n".join(new_lines) + "\n")
     except Exception as e:
         log.error(f"update_customer_harbor_kids_flag error: {e}")
+
+_TIER_LOCK = threading.Lock()
+
+BLOCKLIST_SOURCES = {
+    # AGH filter URL -> link to the list's own maintainer/source page.
+    # Add one entry here each time a new list is added to the AGH catalog.
+}
+
+def _tier_hash_name(filter_ids):
+    key = ",".join(str(i) for i in sorted(filter_ids))
+    digest = hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
+    return f"cust-{digest}"
+
+def apply_customer_blocklist_selection(client_id, filter_ids):
+    filter_ids = sorted(set(filter_ids))
+    hash_name = _tier_hash_name(filter_ids) if filter_ids else ""
+    with _TIER_LOCK:
+        if hash_name:
+            tiers = agh_get("/control/filtering/tiers") or []
+            if not any(t.get("name") == hash_name for t in tiers):
+                tiers.append({"name": hash_name, "filter_ids": filter_ids})
+                if not agh_post("/control/filtering/set_tiers", tiers):
+                    log.error(f"apply_customer_blocklist_selection: set_tiers failed for {client_id}")
+                    return False
+        targets = [client_id] + [k["name"] for k in get_kids_profiles(client_id)]
+        all_ok = True
+        for target_id in targets:
+            client = get_client(target_id)
+            if not client:
+                all_ok = False
+                continue
+            updated = {**client, "filter_tier": hash_name}
+            ok = agh_post("/control/clients/update", {"name": client.get("name", target_id), "data": updated})
+            if not ok:
+                log.error(f"apply_customer_blocklist_selection: client update failed for {target_id}")
+            all_ok = all_ok and ok
+        return all_ok
+
+def save_selected_filter_ids(client_id, filter_ids):
+    lines = []
+    try:
+        with open(CUSTOMERS_LOG) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    r = json.loads(line)
+                    if r.get("client_id") == client_id:
+                        r["selected_filter_ids"] = filter_ids
+                    lines.append(json.dumps(r))
+                except Exception:
+                    lines.append(line)
+        with open(CUSTOMERS_LOG, "w") as f:
+            f.write("\n".join(lines) + "\n")
+    except Exception as e:
+        log.error(f"save_selected_filter_ids error: {e}")
 
 @app.route("/api/admin/addon", methods=["POST"])
 @authentik_admin_required
