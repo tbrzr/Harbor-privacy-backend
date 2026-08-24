@@ -62,6 +62,7 @@ PAGE_LIMIT_EXTRA        = 30
 MAX_FILE_MB             = 20
 ORPHAN_MAX_AGE_H        = 24
 ORPHAN_SWEEP_MIN        = 60
+DB_BAK_MAX_AGE_H        = 6
 
 UPLOAD_DIR = Path("/tmp/harbor-fax-uploads")
 MEDIA_DIR  = Path("/var/www/network/fax-media")
@@ -551,6 +552,22 @@ def _reap_orphan_files():
                     log.warning("Orphan sweep could not remove %s: %s", path, e)
                     continue
                 db.execute("DELETE FROM fax_files WHERE token=?", (token,))
+        # Ad-hoc "harbor-fax.db.bak-*" copies taken before a migration keep a
+        # snapshot of columns the live DB has since cleared (orig_name, email).
+        # They have no retention justification once the change is verified.
+        db_path = Path(DB_PATH)
+        bak_cutoff = time.time() - DB_BAK_MAX_AGE_H * 3600
+        for bak in db_path.parent.glob(db_path.name + ".bak-*"):
+            try:
+                if bak.stat().st_mtime > bak_cutoff:
+                    continue
+                bak.unlink()
+                log.info("Orphan sweep removed stale DB backup %s", bak.name)
+            except FileNotFoundError:
+                continue
+            except Exception as e:
+                log.warning("Orphan sweep could not remove %s: %s", bak, e)
+
         if removed:
             db.commit()
             log.info("Orphan sweep removed %d stale fax file(s)", removed)
