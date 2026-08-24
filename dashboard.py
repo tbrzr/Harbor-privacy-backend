@@ -10815,6 +10815,7 @@ async function addKidProfileCustomer(){
     return render_template_string(
         html, client_id=client_id, is_active=is_active, kids_profiles=kids_profiles, kids_eligible=kids_eligible,
         has_family_badge=has_family_badge, harbor_kids=harbor_kids, user_email=email, is_trial=is_trial, plan_badge=plan_badge,
+        is_light_plan=(not kids_eligible),
         active="kids", light_theme=True,
     )
 
@@ -10860,6 +10861,7 @@ def dashboard_support():
     return render_template_string(
         html, client_id=client_id, has_family_badge=has_family_badge, harbor_kids=harbor_kids,
         user_email=email, is_trial=is_trial, plan_badge=plan_badge,
+        is_light_plan=(plan_type == "harbor-remote-light"),
         active="support", light_theme=True,
     )
 
