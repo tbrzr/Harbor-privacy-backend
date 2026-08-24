@@ -1589,13 +1589,10 @@ def dashboard():
         top_blocked = []
         uptime_pct = None
 
-    rules = get_client_rules(client_id) if client_id else []
     family_safe = client.get("parental_enabled", False) if client else False
     plan_type = customer.get("plan_type", "") if customer else ""
     harbor_kids = customer.get("harbor_kids", False) if customer else False
-    kids_eligible = plan_type != "harbor-remote-light"
     filtering_paused = not client.get("filtering_enabled", True) if client else False
-    has_family = has_family_addon(client_id) if client_id else False
     is_founder = customer.get("is_founder", False) if customer else False
     is_trial = customer.get("is_trial", False) if customer else False
     # Display-only convenience field, written by harbor-vpn-portal's webhook
@@ -1884,57 +1881,6 @@ def dashboard():
     </div>
   </div>
 
-  <!-- CUSTOMER INFO CARD -->
-  {% if is_active %}
-  <div class="card" style="margin-bottom:20px;">
-    <div class="sec-head"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Account Info</div>
-    <div style="display:flex;flex-direction:column;gap:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">EMAIL</span>
-        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);">{{ user_email }}</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">PLAN</span>
-        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">{% if plan_badge %}{{ plan_badge }}{% else %}Remote{% endif %}</span>
-      </div>
-      {% if customer and customer.plan_type %}
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">PLAN TYPE</span>
-        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">{{ plan_type_display }}</span>
-      </div>
-      {% endif %}
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">STATUS</span>
-        <span class="badge badge-on">ACTIVE</span>
-      </div>
-      {% if customer %}
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">JOINED</span>
-        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">{{ customer.date[:10] }}</span>
-      </div>
-      {% if customer.last_seen %}
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">LAST ACTIVE</span>
-        <span id="last-active-local" data-utc="{{ customer.last_seen }}" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);">{{ customer.last_seen[:16].replace("T"," ") }} UTC</span>
-      </div>
-      {% endif %}
-      {% endif %}
-      {% if is_founder %}
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">TIER</span>
-        <span class="badge" style="background:#1f5d6b;color:#ffffff;">FOUNDER</span>
-      </div>
-      {% endif %}
-      {% if has_family %}
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">ADD-ONS</span>
-        <span class="badge badge-family">FAMILY SAFE</span>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-  {% endif %}
-
   <!-- DOH ADDRESS -->
   <div class="card">
     <div class="sec-head"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>Your Private DNS Address{% if uptime_pct %}<span class="badge badge-on" style="margin-left:auto;letter-spacing:normal;" title="Resolver uptime, last 30 days">{{ uptime_pct }}% uptime</span>{% endif %}</div>
@@ -2017,6 +1963,36 @@ def dashboard():
   </script>
   {% endif %}
 
+  <!-- SHORTCUT CARDS -->
+  <div class="card">
+    <div class="card-label">Account</div>
+    <p class="note" style="margin-bottom:12px;">Your plan, status, and login settings</p>
+    <a href="/dashboard/account" class="ghost">View Account &rarr;</a>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Add-Ons {% if not is_active %}<span class="badge badge-locked">LOCKED</span>{% endif %}</div>
+    <p class="note" style="margin-bottom:12px;">Family Safe and Harbor VPN</p>
+    <a href="/dashboard/addons" class="ghost">View Add-Ons &rarr;</a>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Filters {% if not is_active %}<span class="badge badge-locked">LOCKED</span>{% endif %}</div>
+    <p class="note" style="margin-bottom:12px;">Custom rules and blocked services</p>
+    <a href="/dashboard/filters" class="ghost">View Filters &rarr;</a>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Harbor Kids</div>
+    <p class="note" style="margin-bottom:12px;">Manage your child profiles</p>
+    <a href="/dashboard/kids" class="ghost">View Harbor Kids &rarr;</a>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Support</div>
+    <p class="note" style="margin-bottom:12px;">Get help with your account</p>
+    <a href="/dashboard/support" class="ghost">View Support &rarr;</a>
+  </div>
 
   <!-- UPGRADE EARLY CARD — trial only, disappears the moment they upgrade -->
   {% if is_trial and personal_promo_code %}
@@ -2044,170 +2020,6 @@ def dashboard():
   </div>
   {% endif %}
 
-  <!-- ADD-ONS -->
-  <div class="card">
-    <div class="card-label">Add-Ons {% if not is_active %}<span class="badge badge-locked">LOCKED</span>{% endif %}</div>
-    <div style="position:relative;">
-      <div style="position:relative;">
-      <div style="position:relative;">
-      <div class="toggle-row">
-        <div>
-          <div class="toggle-label">
-            Family Safe
-            <span class="badge {% if family_safe %}badge-on{% else %}badge-off{% endif %}">{% if family_safe %}ON{% else %}OFF{% endif %}</span>
-          </div>
-          <div class="toggle-desc">SafeSearch enforcement, adult content blocking, NSFW filtering</div>
-        </div>
-        <label class="toggle" style="width:44px;height:24px;flex-shrink:0;">
-          <input type="checkbox" {% if family_safe %}checked{% endif %} {% if not is_active %}disabled{% else %}onchange="toggleAddon('family',this.checked)"{% endif %}>
-          <span class="slider" style="border-radius:24px;"></span>
-        </label>
-      </div>
-
-      <div class="toggle-row">
-        <div>
-          <div class="toggle-label">
-            Harbor VPN
-            <span class="badge {% if vpn_status %}badge-on{% else %}badge-off{% endif %}">{% if vpn_status %}ACTIVE{% else %}NOT ACTIVE{% endif %}</span>
-          </div>
-          <div class="toggle-desc">WireGuard, OpenVPN &amp; AmneziaWG tunnels with the same DNS-layer blocking</div>
-        </div>
-        {% if vpn_status %}
-        <a href="/vpn-sso" target="_blank" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);border:1px solid var(--accent);padding:8px 14px;text-decoration:none;white-space:nowrap;">Manage Devices &#8594;</a>
-        {% else %}
-        <span style="white-space:nowrap;">
-          <button onclick="openVpnAddonCheckout('monthly')" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);background:none;border:1px solid var(--accent);padding:8px 14px;cursor:pointer;white-space:nowrap;">Add — $4.99/mo &#8594;</button>
-          <button onclick="openVpnAddonCheckout('annual')" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);background:none;border:none;text-decoration:underline;cursor:pointer;">or $49/yr</button>
-        </span>
-        {% endif %}
-      </div>
-
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="card-label">Harbor Kids &#8212; Your Child Profiles</div>
-    {% if kids_profiles %}
-    <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">Each child profile has its own DNS address. Use the setup guide to install it on your child's device.</p>
-    {% for kp in kids_profiles %}
-    <div style="border:1px solid var(--border);padding:16px;margin-bottom:12px;background:var(--bg);">
-      <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);margin-bottom:10px;">{{ kp.name }}</div>
-      <div style="background:var(--surface);border-left:3px solid var(--accent);padding:10px 14px;font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);word-break:break-all;margin-bottom:10px;">https://doh.harborprivacy.com/dns-query/{{ kp.name }}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <a href="https://adblock.harborprivacy.com/profiles/{{ kp.name }}.mobileconfig" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#8659; iOS/Mac Profile</a>
-        <a href="https://adblock.harborprivacy.com/setup/android/{{ kp.name }}" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#9632; Android QR</a>
-        <a href="https://harborprivacy.com/docs/harbor-kids#kids-setup" target="_blank" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">Windows Setup</a>
-        <a href="/dashboard/adblock/screen-time/{{ kp.name }}" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);border:1px solid var(--accent);padding:4px 10px;text-decoration:none;">&#128274; Lock with Screen Time</a>
-      </div>
-    </div>
-    {% endfor %}
-    {% else %}
-    <p style="font-size:13px;color:var(--muted);">Add your first child profile to get started.</p>
-    {% endif %}
-    {% if not kids_eligible %}
-    <div style="margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">Harbor Kids is included with Harbor Remote. <a href="https://billing.stripe.com/p/login/3cI28qfUX5Tp5rn80T6kg00" target="_blank" style="color:var(--accent);">Switch to Remote (prorated) →</a></div>
-    {% elif kids_profiles|length < 5 %}
-    <div style="margin-top:16px;">
-      <button onclick="addKidProfileCustomer()" style="background:var(--accent);color:#0a0e0f;border:none;padding:10px 20px;font-family:'DM Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:0.08em;">+ Add Child Profile</button>
-      <span style="font-size:12px;color:var(--muted);margin-left:8px;">{{ 5 - kids_profiles|length }} of 5 remaining</span>
-    </div>
-    {% else %}
-    <div style="margin-top:16px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">Maximum of 5 child profiles reached.</div>
-    {% endif %}
-    <div style="font-size:11px;color:var(--muted);margin-top:12px;">Harbor Kids accounts are managed by a parent or guardian. We do not collect personal information from children. <a href="https://harborprivacy.com/nologs" style="color:var(--accent);text-decoration:none;">Privacy Policy</a></div>
-  </div>
-
-  <!-- CUSTOM RULES -->
-  <div class="card">
-    <div class="card-label">Custom Rules {% if not is_active %}<span class="badge badge-locked">LOCKED</span>{% endif %}</div>
-    {% if is_active %}
-    <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
-      <input type="text" id="rule-domain" placeholder="example.com" style="margin:0;flex:1;min-width:140px;">
-      <select id="rule-type" style="background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px;font-family:'DM Mono',monospace;font-size:12px;margin:0;width:auto;">
-        <option value="block">Block</option>
-        <option value="allow">Allow</option>
-      </select>
-      <button onclick="addRule()" class="btn">Add Rule</button>
-    </div>
-    {% for rule in rules %}
-    <div class="row">
-      <span class="{% if rule.startswith('@@') %}rule-allow{% else %}rule-block{% endif %}">{{ rule }}</span>
-      <button onclick="removeRule('{{ rule }}')" class="btn btn-danger btn-sm">Remove</button>
-    </div>
-    {% else %}
-    <p class="note">No custom rules yet. Add a domain above to block or allow it.</p>
-    {% endfor %}
-    {% else %}
-    <p class="note" style="margin-bottom:16px;">Block or allow specific websites on your network. Unlocks with an active Harbor Remote subscription.</p>
-    <div style="display:flex;gap:12px;flex-wrap:wrap;opacity:0.4;pointer-events:none;">
-      <input type="text" placeholder="example.com" style="margin:0;flex:1;min-width:140px;" disabled>
-      <button class="btn btn-disabled">Add Rule</button>
-    </div>
-    {% endif %}
-  </div>
-
-  {% if is_active %}
-  <div class="card">
-    <div class="card-label">Quick Profiles {% if not is_active %}<span class="badge badge-locked">LOCKED</span>{% endif %}</div>
-    {% if is_active %}
-    <p class="note" style="margin-bottom:20px;">Apply a preset profile to quickly block groups of services. Your custom settings are saved automatically. Current: {{ active_profile }}</p>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:16px;">
-      <button onclick="applyProfile('kid')" class="profile-btn {% if active_profile == 'kid' %}profile-active{% endif %}" data-profile="kid">
-        <div style="font-size:24px;margin-bottom:6px;">👧</div>
-        <div style="font-weight:700;margin-bottom:4px;">Kid Mode</div>
-        <div style="font-size:11px;opacity:0.7;">Blocks social, adult, gambling</div>
-      </button>
-      <button onclick="applyProfile('work')" class="profile-btn {% if active_profile == 'work' %}profile-active{% endif %}" data-profile="work">
-        <div style="font-size:24px;margin-bottom:6px;">💼</div>
-        <div style="font-weight:700;margin-bottom:4px;">Work Focus</div>
-        <div style="font-size:11px;opacity:0.7;">Blocks social, streaming, gaming</div>
-      </button>
-      <button onclick="applyProfile('gaming')" class="profile-btn {% if active_profile == 'gaming' %}profile-active{% endif %}" data-profile="gaming">
-        <div style="font-size:24px;margin-bottom:6px;">🎮</div>
-        <div style="font-weight:700;margin-bottom:4px;">Gaming Mode</div>
-        <div style="font-size:11px;opacity:0.7;">Blocks social, keeps gaming open</div>
-      </button>
-      <button onclick="applyProfile('custom')" class="profile-btn {% if active_profile == 'custom' or not active_profile %}profile-active{% endif %}" data-profile="custom">
-        <div style="font-size:24px;margin-bottom:6px;">⚙️</div>
-        <div style="font-weight:700;margin-bottom:4px;">Custom</div>
-        <div style="font-size:11px;opacity:0.7;">Your saved settings</div>
-      </button>
-    </div>
-    <button onclick="applyProfile('clear')" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);background:transparent;border:1px solid var(--border);padding:6px 14px;cursor:pointer;">Clear All Blocks</button>
-    {% endif %}
-  </div>
-
-  <div class="card">
-    <div class="card-label">Blocked Services {% if not is_active %}<span class="badge badge-locked">LOCKED</span>{% endif %}</div>
-    <p class="note" style="margin-bottom:20px;">Block entire services on your network. Toggle on to block, off to allow.</p>
-    {% for group_name, services in service_groups.items() %}
-    {% set blocked_in_group = services | selectattr("id", "in", blocked_services) | list %}
-    <div class="service-group" style="margin-bottom:4px;border:1px solid var(--border);">
-      <button onclick="toggleGroup(this)" style="width:100%;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--surface);border:none;cursor:pointer;text-align:left;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.15em;text-transform:uppercase;">{{ group_name.replace("_"," ") }}</span>
-          <span class="group-badge" style="font-family:'DM Mono',monospace;font-size:9px;{% if blocked_in_group %}background:var(--accent);color:var(--bg);{% else %}background:var(--border);color:var(--muted);{% endif %}padding:2px 6px;">{{ blocked_in_group|length }}/{{ services|length }} BLOCKED</span>
-        </div>
-        <span class="group-arrow" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);">&#9660;</span>
-      </button>
-      <div class="group-body" style="display:none;padding:12px;background:var(--bg);">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;">
-          {% for svc in services %}
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--surface);border:1px solid var(--border);">
-            <span style="font-size:13px;color:var(--text);">{{ svc.name }}</span>
-            <label class="toggle" style="width:44px;height:24px;flex-shrink:0;">
-              <input type="checkbox" {% if svc.id in blocked_services %}checked{% endif %} onchange="toggleService(this,'{{ svc.id }}',this.checked)">
-              <span class="slider" style="border-radius:24px;"></span>
-            </label>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-
   <div class="card" style="margin-top:20px;border:1px solid var(--accent);background:linear-gradient(180deg,var(--surface) 0%,var(--bg) 100%);">
     <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
       <div style="flex-shrink:0;width:48px;height:48px;background:rgba(31,93,107,0.08);display:flex;align-items:center;justify-content:center;border-radius:8px;">
@@ -2225,86 +2037,22 @@ def dashboard():
 
 </div>
 <script>
-(function(){
-  var el = document.getElementById('last-active-local');
-  if(!el) return;
-  var raw = el.getAttribute('data-utc');
-  if(!raw) return;
-  var d = new Date(raw + 'Z');
-  if(isNaN(d)) return;
-  el.textContent = d.toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
-})();
 async function togglePause(pause){
   if(pause && !confirm('This will disable all ad blocking and filtering. Continue?')) return;
   const r=await fetch('/api/pause'+location.search,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({paused:pause})});
   const d=await r.json();
   if(d.ok) location.reload(); else alert('Failed to update. Try again.');
 }
-async function applyProfile(profile){
-  if(profile === 'clear' && !confirm('Remove all blocked services?')) return;
-  const btns = document.querySelectorAll('.profile-btn');
-  btns.forEach(b => b.classList.remove('profile-active'));
-  const activeBtn = document.querySelector('[data-profile="'+profile+'"]');
-  if(activeBtn) activeBtn.classList.add('profile-active');
-  const r = await fetch('/api/profile',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile})});
-  const d = await r.json();
-  if(d.ok) location.reload();
-  else alert('Error: ' + (d.error || 'Unknown error'));
-}
-async function toggleAddon(type,enabled){
-  const r=await fetch('/api/addon'+location.search,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type,enabled})});
-  const d=await r.json();
-  if(d.ok)location.reload();else alert('Failed to update. Please try again.');
-}
-async function toggleService(el, id, blocked){
-  const r=await fetch('/api/service'+location.search,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service_id:id,blocked:blocked})});
-  const d=await r.json();
-  if(!d.ok){ el.checked=!blocked; alert('Failed to update. Try again.'); return; }
-  const group=el.closest('.service-group');
-  const badge=group.querySelector('.group-badge');
-  const boxes=group.querySelectorAll('.group-body input[type="checkbox"]');
-  let blockedCount=0;
-  boxes.forEach(b=>{ if(b.checked) blockedCount++; });
-  badge.textContent=blockedCount+'/'+boxes.length+' BLOCKED';
-  badge.style.background=blockedCount?'var(--accent)':'var(--border)';
-  badge.style.color=blockedCount?'var(--bg)':'var(--muted)';
-}
-
-async function addKidProfileCustomer(){
-  const kid_num = parseInt('{{ kids_profiles|length }}') + 1;
-  if(kid_num > 5){alert('Maximum of 5 child profiles reached.');return;}
-  const r = await fetch('/api/addon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'harbor_kids_add',kid_num:kid_num})});
-  const d = await r.json();
-  if(d.ok){location.reload();}else{alert('Failed to create profile. Contact support@harborprivacy.com');}
-}
-async function addRule(){
-  const domain=document.getElementById('rule-domain').value.trim();
-  const type=document.getElementById('rule-type').value;
-  if(!domain)return;
-  const r=await fetch('/api/rule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domain,block:type==='block'})});
-  const d=await r.json();
-  if(d.ok)location.reload();else alert('Failed to add rule.');
-}
-async function removeRule(rule){
-  if(!confirm('Remove this rule?'))return;
-  const r=await fetch('/api/rule',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({rule})});
-  const d=await r.json();
-  if(d.ok)location.reload();
-}
 </script>
 """ + VPN_CHECKOUT_MODAL + """
 </html>"""
-    service_groups = get_all_blocked_services() if is_active else {}
-    blocked_services = get_client_blocked_services(client_id) if is_active and client_id else []
     return render_template_string(html, name=name, client_id=client_id,
         is_active=is_active, total=total, blocked=blocked, pct=pct, blocked_month=blocked_month, lifetime=lifetime,
-        rules=rules, family_safe=family_safe, has_family=has_family, harbor_kids=harbor_kids, kids_eligible=kids_eligible, kids_profiles=get_kids_profiles(client_id),
-        active_profile=customer.get("active_profile", "custom") if customer else "custom",
         user_email=email, is_trial=is_trial, plan_badge=plan_badge, plan_type_display=plan_type_display, has_family_badge=has_family_badge, vpn_status=vpn_status,
         personal_promo_code=personal_promo_code,
         filtering_paused=filtering_paused,
         is_founder=is_founder, top_blocked=top_blocked, customer=customer,
-        service_groups=service_groups, blocked_services=blocked_services, active="dashboard", light_theme=True, uptime_pct=uptime_pct)
+        harbor_kids=harbor_kids, is_light_plan=False, active="dashboard", light_theme=True, uptime_pct=uptime_pct)
 
 # ════════════════════════════════════════════════════════════
 # SECTION 12 — ROUTES: ADMIN DASHBOARD
