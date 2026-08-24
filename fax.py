@@ -423,7 +423,7 @@ def build_fax_pdf(order_token, file_tokens_list, remove_branding, order=None):
         if not row:
             continue
         fpath = row["file_path"]
-        ext = Path(row["orig_name"]).suffix.lstrip(".")
+        ext = Path(row["orig_name"] or row["file_path"]).suffix.lstrip(".")
         pdf_parts.append(file_to_pdf_bytes(fpath, ext))
 
     db.close()
@@ -493,11 +493,15 @@ def delete_fax_files(order_token):
                     Path(row["file_path"]).unlink(missing_ok=True)
                 except Exception:
                     pass
+                # The document is gone, but the customer's filename would still
+                # describe it ("medical records.pdf"). Drop it with the file.
+                db.execute("UPDATE fax_files SET orig_name=NULL WHERE token=?", (ft,))
         if order["merged_pdf"]:
             try:
                 Path(order["merged_pdf"]).unlink(missing_ok=True)
             except Exception:
                 pass
+        db.commit()
     finally:
         db.close()
 
