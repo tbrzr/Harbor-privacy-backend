@@ -10581,5 +10581,115 @@ document.getElementById('save-blocklists')?.addEventListener('click', function()
     )
 
 
+# ════════════════════════════════════════════════════════════
+# SECTION 26 - CUSTOMER ACCOUNT PAGE
+# Owns: /dashboard/account. Account Info (relocated from the main
+# /dashboard route) plus a Settings-links card, for both plan types.
+# ════════════════════════════════════════════════════════════
+
+@app.route("/dashboard/account")
+@login_required
+def dashboard_account():
+    email = request.user_email
+    customer = find_customer(email)
+    client_id = customer.get("client_id", "") if customer else ""
+    is_active = customer is not None
+
+    is_trial = customer.get("is_trial", False) if customer else False
+    plan_type = customer.get("plan_type", "") if customer else ""
+    harbor_kids = customer.get("harbor_kids", False) if customer else False
+    is_light_plan = plan_type == "harbor-remote-light"
+    has_family_badge = has_family_addon(client_id) if client_id else False
+    has_family = has_family_badge
+    is_founder = customer.get("is_founder", False) if customer else False
+    plan_badge = ""
+    if plan_type == "harbor-remote-light": plan_badge = "LIGHT"
+    elif plan_type == "3month": plan_badge = "3-MONTH"
+    elif plan_type == "6month": plan_badge = "6-MONTH"
+    elif plan_type == "annual": plan_badge = "ANNUAL"
+    elif is_trial: plan_badge = "TRIAL"
+    elif is_active: plan_badge = "MONTHLY"
+
+    if is_trial: plan_type_display = "Remote Trial"
+    elif plan_type == "annual": plan_type_display = "Remote Yearly"
+    elif plan_type == "harbor-remote-light": plan_type_display = "Light Monthly"
+    else: plan_type_display = "Remote Monthly"
+
+    html = STYLE + NAV_CUSTOMER + """
+<div class="wrap">
+  <p style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent);letter-spacing:0.2em;text-transform:uppercase;margin-bottom:16px;">Account</p>
+  <h1 style="margin-bottom:24px;">Your account.</h1>
+  {% if is_active %}
+  <div class="card" style="margin-bottom:20px;">
+    <div class="sec-head"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Account Info</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">EMAIL</span>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);">{{ user_email }}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">PLAN</span>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">{% if plan_badge %}{{ plan_badge }}{% else %}Remote{% endif %}</span>
+      </div>
+      {% if customer and customer.plan_type %}
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">PLAN TYPE</span>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">{{ plan_type_display }}</span>
+      </div>
+      {% endif %}
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">STATUS</span>
+        <span class="badge badge-on">ACTIVE</span>
+      </div>
+      {% if customer %}
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">JOINED</span>
+        <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">{{ customer.date[:10] }}</span>
+      </div>
+      {% if customer.last_seen %}
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">LAST ACTIVE</span>
+        <span id="last-active-local" data-utc="{{ customer.last_seen }}" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--accent);">{{ customer.last_seen[:16].replace("T"," ") }} UTC</span>
+      </div>
+      {% endif %}
+      {% endif %}
+      {% if is_founder %}
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">TIER</span>
+        <span class="badge" style="background:#1f5d6b;color:#ffffff;">FOUNDER</span>
+      </div>
+      {% endif %}
+      {% if has_family %}
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">ADD-ONS</span>
+        <span class="badge badge-family">FAMILY SAFE</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <p class="note" style="margin-bottom:20px;">No active subscription found on your account.</p>
+  {% endif %}
+
+  <div class="card">
+    <div class="card-label">Settings</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <a href="/settings" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);text-decoration:none;">Change Password &rarr;</a>
+      <a href="/settings" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);text-decoration:none;">Two-Factor Authentication &rarr;</a>
+      <a href="/settings/data-request" style="font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);text-decoration:none;">Download My Data &rarr;</a>
+    </div>
+  </div>
+
+  <a href="/dashboard" class="ghost" style="margin-top:16px;display:inline-block;">&larr; Back to Dashboard</a>
+</div>"""
+    return render_template_string(
+        html, client_id=client_id, customer=customer, is_active=is_active,
+        user_email=email, is_trial=is_trial, plan_badge=plan_badge, plan_type_display=plan_type_display,
+        has_family_badge=has_family_badge, has_family=has_family, harbor_kids=harbor_kids,
+        is_founder=is_founder, is_light_plan=is_light_plan,
+        active="account", light_theme=True,
+    )
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=int(os.environ.get("DASHBOARD_PORT", 7000)), debug=False)
