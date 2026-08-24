@@ -805,6 +805,8 @@ def create_payment_intent():
             amount=amount,
             currency="usd",
             receipt_email=email or None,
+            description="Harbor Fax - fax to %s" % (body.get("fax_number") or "unknown"),
+            statement_descriptor_suffix="FAX",
             metadata=meta,
         )
     except stripe.error.StripeError as e:

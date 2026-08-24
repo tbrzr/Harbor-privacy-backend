@@ -1216,6 +1216,8 @@ def pay(ptype):
             amount=amount,
             currency='usd',
             receipt_email=job.get('email') or None,
+            description='Harbor Career - %s' % job_type.replace('_', ' '),
+            statement_descriptor_suffix='CAREER',
             metadata={'job_id': job_id, 'type': job_type},
         )
     except stripe.error.StripeError as e:
