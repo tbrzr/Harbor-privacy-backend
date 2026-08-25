@@ -4266,12 +4266,6 @@ def api_admin_revoke_code():
     revoke_support_code(data.get("client_id", ""))
     return jsonify({"ok": True})
 
-@admin_required
-def api_admin_revoke_code():
-    data = request.json
-    revoke_support_code(data.get("client_id", ""))
-    return jsonify({"ok": True})
-
 @app.route("/api/addon", methods=["POST"])
 @login_required
 def api_addon():
