@@ -7,7 +7,7 @@ import sqlite3
 import logging
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from io import BytesIO
 
@@ -504,12 +504,30 @@ def delete_fax_files(order_token):
                 Path(order["merged_pdf"]).unlink(missing_ok=True)
             except Exception:
                 pass
+        _scrub_order_details(db, order_token)
         db.commit()
     finally:
         db.close()
 
 
 _LIVE_STATUSES = ("pending_payment", "queued", "sending", "retrying")
+
+# privacy.html: "We do not store the fax number dialed, document contents, or
+# cover page message after transmission." The document was already deleted, but
+# these columns survived, so the claim was false. Cleared once an order reaches
+# a terminal state. Deliberately NOT including email: the policy states the
+# order email is retained for billing reconciliation and delivery support.
+_ORDER_PII_COLUMNS = ("fax_number", "to_name", "from_name", "subject", "message")
+
+
+def _scrub_order_details(db, order_token):
+    """Blank the destination and cover-page fields for a finished order."""
+    db.execute(
+        "UPDATE fax_orders SET %s WHERE token=?"
+        % ", ".join("%s=NULL" % c for c in _ORDER_PII_COLUMNS),
+        (order_token,),
+    )
+
 
 
 def _reap_orphan_files():
@@ -570,8 +588,25 @@ def _reap_orphan_files():
             except Exception as e:
                 log.warning("Orphan sweep could not remove %s: %s", bak, e)
 
-        if removed:
+        # Safety net: an order abandoned before delivery (never paid, or stuck)
+        # never reaches delete_fax_files, so its destination and cover-page
+        # fields would sit there forever. A real fax completes in minutes, so
+        # anything older than the cutoff is finished one way or another.
+        stale_cutoff = (datetime.utcnow() - timedelta(hours=ORPHAN_MAX_AGE_H)).isoformat()
+        stale = db.execute(
+            "SELECT token FROM fax_orders WHERE created_at < ? AND ("
+            + " OR ".join("%s IS NOT NULL" % c for c in _ORDER_PII_COLUMNS)
+            + ")",
+            (stale_cutoff,),
+        ).fetchall()
+        for row in stale:
+            _scrub_order_details(db, row["token"])
+        if stale:
+            log.info("Orphan sweep scrubbed details on %d finished order(s)", len(stale))
+
+        if removed or stale:
             db.commit()
+        if removed:
             log.info("Orphan sweep removed %d stale fax file(s)", removed)
     except Exception as e:
         log.error("Orphan sweep failed: %s", e)
