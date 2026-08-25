@@ -161,12 +161,47 @@ def send(email, name, is_light_plan, dry_run=True):
         json={"from": FROM_EMAIL, "to": [email], "subject": SUBJECT, "html": html})
     print(f"Sent to {email}: {r.status_code}")
 
+def load_all():
+    """Every record, ignoring EXCLUDE -- for --only targeting."""
+    out = []
+    with open(CUSTOMERS_LOG) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                out.append(json.loads(line))
+            except Exception:
+                continue
+    return out
+
+
 if __name__ == "__main__":
     dry_run = "--send" not in sys.argv
-    customers = load_customers()
-    print(f"{len(customers)} active customer(s) targeted (excluding {', '.join(EXCLUDE)})")
-    for c in customers:
-        send(c.get("email", ""), c.get("name", "there"),
-             c.get("plan_type", "") == "harbor-remote-light", dry_run=dry_run)
+
+    # --only <email>: send to exactly one address, bypassing EXCLUDE. Used to
+    # copy an excluded internal account (e.g. admin@) on a broadcast that
+    # already went out, without re-sending to everyone else.
+    only = None
+    if "--only" in sys.argv:
+        i = sys.argv.index("--only")
+        if i + 1 >= len(sys.argv):
+            print("--only needs an email address"); sys.exit(1)
+        only = sys.argv[i + 1]
+
+    if only:
+        match = next((c for c in load_all() if c.get("email") == only), None)
+        if not match:
+            print(f"No customer record for {only}; refusing to guess name/plan."); sys.exit(1)
+        print(f"--only: targeting {only} ({match.get('name')}, plan={match.get('plan_type')})")
+        send(only, match.get("name", "there"),
+             match.get("plan_type", "") == "harbor-remote-light", dry_run=dry_run)
+    else:
+        customers = load_customers()
+        print(f"{len(customers)} active customer(s) targeted (excluding {', '.join(EXCLUDE)})")
+        for c in customers:
+            send(c.get("email", ""), c.get("name", "there"),
+                 c.get("plan_type", "") == "harbor-remote-light", dry_run=dry_run)
+
     if dry_run:
         print("\nDry run only -- rerun with --send to actually deliver.")
