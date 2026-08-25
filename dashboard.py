@@ -683,7 +683,7 @@ function refreshStats(url,btn){
     var b=document.getElementById('stat-blocked'); if(b) b.textContent=d.blocked;
     var l=document.getElementById('stat-lifetime'); if(l) l.textContent=d.lifetime+' lifetime';
     var p=document.getElementById('stat-pct'); if(p) p.textContent=d.pct+'%';
-    var bl=document.getElementById('stat-blocked-label'); if(bl) bl.title='Rate from '+d.month_label;
+    var bl=document.getElementById('stat-blocked-label'); if(bl&&d.window) bl.textContent='Blocked ('+d.window+')';
   }).catch(function(){}).finally(function(){if(btn) btn.classList.remove('spinning');});
 }
 var TIMEOUT=30*60*1000,WARNING=25*60*1000,timer,warnTimer,warned=false;
@@ -1587,12 +1587,14 @@ def dashboard():
         blocked = client_stats["blocked"]
         pct = client_stats["pct"]
         blocked_month = client_stats["month_label"]
+        stat_window = client_stats["window"]
         lifetime = client_stats["lifetime"]
         top_blocked = client_stats["top_blocked"]
         uptime_pct = get_doh_uptime_pct()
     else:
         total = blocked = pct = lifetime = 0
         blocked_month = "this month"
+        stat_window = "this month"
         top_blocked = []
         uptime_pct = None
 
@@ -1734,12 +1736,12 @@ def dashboard():
   <div class="stat-grid stat-grid-2">
     <div class="stat">
       <div class="stat-num stat-num-sm" id="stat-total">{{ total }}</div>
-      <div class="stat-label">Queries (7 Days)</div>
+      <div class="stat-label">Queries ({{ stat_window }})</div>
       <div class="stat-lifetime" id="stat-lifetime">{{ lifetime }} lifetime</div>
     </div>
     <div class="stat">
       <div class="stat-num stat-num-sm" id="stat-blocked">{{ blocked }}</div>
-      <div class="stat-label" id="stat-blocked-label" title="Rate from {{ blocked_month }}">Blocked (7 Days)</div>
+      <div class="stat-label" id="stat-blocked-label">Blocked ({{ stat_window }})</div>
     </div>
   </div>
 
@@ -1780,7 +1782,7 @@ def dashboard():
 </div>
 """ + VPN_CHECKOUT_MODAL + """
 </html>"""
-        return render_template_string(html, name=name, client_id=client_id, total=total, blocked=blocked, blocked_month=blocked_month, lifetime=lifetime, is_light_plan=True, active="dashboard", light_theme=True, uptime_pct=uptime_pct)
+        return render_template_string(html, name=name, client_id=client_id, total=total, blocked=blocked, blocked_month=blocked_month, stat_window=stat_window, lifetime=lifetime, is_light_plan=True, active="dashboard", light_theme=True, uptime_pct=uptime_pct)
     if plan_type == "harbor-remote-light": plan_badge = "LIGHT"
     elif plan_type == "annual": plan_badge = "ANNUAL"
     elif is_trial: plan_badge = "TRIAL"
@@ -1850,12 +1852,12 @@ def dashboard():
   <div class="stat-grid stat-grid-2">
     <div class="stat">
       <div class="stat-num stat-num-sm {% if not is_active %}muted{% endif %}" id="stat-total">{{ total if is_active else '—' }}</div>
-      <div class="stat-label">Queries (7 Days)</div>
+      <div class="stat-label">Queries ({{ stat_window }})</div>
       {% if is_active %}<div class="stat-lifetime" id="stat-lifetime">{{ lifetime }} lifetime</div>{% endif %}
     </div>
     <div class="stat">
       <div class="stat-num stat-num-sm {% if not is_active %}muted{% endif %}" id="stat-blocked">{{ blocked if is_active else '—' }}</div>
-      <div class="stat-label" id="stat-blocked-label" title="Rate from {{ blocked_month }}">Blocked (7 Days)</div>
+      <div class="stat-label" id="stat-blocked-label">Blocked ({{ stat_window }})</div>
     </div>
   </div>
 
@@ -2025,7 +2027,7 @@ async function togglePause(pause){
 """ + VPN_CHECKOUT_MODAL + """
 </html>"""
     return render_template_string(html, name=name, client_id=client_id,
-        is_active=is_active, total=total, blocked=blocked, pct=pct, blocked_month=blocked_month, lifetime=lifetime,
+        is_active=is_active, total=total, blocked=blocked, pct=pct, blocked_month=blocked_month, stat_window=stat_window, lifetime=lifetime,
         user_email=email, is_trial=is_trial, plan_badge=plan_badge, plan_type_display=plan_type_display, has_family_badge=has_family_badge, vpn_status=vpn_status,
         personal_promo_code=personal_promo_code,
         filtering_paused=filtering_paused,
@@ -3282,8 +3284,8 @@ def admin_customer(client_id):
     <button class="stat-refresh" onclick="refreshStats('/api/admin/client-stats/{{ client_id }}',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>Refresh</button>
   </div>
   <div class="stat-grid" style="margin-bottom:20px;">
-    <div class="stat"><div class="stat-num stat-num-sm" id="stat-total">{{ cstats.total }}</div><div class="stat-label">Queries (7 Days)</div><div class="stat-lifetime" id="stat-lifetime">{{ cstats.lifetime }} lifetime</div></div>
-    <div class="stat"><div class="stat-num stat-num-sm" id="stat-blocked">{{ cstats.blocked }}</div><div class="stat-label" id="stat-blocked-label" title="Rate from {{ cstats.month_label }}">Blocked (7 Days)</div></div>
+    <div class="stat"><div class="stat-num stat-num-sm" id="stat-total">{{ cstats.total }}</div><div class="stat-label">Queries ({{ cstats.window }})</div><div class="stat-lifetime" id="stat-lifetime">{{ cstats.lifetime }} lifetime</div></div>
+    <div class="stat"><div class="stat-num stat-num-sm" id="stat-blocked">{{ cstats.blocked }}</div><div class="stat-label" id="stat-blocked-label">Blocked ({{ cstats.window }})</div></div>
     <div class="stat"><div class="stat-num stat-num-sm" id="stat-pct">{{ cstats.pct }}%</div><div class="stat-label">Network Block Rate</div></div>
   </div>
 
@@ -10022,33 +10024,31 @@ def get_client_monthly(client_id, months=12):
 
 
 def get_client_stats_real(client_id):
-    """total: AGH's own real per-client query count for its configured
-    rolling stats window (7 days), summed across every id alias this client
-    has (e.g. a re-provisioned or renamed client can be split across more
-    than one AGH id, and undercounts badly if only one alias is checked).
+    """Per-client total/blocked for the customer's most recent month with data,
+    summed across every id alias this client has (a re-provisioned or renamed
+    client can be split across more than one AGH id and undercounts badly if
+    only one alias is checked).
 
-    blocked/pct: AGH's querylog is off (the product's no-logs policy --
-    confirmed live, /control/querylog 404s), so there is no real per-client
-    blocked COUNT for that same 7-day window -- AGH's /control/stats only
-    exposes a per-client TOTAL (top_clients), nothing per-client-blocked at
-    rolling-window granularity. What IS real is a per-client block RATE
-    from HAB's persisted monthly aggregate counters. Applying that real
-    rate to the real 7-day total keeps blocked mathematically bounded by
-    total (a raw monthly blocked count doesn't belong next to a 7-day
-    total -- a full month has more queries than 7 days, so it can and does
-    exceed it) while still being a genuinely observed rate, not a
-    heuristic guess based on which toggles are enabled."""
+    Both numbers come from the SAME source and window -- AGH's persisted
+    per-client monthly counters via /control/stats/client -- so blocked is
+    always mathematically bounded by total and the label can name one honest
+    window.
+
+    Why not /control/stats top_clients: the customer-facing AGH runs the
+    harbor-blind build, which deliberately returns top_clients (and the top
+    domain tables) permanently empty so the operator cannot see per-client
+    volume ranking or domains. Summing it yields 0 for every customer, which
+    previously fell through to a cumulative DoH-only tally displayed under a
+    "7 Days" label. Only clientTotal/clientBlocked survive the blinding, and
+    they are what /control/stats/client exposes.
+
+    The DoH tally remains the last-resort fallback: traffic through the gated
+    DoH proxy can reach AGH without client attribution, so a customer with no
+    monthly counters at all still sees their own real query count rather
+    than 0. That case reports window="all time (DoH)" so the UI never labels
+    it as a month."""
     client = get_client(client_id)
     ids = client.get("ids", [client_id]) if client else [client_id]
-
-    stats = agh_get("/control/stats")
-    total = 0
-    for entry in stats.get("top_clients", []):
-        for cid in ids:
-            if cid in entry:
-                total += entry[cid]
-    if total == 0:
-        total = _doh_query_count(client_id)
 
     per_id_monthly = {cid: get_client_monthly(cid, months=24) for cid in ids}
     month_label = None
@@ -10063,11 +10063,22 @@ def get_client_stats_real(client_id):
                 if m["month"] == month_label:
                     month_blocked += m.get("blocked") or 0
                     month_total += m.get("total") or 0
-    pct = round(month_blocked / max(month_total, 1) * 100, 1) if month_total else 0.0
-    blocked = round(total * pct / 100)
+
     lifetime = sum(m.get("total") or 0 for months in per_id_monthly.values() for m in months)
+
+    if month_total:
+        total, blocked = month_total, month_blocked
+        pct = round(blocked / month_total * 100, 1)
+        window = month_label
+    else:
+        # No attributable monthly counters (gated-DoH-only client, or brand new).
+        total, blocked, pct = _doh_query_count(client_id), 0, 0.0
+        window = "all time (DoH)"
+        lifetime = max(lifetime, total)
+
     return {"total": total, "blocked": blocked, "pct": pct, "lifetime": lifetime,
-            "month_label": month_label or "this month", "top_blocked": []}
+            "window": window, "month_label": month_label or "this month",
+            "top_blocked": []}
 
 
 @app.route("/api/client-stats")
@@ -10075,7 +10086,8 @@ def get_client_stats_real(client_id):
 def api_client_stats():
     customer = find_customer(request.user_email)
     if not customer or not customer.get("client_id"):
-        return jsonify({"total": 0, "blocked": 0, "pct": 0, "lifetime": 0, "month_label": "this month"})
+        return jsonify({"total": 0, "blocked": 0, "pct": 0, "lifetime": 0,
+                        "window": "this month", "month_label": "this month"})
     return jsonify(get_client_stats_real(customer["client_id"]))
 
 
