@@ -52,7 +52,9 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
 
 PRICE_BASE              = "price_1TTY2iCOrGNrBgIfVhhszJMO"
 PRICE_EXTRA_PAGES       = "price_1TTY4CCOrGNrBgIfEr8byUPO"
-PRICE_REMOVE_BRANDING   = "price_1TTYM1COrGNrBgIfzaOhdSjz"
+PRICE_REMOVE_BRANDING   = "price_1U89SgCOrGNrBgIfnEcU9E3I"  # one_time; the original
+# price_1TTYM1COrGNrBgIfzaOhdSjz was created as *recurring* by mistake and cannot be
+# used as a one-off invoice line.
 
 AMOUNT_BASE             = 299
 AMOUNT_EXTRA_PAGES      = 199
@@ -870,6 +872,66 @@ def _validate_order_payload(body):
     return True, None
 
 
+def _create_fax_invoice(email, remove_branding, extra_pages, promo_id, meta):
+    """Back the payment with an Invoice so the charge is linked to real Products.
+
+    A bare PaymentIntent has no line items, so fax sales showed up in Stripe as
+    unattributed payments against an auto-created guest customer and never
+    appeared in product reporting. An invoice carries the Price/Product lines and
+    still exposes a PaymentIntent client secret, so the site's inline Stripe
+    Elements form confirms it exactly as before - no checkout change.
+
+    Returns (client_secret, payment_intent_id, amount_due_cents).
+    """
+    customer = stripe.Customer.create(
+        email=email,
+        metadata={"service": "harbor-fax", "order_token": meta.get("order_token", "")},
+    )
+
+    lines = [PRICE_BASE]
+    if extra_pages:
+        lines.append(PRICE_EXTRA_PAGES)
+    if remove_branding:
+        lines.append(PRICE_REMOVE_BRANDING)
+    for price_id in lines:
+        stripe.InvoiceItem.create(
+            customer=customer.id,
+            pricing={"price": price_id},   # API 2026-02-25: 'pricing', not 'price'
+            quantity=1,
+        )
+
+    kwargs = dict(
+        customer=customer.id,
+        collection_method="charge_automatically",
+        auto_advance=False,               # we collect via Elements, not Stripe's dunning
+        pending_invoice_items_behavior="include",
+        metadata=meta,
+    )
+    if promo_id:
+        # Let Stripe apply the promo so the invoice total and the line items agree.
+        kwargs["discounts"] = [{"promotion_code": promo_id}]
+
+    invoice = stripe.Invoice.finalize_invoice(stripe.Invoice.create(**kwargs).id)
+    invoice = stripe.Invoice.retrieve(invoice.id, expand=["confirmation_secret", "payments"])
+    inv = invoice.to_dict()
+
+    secret = (inv.get("confirmation_secret") or {}).get("client_secret")
+    pi_id = None
+    for pay in (inv.get("payments") or {}).get("data") or []:
+        payment = pay.get("payment") or {}
+        if payment.get("payment_intent"):
+            pi_id = payment["payment_intent"]
+            break
+    if not secret or not pi_id:
+        raise RuntimeError("invoice %s exposed no payment intent" % inv.get("id"))
+
+    # The webhook routes on payment_intent.succeeded + metadata.order_token, and
+    # refund_order() refunds by payment_intent, so both must be set on the PI the
+    # invoice created.
+    stripe.PaymentIntent.modify(pi_id, metadata=meta, receipt_email=email)
+    return secret, pi_id, inv.get("amount_due")
+
+
 @app.route("/fax/create-payment-intent", methods=["POST"])
 def create_payment_intent():
     ip = request.headers.get("X-Real-IP", request.remote_addr)
@@ -912,16 +974,20 @@ def create_payment_intent():
     }
 
     try:
-        intent = stripe.PaymentIntent.create(
-            amount=amount,
-            currency="usd",
-            receipt_email=email or None,
-            description="Harbor Fax - fax to %s" % (body.get("fax_number") or "unknown"),
-            statement_descriptor_suffix="FAX",
-            metadata=meta,
+        client_secret, intent_id, invoiced = _create_fax_invoice(
+            email, remove_branding, extra_pages, promo_id, meta
         )
     except stripe.error.StripeError as e:
         return jsonify({"error": str(e)}), 400
+    except Exception as e:
+        log.exception("Invoice build failed for %s", order_token)
+        return jsonify({"error": "Could not start payment. Please try again."}), 400
+
+    if invoiced != amount:
+        # The invoice is the source of truth for what the customer is charged;
+        # keep the stored order in step with it rather than the local estimate.
+        log.warning("Order %s: quoted %s but invoice totals %s", order_token, amount, invoiced)
+        amount = invoiced
 
     db = get_db()
     db.execute(
@@ -936,14 +1002,14 @@ def create_payment_intent():
             body.get("subject"), body.get("message"),
             int(remove_branding), int(extra_pages), email,
             json.dumps(body.get("file_tokens", [])),
-            amount, promo_id, intent.id,
+            amount, promo_id, intent_id,
             datetime.utcnow().isoformat(), datetime.utcnow().isoformat(),
         ),
     )
     db.commit()
     db.close()
 
-    return jsonify({"client_secret": intent.client_secret})
+    return jsonify({"client_secret": client_secret})
 
 
 @app.route("/fax/send-free", methods=["POST"])
