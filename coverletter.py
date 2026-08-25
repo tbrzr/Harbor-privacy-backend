@@ -12,6 +12,9 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib.enums import TA_LEFT
 import secrets
+import glob
+import logging
+import threading
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
 
@@ -26,6 +29,17 @@ except Exception as _e:
     _logging.exception("career_admin failed to register: %s", _e)
 
 JOBS_FILE = '/var/log/coverletter-jobs.json'
+
+log = logging.getLogger("harbor-career")
+
+# jobs.json is a whole-file read-modify-write, so the reaper and the request
+# handlers must not interleave or one will clobber the other's jobs.
+_JOBS_LOCK = threading.RLock()
+
+JOB_REAP_MIN            = 15   # how often the expired-job sweep runs
+ORPHAN_PDF_MAX_AGE_H    = 3    # unreferenced PDFs older than this are removed
+RESUME_PDF_DIR          = '/var/www/resume/pdfs'
+_REAP_EXEMPT_STATUSES   = ('generating',)
 ANTHROPIC_API_KEY = os.getenv('ANTHROPIC_API_KEY')
 RESEND_API_KEY = os.getenv('RESEND_API_KEY')
 
@@ -42,14 +56,109 @@ anthropic_client = anthropic.Anthropic(**_anthropic_kwargs)
 resend.api_key = RESEND_API_KEY
 
 def load_jobs():
-    if os.path.exists(JOBS_FILE):
-        with open(JOBS_FILE, 'r') as f:
-            return json.load(f)
-    return {}
+    with _JOBS_LOCK:
+        if os.path.exists(JOBS_FILE):
+            with open(JOBS_FILE, 'r') as f:
+                return json.load(f)
+        return {}
 
 def save_jobs(jobs):
-    with open(JOBS_FILE, 'w') as f:
-        json.dump(jobs, f, indent=2)
+    with _JOBS_LOCK:
+        with open(JOBS_FILE, 'w') as f:
+            json.dump(jobs, f, indent=2)
+
+
+def _job_pdf_paths(job):
+    """Every PDF a job has produced: original, resume rewrite, revisions."""
+    for key in ('pdf_path', 'revised_pdf_path'):
+        path = job.get(key)
+        if path:
+            yield path
+    for adj in job.get('adjustments') or []:
+        if isinstance(adj, dict) and adj.get('pdf_path'):
+            yield adj['pdf_path']
+
+
+def _reap_expired_jobs():
+    """Enforce the delete_at every job already carries.
+
+    career/index.html promises the customer's data is "deleted 2 hours after
+    delivery" and each job records a delete_at to match, but nothing ever
+    acted on it: jobs.json accumulated resume text, job postings and generated
+    letters indefinitely, and the PDFs stayed on disk. Sweep both.
+    """
+    now = datetime.now()
+    removed_jobs = 0
+    removed_files = 0
+    keep_paths = set()
+    with _JOBS_LOCK:
+        jobs = load_jobs()
+        expired = []
+        for job_id, job in jobs.items():
+            delete_at = job.get('delete_at')
+            still_live = True
+            if delete_at and job.get('status') not in _REAP_EXEMPT_STATUSES:
+                try:
+                    still_live = datetime.fromisoformat(delete_at) > now
+                except (TypeError, ValueError):
+                    still_live = True   # unparseable: leave it alone, log below
+                    log.warning("Job %s has an unreadable delete_at %r", job_id, delete_at)
+            if still_live:
+                keep_paths.update(_job_pdf_paths(job))
+            else:
+                expired.append(job_id)
+
+        for job_id in expired:
+            for path in _job_pdf_paths(jobs[job_id]):
+                if path in keep_paths:
+                    continue
+                try:
+                    os.remove(path)
+                    removed_files += 1
+                except FileNotFoundError:
+                    pass
+                except OSError as e:
+                    log.warning("Could not remove %s: %s", path, e)
+            del jobs[job_id]
+            removed_jobs += 1
+
+        if expired:
+            save_jobs(jobs)
+
+    # Generated PDFs whose job record is already gone (crash mid-flight, or an
+    # older build that deleted the entry without the file).
+    cutoff = _time.time() - ORPHAN_PDF_MAX_AGE_H * 3600
+    candidates = glob.glob('/tmp/coverletter_*.pdf') + glob.glob(os.path.join(RESUME_PDF_DIR, '*.pdf'))
+    for path in candidates:
+        if path in keep_paths:
+            continue
+        try:
+            if os.path.getmtime(path) > cutoff:
+                continue
+            os.remove(path)
+            removed_files += 1
+        except FileNotFoundError:
+            continue
+        except OSError as e:
+            log.warning("Could not remove orphan %s: %s", path, e)
+
+    if removed_jobs or removed_files:
+        log.info("Reaped %d expired job(s) and %d PDF(s)", removed_jobs, removed_files)
+
+
+def _job_reaper_loop():
+    while True:
+        try:
+            _reap_expired_jobs()
+        except Exception:
+            log.exception("Job reaper pass failed")
+        _time.sleep(JOB_REAP_MIN * 60)
+
+
+def _start_job_reaper():
+    logging.basicConfig(level=logging.INFO)
+    threading.Thread(target=_job_reaper_loop, daemon=True).start()
+    log.info("Job reaper started (every %dm, honours each job's delete_at)", JOB_REAP_MIN)
 
 # --- Bot / card-testing protection for the checkout endpoints ---------------
 # The /api/checkout/* endpoints mint a payable Stripe session. Without gating,
@@ -57,6 +166,8 @@ def save_jobs(jobs):
 # 2026-06-25). Defense: per-IP rate limit + require the job_id to already exist
 # (a real user always creates the job before paying). _CHK_RATE: {ip:[ts...]}.
 import time as _time
+
+_start_job_reaper()
 _CHK_RATE: dict = {}
 _CHK_WINDOW = 60      # seconds
 _CHK_MAX = 6          # checkout-session creates per IP per window
