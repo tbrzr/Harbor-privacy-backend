@@ -228,12 +228,21 @@ def remove_from_allowed_clients(client_id):
         if set_allowed_clients(clients):
             log.info(f"Removed {client_id} from allowed clients")
 
+# Baseline blocklist tier as of 2026-08-28 (see /control/filtering/tiers).
+# New customers are pinned here by default so enabling additional catalog
+# filters later (e.g. HaGeZi Pro++, NSFW, Windows/Office Tracker, Smart-TV,
+# Game Console, OISD Small/Big) never silently applies to them; those stay
+# opt-in only, selectable from /dashboard/blocklists.
+DEFAULT_FILTER_TIER = "cust-e3b4781909135404"
+DEFAULT_FILTER_IDS = [1, 2, 1773624344, 1784907386, 1785998566, 1785998567]
+
 def create_adguard_client(client_id, name):
     try:
         r = requests.post(f"{ADGUARD_URL}/control/clients/add",
             json={"name": f"{(name or 'Customer').strip()} ({client_id})", "ids": [client_id], "tags": [],
                   "filtering_enabled": True, "parental_enabled": False, "safebrowsing_enabled": True,
-                  "use_global_settings": True, "use_global_blocked_services": True},
+                  "use_global_settings": True, "use_global_blocked_services": True,
+                  "filter_tier": DEFAULT_FILTER_TIER},
             auth=(ADGUARD_USER, ADGUARD_PASS), timeout=10)
         if r.status_code == 200:
             log.info(f"Created AdGuard client: {client_id}")
@@ -801,7 +810,8 @@ def log_customer(client_id, name, email, plan, stripe_customer_id="", plan_type=
             "is_trial": is_trial,
              "stripe_customer_id": stripe_customer_id, "status": status,
              "utm_source": utm_source, "utm_campaign": utm_campaign,
-             "utm_content": utm_content, "utm_medium": utm_medium, "signup_code": signup_code}
+             "utm_content": utm_content, "utm_medium": utm_medium, "signup_code": signup_code,
+             "selected_filter_ids": DEFAULT_FILTER_IDS}
     open(CUSTOMERS_LOG, "a").write(json.dumps(entry) + "\n")
 
 EMAIL_FOOTER = """
@@ -918,7 +928,7 @@ def enable_harbor_kids(client_id):
         PASS = os.environ.get("ADGUARD_PASS","")
         kids_id = f"{client_id}kid1"
         ss = {"enabled":True,"bing":True,"duckduckgo":True,"ecosia":True,"google":True,"pixabay":True,"yandex":True,"youtube":True}
-        data = {"name":kids_id,"ids":[kids_id],"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":True,"safebrowsing_enabled":True,"safesearch_enabled":True,"use_global_blocked_services":False,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False,"safe_search":ss,"blocked_services":[],"blocked_services_schedule":{"time_zone":"Local"}}
+        data = {"name":kids_id,"ids":[kids_id],"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":True,"safebrowsing_enabled":True,"safesearch_enabled":True,"use_global_blocked_services":False,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False,"safe_search":ss,"blocked_services":[],"blocked_services_schedule":{"time_zone":"Local"},"filter_tier":DEFAULT_FILTER_TIER}
         r = req.post(f"{AGH}/control/clients/add", json=data, auth=(USER,PASS), timeout=10)
         log.info(f"Harbor Kids client created: {kids_id} status={r.status_code}")
         if r.status_code in [200, 201]:
@@ -939,7 +949,7 @@ def add_harbor_kids_profile(client_id, kid_num):
         PASS = os.environ.get("ADGUARD_PASS","")
         kids_id = f"{client_id}kid{kid_num}"
         ss = {"enabled":True,"bing":True,"duckduckgo":True,"ecosia":True,"google":True,"pixabay":True,"yandex":True,"youtube":True}
-        data = {"name":kids_id,"ids":[kids_id],"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":True,"safebrowsing_enabled":True,"safesearch_enabled":True,"use_global_blocked_services":False,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False,"safe_search":ss,"blocked_services":[],"blocked_services_schedule":{"time_zone":"Local"}}
+        data = {"name":kids_id,"ids":[kids_id],"tags":[],"upstreams":None,"filtering_enabled":True,"parental_enabled":True,"safebrowsing_enabled":True,"safesearch_enabled":True,"use_global_blocked_services":False,"use_global_settings":False,"ignore_querylog":False,"ignore_statistics":False,"upstreams_cache_size":0,"upstreams_cache_enabled":False,"safe_search":ss,"blocked_services":[],"blocked_services_schedule":{"time_zone":"Local"},"filter_tier":DEFAULT_FILTER_TIER}
         r = req.post(f"{AGH}/control/clients/add", json=data, auth=(USER,PASS), timeout=10)
         log.info(f"Harbor Kids profile added: {kids_id} status={r.status_code}")
         if r.status_code in [200, 201]:
