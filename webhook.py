@@ -704,7 +704,7 @@ def is_trial_expired(client_id):
     ev = _load_trial_events().get(client_id)
     return bool(ev) and time.time() >= ev.get("expire_at", float("inf"))
 
-def send_trial_reminder_email(email, name, client_id):
+def send_trial_reminder_email(email, name, client_id, expire_at=None):
     upgrade_url = f"https://harborprivacy.com/pricing?plan=remote&email={email}"
     try:
         promo_code = get_or_create_personal_discount_code(client_id)
@@ -716,15 +716,22 @@ def send_trial_reminder_email(email, name, client_id):
         annual_url += f"&promo={promo_code}"
     savings_line = (f"Harbor Remote is $3.99/mo, or save with $26.99/yr ($2.25/mo) -- your one-time code <strong>{promo_code}</strong> takes 50% off your first year."
                      if promo_code else "Harbor Remote is $3.99/mo, or save with $26.99/yr ($2.25/mo).")
+    if expire_at:
+        from zoneinfo import ZoneInfo
+        from datetime import datetime
+        expire_str = datetime.fromtimestamp(expire_at, ZoneInfo("America/New_York")).strftime("%B %-d")
+        blocking_line = f"On <strong>{expire_str}</strong>, ad and tracker blocking will stop working on your devices unless you upgrade."
+    else:
+        blocking_line = "In a few days, ad and tracker blocking will stop working on your devices unless you upgrade."
     html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
 <h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Don't lose your adblocking!</h1>
 <p>Hi {name},</p>
-<p>Your Harbor Privacy free trial is almost up. In a few days, ad and tracker blocking will stop working on your devices unless you upgrade.</p>
+<p>Your Harbor Privacy free trial is almost up. {blocking_line}</p>
 <div style="background:#f4eee2;border:1px solid #1f5d6b;padding:20px;margin:24px 0;">
 <p style="font-family:monospace;font-size:11px;color:#1f5d6b;letter-spacing:0.1em;margin-bottom:8px;">KEEP YOUR ADBLOCKING RUNNING</p>
 <p style="color:#1a2420;margin-bottom:12px;">{savings_line}</p>
-<a href="{upgrade_url}" style="background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;margin-right:8px;">Upgrade Monthly &#8594;</a>
-<a href="{annual_url}" style="display:inline-block;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">Upgrade Annual &#8594;</a>
+<a href="{upgrade_url}" style="background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;margin:0 12px 12px 0;display:inline-block;">Upgrade Monthly &#8594;</a>
+<a href="{annual_url}" style="display:inline-block;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;margin:0 0 12px 0;">Upgrade Annual &#8594;</a>
 </div>
 <p style="color:#6b7a72;font-size:13px;">No action needed if you want to keep using the trial as-is until it ends -- this is just a heads up before blocking turns off.</p>
 <p style="padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-452-3452</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
@@ -770,7 +777,7 @@ def process_trial_lifecycle():
     for client_id, ev in list(events.items()):
         if not ev.get("reminded") and now >= ev.get("remind_at", 0):
             try:
-                send_trial_reminder_email(ev["email"], ev["name"], client_id)
+                send_trial_reminder_email(ev["email"], ev["name"], client_id, ev.get("expire_at"))
                 ev["reminded"] = True
                 changed = True
             except Exception as e:

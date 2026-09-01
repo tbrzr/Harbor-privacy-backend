@@ -2213,6 +2213,7 @@ def adblock_checkout():
     body = request.get_json(silent=True) or {}
     plan = (body.get("plan") or "").strip().lower()
     promo = (body.get("promo") or "").strip().upper()
+    checkout_email = (body.get("email") or "").strip().lower()
     if plan not in ADBLOCK_PLANS:
         return _adblock_cors(make_response(jsonify({"error": "invalid plan"}), 400))
     price_id, plan_type = ADBLOCK_PLANS[plan]
@@ -2226,6 +2227,8 @@ def adblock_checkout():
         "metadata[harbor_product]": "adblock",
         "subscription_data[metadata][plan_type]": plan_type,
     }
+    if checkout_email and "@" in checkout_email:
+        form["customer_email"] = checkout_email
     if plan == "annual":
         form["subscription_data[trial_period_days]"] = "7"
         # A promo code from an email link is applied directly (skips Stripe's own
