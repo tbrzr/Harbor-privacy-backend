@@ -446,7 +446,7 @@ def admin_required(f):
         resp = make_response(f(*args, **kwargs))
         if ADMIN_2F_TOKEN:
             resp.set_cookie("hp_admin2f", ADMIN_2F_TOKEN, httponly=True, secure=True,
-                             samesite="Lax", max_age=2592000, domain=".harborprivacy.com")
+                             samesite="Lax", max_age=28800, domain=".harborprivacy.com")
         return resp
     return decorated
 
@@ -473,10 +473,10 @@ def authentik_admin_required(f):
         # effect before it was bypassed for admin logins.
         token = make_token(email, is_admin=True)
         resp.set_cookie("hp_token", token, httponly=True, secure=True,
-                         samesite="Lax", max_age=2592000, domain=".harborprivacy.com")
+                         samesite="Lax", max_age=28800, domain=".harborprivacy.com")
         if ADMIN_2F_TOKEN:
             resp.set_cookie("hp_admin2f", ADMIN_2F_TOKEN, httponly=True, secure=True,
-                             samesite="Lax", max_age=2592000, domain=".harborprivacy.com")
+                             samesite="Lax", max_age=28800, domain=".harborprivacy.com")
         return resp
     return decorated
 
@@ -1234,7 +1234,7 @@ def login():
                             resp = make_response(redirect(nxt or ("/admin" if is_admin else "/dashboard")))
                             resp.set_cookie("hp_token", "", expires=0, path="/")
                             resp.set_cookie("hp_token", "", expires=0, path="/", domain=".harborprivacy.com")
-                            resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=2592000 if is_admin else 86400, domain=".harborprivacy.com")
+                            resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=28800 if is_admin else 86400, domain=".harborprivacy.com")
                             return resp
                     else:
                         is_admin = email == ADMIN_EMAIL
@@ -1256,7 +1256,7 @@ def login():
                         resp = make_response(redirect(nxt or ("/admin" if is_admin else "/dashboard")))
                         resp.set_cookie("hp_token", "", expires=0, path="/")
                         resp.set_cookie("hp_token", "", expires=0, path="/", domain=".harborprivacy.com")
-                        resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=2592000 if is_admin else 86400, domain=".harborprivacy.com")
+                        resp.set_cookie("hp_token", token, httponly=True, secure=True, samesite="Lax", max_age=28800 if is_admin else 86400, domain=".harborprivacy.com")
                         return resp
 
     html = STYLE + """
