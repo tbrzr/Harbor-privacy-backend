@@ -10108,6 +10108,14 @@ def adblock_usage():
     client_id = customer.get("client_id", "") if customer else ""
     monthly = get_client_monthly(client_id) if client_id else []
 
+    # Only show usage from the customer's own service start month onward --
+    # AGH's monthly counters are per client_id, not per customer, so a
+    # reused/re-provisioned client_id can carry data from before this
+    # customer's service began.
+    signup_month = (customer.get("date", "") or "")[:7] if customer else ""
+    if signup_month:
+        monthly = [m for m in monthly if m.get("month", "") >= signup_month]
+
     is_trial = customer.get("is_trial", False) if customer else False
     plan_type = customer.get("plan_type", "") if customer else ""
     harbor_kids = customer.get("harbor_kids", False) if customer else False
