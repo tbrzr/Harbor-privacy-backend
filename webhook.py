@@ -13,7 +13,7 @@ ADGUARD_URL = os.environ.get("ADGUARD_URL", "http://127.0.0.1:8080")
 ADGUARD_USER = os.environ.get("ADGUARD_USER", "admin")
 ADGUARD_PASS = os.environ.get("ADGUARD_PASS", "")
 DOH_BASE = os.environ.get("DOH_BASE", "doh.harborprivacy.com/dns-query")
-FROM_EMAIL = os.environ.get("FROM_EMAIL", "info@mail.harborprivacy.com")
+FROM_EMAIL = os.environ.get("FROM_EMAIL", "info@harborprivacy.app")
 PROFILES_DIR = os.environ.get("PROFILES_DIR", "/var/www/network/profiles")
 PROFILES_URL = os.environ.get("PROFILES_URL", "https://adblock.harborprivacy.com/profiles")
 CUSTOMERS_LOG = "/var/log/harbor-customers.json"
@@ -732,6 +732,10 @@ def send_trial_reminder_email(email, name, client_id, expire_at=None):
 <p style="color:#1a2420;margin-bottom:12px;">{savings_line}</p>
 <a href="{upgrade_url}" style="background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;margin:0 12px 12px 0;display:inline-block;">Upgrade Monthly &#8594;</a>
 <a href="{annual_url}" style="display:inline-block;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;margin:0 0 12px 0;">Upgrade Annual &#8594;</a>
+</div>
+<div style="background:#fdf3ea;border:1px solid #b5673a;padding:16px 20px;margin:0 0 24px;">
+<p style="font-family:monospace;font-size:11px;color:#b5673a;letter-spacing:0.1em;margin-bottom:8px;">NOT UPGRADING? ONE STEP TO AVOID INTERNET ISSUES</p>
+<p style="color:#1a2420;font-size:13px;margin:0;">If you don't upgrade, blocking just turns off -- your internet keeps working normally and nothing else changes. The only thing to watch is if you set up a DNS or profile change on your device to enable Harbor (a DNS profile, DoH setting, or router change). If you did, remove or revert that setting when your trial ends so your device goes back to its normal DNS. Skipping this step is the most common reason people email us saying their internet "stopped working" after a trial ends.</p>
 </div>
 <p style="color:#6b7a72;font-size:13px;">No action needed if you want to keep using the trial as-is until it ends -- this is just a heads up before blocking turns off.</p>
 <p style="padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-452-3452</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
