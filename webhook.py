@@ -551,6 +551,12 @@ def wipe_customer(client_id):
         log.info(f"Removed customer log entry for {client_id}")
     except Exception as e:
         log.error(f"Error removing customer log: {e}")
+    # 6. Clean up trial-lifecycle record, if any (kept alive until now so
+    # is_trial_expired() stays accurate for as long as the account exists)
+    try:
+        cancel_trial_lifecycle(client_id)
+    except Exception as e:
+        log.error(f"Error cancelling trial lifecycle for {client_id}: {e}")
     log.info(f"Full wipe complete: {client_id}")
 
 PENDING_WIPES_FILE = "/var/log/harbor-pending-wipes.json"
@@ -587,6 +593,20 @@ def cancel_wipe(client_id):
     except Exception as e:
         log.error(f"Error cancelling wipe: {e}")
 
+def get_pending_wipe_at(client_id):
+    """Return the scheduled deletion timestamp for a client_id, or None if
+    no wipe is pending. Handles both the legacy bare-float format and the
+    current {"wipe_at": ts, "warned": bool} format."""
+    try:
+        with open(PENDING_WIPES_FILE) as f2:
+            pending = json.load(f2)
+    except Exception:
+        return None
+    v = pending.get(client_id)
+    if v is None:
+        return None
+    return v["wipe_at"] if isinstance(v, dict) else v
+
 def _customer_has_active_subscription(client_id):
     """Live re-check against Stripe, called only right before a wipe
     actually executes. Trial customers have no stripe_customer_id at all --
@@ -621,7 +641,10 @@ def _customer_has_active_subscription(client_id):
         return False
 
 def process_pending_wipes():
-    """Check pending wipes file and execute any that are due"""
+    """Check pending wipes file, send a 24h-before warning email once, and
+    execute any wipes that are due. Entries are normalized to
+    {"wipe_at": ts, "warned": bool} -- older entries written as a bare
+    timestamp (pre-warning-email) are upgraded in place on first read."""
     import time
     try:
         try:
@@ -629,9 +652,24 @@ def process_pending_wipes():
                 pending = json.load(f2)
         except:
             return
+        for client_id, v in list(pending.items()):
+            if not isinstance(v, dict):
+                pending[client_id] = {"wipe_at": v, "warned": False}
         now = time.time()
         executed = []
-        for client_id, wipe_at in pending.items():
+        changed = False
+        for client_id, entry in pending.items():
+            wipe_at = entry["wipe_at"]
+            if not entry.get("warned") and now >= wipe_at - 24 * 3600:
+                try:
+                    customer = find_customer_by_client_id(client_id)
+                    if customer.get("email"):
+                        send_wipe_warning_email(customer["email"], customer.get("name", ""), client_id)
+                        log.info(f"Sent 24h wipe warning for {client_id}")
+                except Exception as e:
+                    log.error(f"Wipe warning email error for {client_id}: {e}")
+                entry["warned"] = True
+                changed = True
             if now >= wipe_at:
                 if _customer_has_active_subscription(client_id):
                     log.info(f"Skipping scheduled wipe for {client_id} -- an active subscription exists now")
@@ -643,6 +681,8 @@ def process_pending_wipes():
         if executed:
             for cid in executed:
                 del pending[cid]
+            changed = True
+        if changed:
             with open(PENDING_WIPES_FILE, "w") as f2:
                 json.dump(pending, f2)
     except Exception as e:
@@ -742,6 +782,36 @@ def send_trial_reminder_email(email, name, client_id, expire_at=None):
 </div>'''
     send_email(email, "Don't lose your adblocking - your Harbor Privacy trial is ending", html)
 
+def send_trial_expired_email(email, name, client_id):
+    upgrade_url = f"https://harborprivacy.com/pricing?plan=remote&email={email}"
+    try:
+        promo_code = get_or_create_personal_discount_code(client_id)
+    except Exception as pe:
+        log.error(f"Personal discount code error for {client_id}: {pe}")
+        promo_code = None
+    annual_url = f"https://harborprivacy.com/pricing?plan=annual&email={email}"
+    if promo_code:
+        annual_url += f"&promo={promo_code}"
+    savings_line = (f"Harbor Remote is $3.99/mo, or save with $26.99/yr ($2.25/mo) -- your one-time code <strong>{promo_code}</strong> takes 50% off your first year."
+                     if promo_code else "Harbor Remote is $3.99/mo, or save with $26.99/yr ($2.25/mo).")
+    html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Your trial has ended</h1>
+<p>Hi {name},</p>
+<p>Your Harbor Privacy free trial just ended, so ad and tracker blocking has turned off on your devices.</p>
+<div style="background:#f4eee2;border:1px solid #1f5d6b;padding:20px;margin:24px 0;">
+<p style="font-family:monospace;font-size:11px;color:#1f5d6b;letter-spacing:0.1em;margin-bottom:8px;">TURN YOUR ADBLOCKING BACK ON</p>
+<p style="color:#1a2420;margin-bottom:12px;">{savings_line}</p>
+<a href="{upgrade_url}" style="background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;margin:0 12px 12px 0;display:inline-block;">Upgrade Monthly &#8594;</a>
+<a href="{annual_url}" style="display:inline-block;border:1px solid #1f5d6b;color:#1f5d6b;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;margin:0 0 12px 0;">Upgrade Annual &#8594;</a>
+</div>
+<div style="background:#fdf3ea;border:1px solid #b5673a;padding:16px 20px;margin:0 0 24px;">
+<p style="font-family:monospace;font-size:11px;color:#b5673a;letter-spacing:0.1em;margin-bottom:8px;">NOT UPGRADING? ONE STEP TO AVOID INTERNET ISSUES</p>
+<p style="color:#1a2420;font-size:13px;margin:0;">If you don't upgrade, blocking just turns off -- your internet keeps working normally and nothing else changes. The only thing to watch is if you set up a DNS or profile change on your device to enable Harbor (a DNS profile, DoH setting, or router change). If you did, remove or revert that setting now so your device goes back to its normal DNS. Skipping this step is the most common reason people email us saying their internet "stopped working" after a trial ends.</p>
+</div>
+<p style="padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-452-3452</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
+</div>'''
+    send_email(email, "Your Harbor Privacy trial has ended", html)
+
 def send_early_switch_email(email, name, client_id):
     # Admin-triggered, not automatic -- Tim picks who gets this and when,
     # any time during their trial. Reuses the same cached personal code as
@@ -789,13 +859,16 @@ def process_trial_lifecycle():
         if not ev.get("expired") and now >= ev.get("expire_at", 0):
             try:
                 disable_client_filtering(client_id)
+                send_trial_expired_email(ev["email"], ev["name"], client_id)
                 ev["expired"] = True
                 changed = True
             except Exception as e:
                 log.error(f"Trial soft-expire error for {client_id}: {e}")
-        if ev.get("reminded") and ev.get("expired"):
-            del events[client_id]
-            changed = True
+        # Do NOT delete the record once reminded+expired fire -- is_trial_expired()
+        # reads this record as its only source of truth (dashboard paywall and
+        # the /api/pause resume guard both depend on it staying present). It's
+        # cleaned up on upgrade (cancel_trial_lifecycle, checkout.session.completed)
+        # or on the eventual account wipe (wipe_customer), not here.
     if changed:
         _save_trial_events(events)
 
@@ -812,6 +885,34 @@ def find_customer(stripe_customer_id):
     except:
         pass
     return {}
+
+def find_customer_by_client_id(client_id):
+    try:
+        with open(CUSTOMERS_LOG) as f:
+            for line in f:
+                try:
+                    r = json.loads(line.strip())
+                    if r.get("client_id") == client_id:
+                        return r
+                except:
+                    pass
+    except:
+        pass
+    return {}
+
+def send_wipe_warning_email(email, name, client_id):
+    html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Your account is being deleted in 24 hours</h1>
+<p>Hi {name},</p>
+<p>Your Harbor Privacy account and all its data will be permanently deleted in about 24 hours. After that, <strong>DNS resolution will stop working on any device still pointed at Harbor</strong> -- not just blocking, the connection itself will fail.</p>
+<div style="background:#fdf3ea;border:1px solid #b5673a;padding:16px 20px;margin:24px 0;">
+<p style="font-family:monospace;font-size:11px;color:#b5673a;letter-spacing:0.1em;margin-bottom:8px;">ONE STEP TO AVOID INTERNET ISSUES</p>
+<p style="color:#1a2420;font-size:13px;margin:0;">If you set up a DNS or profile change on your device to enable Harbor (a DNS profile, DoH setting, or router change), remove or revert that setting before the deletion so your device goes back to its normal DNS. Skipping this step is the most common reason people email us saying their internet "stopped working."</p>
+</div>
+<p>If you'd rather keep Harbor running, you can upgrade any time before then and nothing will be deleted.</p>
+<p style="padding-top:24px;color:#6b7a72;">Questions? Reply or text <strong style="color:#1a2420;">781-452-3452</strong><br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
+</div>'''
+    send_email(email, "Your Harbor Privacy account will be deleted in 24 hours", html)
 
 def log_customer(client_id, name, email, plan, stripe_customer_id="", plan_type=None, is_trial=False, status="active",
                   utm_source="", utm_campaign="", utm_content="", utm_medium="", signup_code=""):

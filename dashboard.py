@@ -3268,6 +3268,14 @@ def admin_customer(client_id):
     has_family = has_family_addon(client_id) if client_id else False
     plan_type = customer.get("plan_type", "remote") if customer else "remote"
     is_active = customer.get("status", "") == "active" if customer else False
+    from webhook import is_trial_expired, get_pending_wipe_at
+    trial_expired = bool(customer.get("is_trial")) and is_trial_expired(client_id)
+    deletion_at = get_pending_wipe_at(client_id)
+    deletion_date = None
+    if deletion_at:
+        from zoneinfo import ZoneInfo
+        from datetime import datetime as _dt
+        deletion_date = _dt.fromtimestamp(deletion_at, ZoneInfo("America/New_York")).strftime("%B %-d, %Y")
     # CRITICAL: plan_type must always be defined before harbor_kids -- do not reorder
     plan_type = customer.get("plan_type", "remote") if customer else "remote"
     is_active = customer.get("status", "") == "active" if customer else False
@@ -3301,8 +3309,18 @@ def admin_customer(client_id):
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">PLAN</span>
+        {% if trial_expired %}
+        <span class="badge badge-off">TRIAL ENDED</span>
+        {% else %}
         <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);">{{ customer.plan }}</span>
+        {% endif %}
       </div>
+      {% if deletion_date %}
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">DELETION DATE</span>
+        <span class="badge" style="background:#b5673a;color:#ffffff;">{{ deletion_date }}</span>
+      </div>
+      {% endif %}
       {% if customer.plan_type %}
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">PLAN TYPE</span>
@@ -3311,7 +3329,11 @@ def admin_customer(client_id):
       {% endif %}
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">STATUS</span>
+        {% if customer.status == 'active' and filtering_paused %}
+        <span class="badge badge-off">BLOCKING OFF</span>
+        {% else %}
         <span class="badge {% if customer.status == 'active' %}badge-on{% else %}badge-off{% endif %}">{{ customer.status|upper }}</span>
+        {% endif %}
       </div>
       <div style="display:flex;justify-content:space-between;align-items:center;">
         <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);letter-spacing:0.1em;">JOINED</span>
@@ -3602,7 +3624,8 @@ async function removeRule(rule){
     return render_template_string(html, customer=customer, client_id=client_id,
         rules=rules, family_safe=family_safe, harbor_kids=harbor_kids, kids_profiles=get_kids_profiles(client_id), cstats=cstats,
         service_groups=service_groups, blocked_services=blocked_services,
-        code_valid=code_valid, active="admin", light_theme=is_light_theme())
+        code_valid=code_valid, active="admin", light_theme=is_light_theme(), filtering_paused=filtering_paused,
+        trial_expired=trial_expired, deletion_date=deletion_date)
 
 
 @app.route("/admin/customer/<client_id>/view-as")
@@ -4250,6 +4273,10 @@ def api_pause():
     if not client:
         return jsonify({"ok": False})
     paused = request.json.get("paused", False)
+    if not paused:
+        from webhook import is_trial_expired
+        if is_trial_expired(client_id):
+            return jsonify({"ok": False, "error": "trial_expired"})
     updated = {**client, "filtering_enabled": not paused}
     return jsonify({"ok": agh_post("/control/clients/update", {"name": client.get("name", client_id), "data": updated})})
 
@@ -10106,6 +10133,10 @@ def adblock_usage():
     email = request.user_email
     customer = find_customer(email)
     client_id = customer.get("client_id", "") if customer else ""
+    if client_id:
+        from webhook import is_trial_expired
+        if is_trial_expired(client_id):
+            return redirect("/dashboard")
     monthly = get_client_monthly(client_id) if client_id else []
 
     # Only show usage from the customer's own service start month onward --
@@ -10228,6 +10259,10 @@ def dashboard_blocklists():
     email = request.user_email
     customer = find_customer(email)
     client_id = customer.get("client_id", "") if customer else ""
+    if client_id:
+        from webhook import is_trial_expired
+        if is_trial_expired(client_id):
+            return redirect("/dashboard")
 
     is_trial = customer.get("is_trial", False) if customer else False
     plan_type = customer.get("plan_type", "") if customer else ""
@@ -10336,6 +10371,10 @@ def dashboard_account():
     email = request.user_email
     customer = find_customer(email)
     client_id = customer.get("client_id", "") if customer else ""
+    if client_id:
+        from webhook import is_trial_expired
+        if is_trial_expired(client_id):
+            return redirect("/dashboard")
     is_active = customer is not None
 
     is_trial = customer.get("is_trial", False) if customer else False
@@ -10447,6 +10486,10 @@ def dashboard_addons():
     email = request.user_email
     customer = find_customer(email)
     client_id = customer.get("client_id", "") if customer else ""
+    if client_id:
+        from webhook import is_trial_expired
+        if is_trial_expired(client_id):
+            return redirect("/dashboard")
     is_active = customer is not None
     client = get_client(client_id) if client_id else {}
 
@@ -10556,6 +10599,10 @@ def dashboard_filters():
     email = request.user_email
     customer = find_customer(email)
     client_id = customer.get("client_id", "") if customer else ""
+    if client_id:
+        from webhook import is_trial_expired
+        if is_trial_expired(client_id):
+            return redirect("/dashboard")
     is_active = customer is not None
 
     plan_type = customer.get("plan_type", "") if customer else ""
@@ -10766,6 +10813,10 @@ def dashboard_kids():
     email = request.user_email
     customer = find_customer(email)
     client_id = customer.get("client_id", "") if customer else ""
+    if client_id:
+        from webhook import is_trial_expired
+        if is_trial_expired(client_id):
+            return redirect("/dashboard")
     is_active = customer is not None
 
     plan_type = customer.get("plan_type", "") if customer else ""
@@ -10850,6 +10901,10 @@ def dashboard_support():
     email = request.user_email
     customer = find_customer(email)
     client_id = customer.get("client_id", "") if customer else ""
+    if client_id:
+        from webhook import is_trial_expired
+        if is_trial_expired(client_id):
+            return redirect("/dashboard")
 
     plan_type = customer.get("plan_type", "") if customer else ""
     is_trial = customer.get("is_trial", False) if customer else False
