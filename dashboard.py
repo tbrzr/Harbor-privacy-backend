@@ -533,6 +533,9 @@ STYLE = """<!DOCTYPE html>
   html.light{--bg:#fbf7f0;--surface:#ffffff;--surface-2:#f4eee2;--border:#e6dfd2;--border-soft:#e6dfd2;--accent:#c98a52;--accent-dim:rgba(201,138,82,0.10);--text:#1a2420;--muted:#6b7a72;}
   html.light nav{background:linear-gradient(180deg,#ffffff 0%,#fbf7f0 100%);}
   html.light .btn{color:#ffffff;}
+  /* outline buttons sit on a light card -- the white override above made their text invisible */
+  html.light .btn-outline{color:var(--text);}
+  html.light .btn-outline:hover{color:var(--accent);}
   html.light .card{background:linear-gradient(180deg,var(--surface),var(--surface-2));}
   *{margin:0;padding:0;box-sizing:border-box;}
   body{background:var(--bg);color:var(--text);font-family:'DM Sans',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;font-weight:400;line-height:1.65;min-height:100vh;}
