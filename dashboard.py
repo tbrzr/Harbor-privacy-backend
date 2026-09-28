@@ -149,6 +149,34 @@ def _inject_is_admin():
     except Exception:
         return {"is_admin": False}
 
+PENDING_WIPES_FILE = "/var/log/harbor-pending-wipes.json"
+
+@app.context_processor
+def _inject_cancel_notice():
+    """Adblock cancelled but still inside the 30-day grace (webhook stamps
+    cancelled_at on subscription.deleted). Drives the banner in NAV_CUSTOMER
+    and the Settings > Manage Subscription row."""
+    try:
+        from flask import request as _r
+        email = getattr(_r, "user_email", None)
+        if not email or getattr(_r, "is_admin", False):
+            return {"cancel_notice": None}
+        c = find_customer(email)
+        if not c or c.get("status") != "active" or not c.get("cancelled_at"):
+            return {"cancel_notice": None}
+        wipe_at = None
+        try:
+            with open(PENDING_WIPES_FILE) as f:
+                v = json.load(f).get(c.get("client_id"))
+            wipe_at = v.get("wipe_at") if isinstance(v, dict) else v
+        except Exception:
+            pass
+        date_str = datetime.fromtimestamp(wipe_at).strftime("%B %-d, %Y") if wipe_at else "30 days after you cancelled"
+        vpn = _standalone_vpn_status(email) or {}
+        return {"cancel_notice": {"date": date_str, "vpn_active": bool(vpn.get("active"))}}
+    except Exception:
+        return {"cancel_notice": None}
+
 @app.context_processor
 def _inject_csrf():
     tok = session.get("csrf")
@@ -842,6 +870,16 @@ NAV_CUSTOMER = """
 <div style="position:sticky;top:0;z-index:10000;background:#a64a40;color:#ffffff;padding:10px 24px;display:flex;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.03em;">
   <span>Viewing as {{ request.cookies.get('hp_view_as') }}</span>
   <a href="/admin/exit-view-as" style="color:#ffffff;text-decoration:underline;font-weight:600;">Return to Admin Dashboard</a>
+</div>
+{% endif %}
+{% if cancel_notice %}
+<div style="background:#faf1e4;border-bottom:1px solid #c98a52;color:#1a2420;padding:14px 24px;font-size:14px;line-height:1.5;">
+  <div style="max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:6px;">
+    <div><strong>Your Adblock plan is cancelled.</strong> Filtering keeps working until {{ cancel_notice.date }}, then your Adblock account and DNS profile are deleted. <a href="https://harborprivacy.com/pricing" style="color:#1f5d6b;font-weight:600;">Resubscribe with this email</a> before then to keep your devices set up as they are.</div>
+    {% if cancel_notice.vpn_active %}
+    <div><strong>Your Harbor VPN is separate and keeps working.</strong> <a href="/vpn-sso" style="color:#1f5d6b;font-weight:600;">Open Harbor VPN</a> and set a password there so you can still log in after this account is deleted.</div>
+    {% endif %}
+  </div>
 </div>
 {% endif %}
 <div id="timeout-warning" style="display:none;position:fixed;bottom:24px;right:24px;background:#f4eee2;border:1px solid #1f5d6b;padding:20px 24px;z-index:9999;font-family:monospace;font-size:12px;color:#1a2420;flex-direction:column;gap:12px;max-width:300px;"><span>You will be logged out in 5 minutes due to inactivity.</span><button onclick="resetTimer()" style="background:#1f5d6b;color:#ffffff;border:none;padding:8px 16px;cursor:pointer;font-family:monospace;font-size:11px;">Stay Logged In</button></div>
@@ -3699,7 +3737,7 @@ def settings():
     adblock_active, vpn_active, vpn_shared = False, False, False
     if not is_admin:
         customer = find_customer(email)
-        adblock_active = bool(customer and customer.get("status") == "active")
+        adblock_active = bool(customer and customer.get("status") == "active" and not customer.get("cancelled_at"))
         vpn_shared = bool(customer and customer.get("stripe_customer_id") and
                            _adblock_vpn_item(customer["stripe_customer_id"])[1])
         if vpn_shared:
@@ -3809,7 +3847,13 @@ def settings():
         <button onclick="cancelSub('adblock')" id="cancel-adblock-btn" class="btn btn-outline" {% if vpn_shared %}disabled title="Cancel Harbor VPN first"{% endif %} style="margin:0;">Cancel Adblock</button>
       </div>
       {% endif %}
-      {% if not vpn_active and not adblock_active %}
+      {% if cancel_notice %}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <span style="font-family:'DM Mono',monospace;font-size:12px;">Adblock Plan <span class="badge">CANCELLED</span> <span class="note">filtering until {{ cancel_notice.date }}</span></span>
+        <a href="https://harborprivacy.com/pricing" class="btn btn-outline" style="margin:0;">Resubscribe</a>
+      </div>
+      {% endif %}
+      {% if not vpn_active and not adblock_active and not cancel_notice %}
       <p class="note">No active subscription found.</p>
       {% endif %}
     </div>

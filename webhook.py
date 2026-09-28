@@ -1211,6 +1211,7 @@ def _update_customer_for_upgrade(client_id, plan, plan_type, stripe_customer_id)
                     c["plan_type"] = plan_type
                     c["is_trial"] = False
                     c["stripe_customer_id"] = stripe_customer_id
+                    c.pop("cancelled_at", None)
                     hit = True
                 lines.append(json.dumps(c))
         if hit:
@@ -1369,6 +1370,49 @@ def send_account_deleted_email(email, name):
 </div>'''
     send_email(email, "Your Harbor Privacy account has been deleted", html)
 
+def _set_customer_cancelled(client_id, cancelled):
+    """Stamp (or clear) cancelled_at on the customer's active record. The
+    account itself stays status=active through the 30-day grace so filtering
+    keeps working; the dashboard reads cancelled_at to show the cancelled
+    banner, and checkout.session.completed reads it to reactivate the SAME
+    client_id on resubscribe instead of provisioning a duplicate."""
+    lines, hit = [], False
+    try:
+        with open(CUSTOMERS_LOG) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    c = json.loads(line)
+                except Exception:
+                    lines.append(line)
+                    continue
+                if not hit and c.get("client_id") == client_id and c.get("status") == "active":
+                    if cancelled:
+                        c["cancelled_at"] = datetime.utcnow().isoformat()
+                    else:
+                        c.pop("cancelled_at", None)
+                    hit = True
+                lines.append(json.dumps(c))
+        if hit:
+            with open(CUSTOMERS_LOG, "w") as f:
+                f.write("\n".join(lines) + "\n")
+        return hit
+    except Exception as e:
+        log.error(f"_set_customer_cancelled error for {client_id}: {e}")
+        return False
+
+def send_welcome_back_email(email, name, invoice_url=""):
+    html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
+<h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Welcome back</h1>
+<p>Hi {name},</p>
+<p>Your Harbor Privacy subscription is active again, and your account is no longer scheduled for deletion. Nothing to reconfigure: your devices keep using the same DNS address as before.</p>
+{('<p><a href="' + invoice_url + '" style="display:inline-block;background:#1f5d6b;color:#ffffff;padding:10px 20px;text-decoration:none;font-family:monospace;font-size:12px;">View Invoice &#8594;</a></p>') if invoice_url else ''}
+<p style="border-top:1px solid #e6dfd2;padding-top:24px;color:#6b7a72;">Questions? Just reply to this email.<br>- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
+</div>'''
+    send_email(email, "Welcome back to Harbor Privacy", html)
+
 def send_cancellation_email(email, name):
     html = f'''<div style="font-family:sans-serif;max-width:560px;color:#1a2420;">
 <h1 style="font-family:'DM Serif Display',Georgia,serif;font-weight:400;font-size:24px;letter-spacing:-.01em;margin:0 0 10px;color:#1a2420;">Subscription Ended</h1>
@@ -1381,7 +1425,8 @@ def send_cancellation_email(email, name):
 <p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">Android/Pixel:</strong> Settings > Network and Internet > Private DNS > set to Off or Automatic</p>
 <p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">Other Routers:</strong> Router admin panel > DNS settings > set to Automatic > save and reboot</p>
 <p style="margin-top:16px;color:#6b7a72;">Need help, or didn't mean to cancel? Just reply to this email.</p>
-<p>Resubscribe at <a href="https://harborprivacy.com/pricing" style="color:#1f5d6b;">harborprivacy.com/pricing</a></p>
+<p>Changed your mind? Resubscribe at <a href="https://harborprivacy.com/pricing" style="color:#1f5d6b;">harborprivacy.com/pricing</a> using this same email before your account is deleted, and everything picks back up with your existing devices. Your dashboard shows the exact deletion date.</p>
+<p style="color:#6b7a72;font-size:13px;"><strong style="color:#1a2420;">Also have Harbor VPN?</strong> It's separate and keeps working. You can always log in at <a href="https://vpn.harborprivacy.com" style="color:#1f5d6b;">vpn.harborprivacy.com</a>. If you've only ever opened it from your dashboard, tap "Forgot or never set a password?" on the login page to set one.</p>
 <p style="border-top:1px solid #e6dfd2;padding-top:24px;color:#6b7a72;">- Tim<br><a href="https://harborprivacy.com" style="color:#1f5d6b;">harborprivacy.com</a></p>
 </div>'''
     send_email(email, "Your Harbor Privacy subscription has ended", html)
@@ -1502,14 +1547,18 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     if email:
                         existing = find_customer_by_email(email)
                         upgrading_trial = bool(existing) and bool(existing.get("is_trial"))
-                        if upgrading_trial:
+                        # Cancelled but still inside the 30-day grace: reuse the SAME
+                        # client_id (devices keep working, pending wipe is cancelled
+                        # below) instead of provisioning a duplicate account.
+                        reactivating = bool(existing) and not upgrading_trial and bool(existing.get("cancelled_at"))
+                        if upgrading_trial or reactivating:
                             client_id = existing["client_id"]
                             name = existing.get("name", name)
                         else:
                             client_id = generate_client_id(name, email)
                         profile_url = ""
                         if plan == "remote":
-                            if upgrading_trial:
+                            if upgrading_trial or reactivating:
                                 enable_client_filtering(client_id)
                                 add_to_allowed_clients(client_id)
                             else:
@@ -1537,6 +1586,9 @@ class WebhookHandler(BaseHTTPRequestHandler):
                                 # that key, so the plain guard would silently skip this.
                                 send_upgrade_confirmation_email(email, name, client_id, plan_type, invoice_url)
                                 _update_customer_for_upgrade(client_id, plan, plan_type, stripe_id)
+                            elif reactivating:
+                                send_welcome_back_email(email, name, invoice_url)
+                                _update_customer_for_upgrade(client_id, plan, plan_type, stripe_id)
                             else:
                                 welcome_key = f"welcome:{email.lower()}"
                                 if is_processed(welcome_key):
@@ -1548,13 +1600,13 @@ class WebhookHandler(BaseHTTPRequestHandler):
                             cancel_wipe(client_id)
                             cancel_trial_lifecycle(client_id)
                             mark_processed(session_id)
-                            log.info(f"Onboarded: {name} ({client_id})" + (" [upgraded from trial]" if upgrading_trial else ""))
+                            log.info(f"Onboarded: {name} ({client_id})" + (" [upgraded from trial]" if upgrading_trial else "") + (" [reactivated after cancel]" if reactivating else ""))
                         except Exception as pe:
                             log.error(f"Provisioning failed for {email}: {pe}")
                             # On an upgrade failure, leave their existing trial record
                             # alone rather than appending a shadowed "failed" duplicate --
                             # they keep the trial they had; admin can reprovision manually.
-                            if not upgrading_trial:
+                            if not (upgrading_trial or reactivating):
                                 log_customer(client_id, name, email, plan, stripe_id, plan_type=plan_type, is_trial=is_trial, status="failed")
                             mark_processed(session_id)
                             fail_html = f"""<div style="font-family:sans-serif;background:#fbf7f0;color:#1a2420;padding:32px;">
@@ -1698,6 +1750,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     else:
                         send_cancellation_email(customer.get("email", ""), customer.get("name", ""))
                         deactivate_after_grace(cid)
+                        _set_customer_cancelled(cid, True)
                         log.info(f"Cancellation received for {cid} - grace period 30d")
 
             elif etype == "invoice.payment_failed":
