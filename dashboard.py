@@ -2579,7 +2579,7 @@ def sso():
     email = payload["email"].strip().lower()
     # Allowlisted landing pages only (never an arbitrary URL) -- e.g. the VPN
     # portal's add-on billing link lands straight on Settings > Manage Subscription.
-    dest = {"settings": "/settings"}.get(request.args.get("next", ""), "/dashboard")
+    dest = {"settings": "/settings#manage-subscription"}.get(request.args.get("next", ""), "/dashboard")
     resp = make_response(redirect(dest))
     resp.set_cookie("hp_token", "", expires=0, path="/")
     resp.set_cookie("hp_token", "", expires=0, path="/", domain=".harborprivacy.com")
@@ -3783,7 +3783,17 @@ def settings():
     </div>
   </div>
 
-  <div class="card">
+  <div class="card" id="manage-subscription" style="scroll-margin-top:80px;">
+    <script>
+    // Deep link from the VPN portal (/sso?next=settings). Re-scroll after load
+    // so late layout shifts (fonts, banners) on mobile don't leave it off-screen.
+    if (location.hash === '#manage-subscription') {
+      window.addEventListener('load', function(){
+        var el = document.getElementById('manage-subscription');
+        if (el) setTimeout(function(){ el.scrollIntoView({block:'start'}); }, 150);
+      });
+    }
+    </script>
     <div class="set-head"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>Manage Subscription</div>
     <p class="note" style="margin-bottom:16px;">Cancel billing without deleting your account, DNS profile, or login. {% if vpn_shared %}Harbor VPN is billed together with Adblock on one subscription, so it has to be cancelled first.{% endif %}</p>
     <div style="display:flex;flex-direction:column;gap:10px;">
