@@ -2574,7 +2574,10 @@ def sso():
     if not payload or not payload.get("email") or not _sso_jti_consume(payload["jti"], payload["exp"]):
         return redirect("/login")
     email = payload["email"].strip().lower()
-    resp = make_response(redirect("/dashboard"))
+    # Allowlisted landing pages only (never an arbitrary URL) -- e.g. the VPN
+    # portal's add-on billing link lands straight on Settings > Manage Subscription.
+    dest = {"settings": "/settings"}.get(request.args.get("next", ""), "/dashboard")
+    resp = make_response(redirect(dest))
     resp.set_cookie("hp_token", "", expires=0, path="/")
     resp.set_cookie("hp_token", "", expires=0, path="/", domain=".harborprivacy.com")
     resp.set_cookie("hp_token", make_token(email, is_admin=payload.get("admin", False)),
