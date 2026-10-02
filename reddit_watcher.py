@@ -278,7 +278,7 @@ def main():
 
     if new_posts:
         add_leads(new_posts)
-        send_email(new_posts)
+        # send_email(new_posts)  # disabled 2026-10-02 per Tim; leads still go to file + ntfy
         send_ntfy(new_posts)
     else:
         log.info("No relevant posts, no alert sent")
