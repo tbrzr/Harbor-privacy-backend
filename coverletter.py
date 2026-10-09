@@ -1356,7 +1356,7 @@ def stripe_pi_webhook():
     sig_header = request.headers.get('Stripe-Signature', '')
     try:
         secret = os.getenv('STRIPE_WEBHOOK_SECRET_PI') or os.getenv('STRIPE_WEBHOOK_SECRET')
-        event = _stripe.Webhook.construct_event(payload, sig_header, secret)
+        event = _stripe.Webhook.construct_event(payload, sig_header, secret).to_dict()
     except Exception as e:
         return jsonify({'error': str(e)}), 400
     if event['type'] == 'payment_intent.succeeded':
