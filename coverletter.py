@@ -811,7 +811,7 @@ def extend_job_access(access_code):
                                             'https://career.harborprivacy.com/success', job.get('email'))
     else:
         checkout_url = _upsell_checkout_url(PRICE_RV_EXTEND, f'{job_id}_extend',
-                                            'https://resume.harborprivacy.com/success', job.get('email'))
+                                            'https://career.harborprivacy.com/resume-success.html', job.get('email'))
 
     if not checkout_url:
         return jsonify({'error': 'Could not start checkout. Please try again.'}), 502
@@ -1169,8 +1169,8 @@ def send_resume_review_email(job):
     access_url = "https://career.harborprivacy.com/resume-success.html"
 
     has_pdf = bool(job.get('revised_pdf_path'))
-    download_url = (f"https://resume.harborprivacy.com/api/resume/dl/{job['dl_token']}" if job.get('dl_token')
-                     else f"https://resume.harborprivacy.com/api/resume/download/{job['access_code']}")
+    download_url = (f"https://career.harborprivacy.com/api/resume/dl/{job['dl_token']}" if job.get('dl_token')
+                     else f"https://career.harborprivacy.com/api/resume/download/{job['access_code']}")
     html_content = f"""
     <h2 style="font-family: sans-serif;">Your Resume Review is Ready</h2>
     <p style="font-family: sans-serif;">Use the code below to access your results. Your session will time out after 10 minutes of viewing.</p>
@@ -1235,7 +1235,7 @@ def checkout_resume():
             line_items=[{'price': 'price_1TJovtCOrGNrBgIfyZJVIQEc', 'quantity': 1}],
             client_reference_id=job_id,
             customer_email=email or None,
-            return_url=f'https://resume.harborprivacy.com/processing?job_id={job_id}',
+            return_url=f'https://career.harborprivacy.com/processing?job_id={job_id}',
             allow_promotion_codes=True,
         )
         return jsonify({'clientSecret': session.client_secret})
