@@ -1166,7 +1166,7 @@ def send_cover_letter_email(job, subject_override=None, note=None):
         print(f"Email send failed: {e}")
 
 def send_resume_review_email(job):
-    access_url = "https://resume.harborprivacy.com/success"
+    access_url = "https://career.harborprivacy.com/resume-success.html"
 
     has_pdf = bool(job.get('revised_pdf_path'))
     download_url = (f"https://resume.harborprivacy.com/api/resume/dl/{job['dl_token']}" if job.get('dl_token')
@@ -1178,7 +1178,7 @@ def send_resume_review_email(job):
         {job['access_code']}
     </div>
     <p style="font-family: sans-serif;"><strong>Enter this code at:</strong><br>
-    <a href="https://resume.harborprivacy.com/success">https://resume.harborprivacy.com/success</a></p>
+    <a href="https://career.harborprivacy.com/resume-success.html">https://career.harborprivacy.com/resume-success.html</a></p>
     {('<p style="font-family: sans-serif;"><strong>Download your revised resume PDF:</strong><br><a href="' + download_url + '">Click here to download</a></p>') if has_pdf else ''}
     <p style="margin-top: 30px; color: #666; font-size: 12px; font-family: sans-serif;">Your viewing session expires after 10 minutes. You can re-enter your code to start a new session. Your data is deleted 2 hours after payment.</p>
     """
