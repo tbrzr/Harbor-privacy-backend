@@ -5,6 +5,13 @@ import uuid
 import anthropic
 import resend
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+
+def _today_line():
+    """Current date for AI prompts. Models otherwise guess the year from training data."""
+    today = datetime.now(ZoneInfo('America/New_York')).strftime('%B %d, %Y')
+    return f"Today's date is {today}. Use this as the current date for any year, dates, or experience calculations."
 from flask import Flask, request, jsonify, send_file
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -444,7 +451,9 @@ def generate_cover_letter(job_id):
         'detailed': 'Keep it under 450 words.'
     }.get(length, 'Keep it under 350 words.')
     
-    prompt = f"""Write a cover letter for this job posting.
+    prompt = f"""{_today_line()}
+
+Write a cover letter for this job posting.
 
 Job Posting:
 {job['job_posting']}
@@ -690,7 +699,9 @@ def generate_resume_review(job_id):
         'detailed': 'Expand key achievements with more context, metrics, and impact where appropriate.'
     }.get(target_length, 'Keep similar overall length.')
 
-    prompt = f"""You are a professional resume reviewer and career coach. Review this resume and provide specific, actionable feedback.
+    prompt = f"""{_today_line()}
+
+You are a professional resume reviewer and career coach. Review this resume and provide specific, actionable feedback.
 
 Resume:
 {job['resume_text']}
@@ -720,7 +731,9 @@ Be direct and specific. Use examples from their actual resume. No fluff."""
         
         # Generate revised resume PDF
         try:
-            resume_prompt = f"""Rewrite this resume to be stronger, more ATS-friendly, and more impactful. Apply the feedback you just gave. Keep all real facts, dates, and companies exactly the same. Only improve the language, structure, and formatting.
+            resume_prompt = f"""{_today_line()}
+
+Rewrite this resume to be stronger, more ATS-friendly, and more impactful. Apply the feedback you just gave. Keep all real facts, dates, and companies exactly the same. Only improve the language, structure, and formatting.
 
 Target tone: {tone_desc}
 Target length: {length_desc}
@@ -933,7 +946,9 @@ def adjust_cover_letter(access_code):
         return jsonify({'error': 'paid', 'checkout_url': url}), 402
 
     try:
-        prompt = f"""You are editing a cover letter. Apply ONLY this instruction: {instruction}
+        prompt = f"""{_today_line()}
+
+You are editing a cover letter. Apply ONLY this instruction: {instruction}
 
 Current cover letter:
 {job.get('letter_text', '')}
